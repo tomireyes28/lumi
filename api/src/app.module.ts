@@ -4,6 +4,8 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { PrismaModule } from './prisma/prisma.module';
 import { AuthModule } from './auth/auth.module';
+import { CategoriesModule } from './categories/categories.module';
+import { TransactionsModule } from './transactions/transactions.module';
 
 @Module({
   imports: [
@@ -12,7 +14,7 @@ import { AuthModule } from './auth/auth.module';
       envFilePath: '.env', 
     }),
     PrismaModule, 
-    AuthModule
+    AuthModule, CategoriesModule, TransactionsModule
   ],
   controllers: [AppController],
   providers: [AppService],
