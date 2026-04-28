@@ -4,7 +4,7 @@ export default function Home() {
   const handleGoogleLogin = () => {
     // Redirigimos directamente a tu propio backend de NestJS
     // Asegurate de que el puerto (3001) coincida con donde corre tu API
-    window.location.href = "http://localhost:3001/auth/google";
+    window.location.href = "http://localhost:3000/auth/google";
   };
 
   return (
