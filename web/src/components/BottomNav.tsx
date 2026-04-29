@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, PlusCircle, LayoutGrid, User } from "lucide-react";
+import { Home, PlusCircle, User, CreditCard } from "lucide-react";
 
 export default function BottomNav() {
   const pathname = usePathname();
@@ -10,7 +10,7 @@ export default function BottomNav() {
   const navItems = [
     { href: "/dashboard", label: "Inicio", icon: Home },
     { href: "/dashboard/transactions", label: "Cargar", icon: PlusCircle },
-    { href: "/dashboard/categories", label: "Categorías", icon: LayoutGrid },
+    { href: "/dashboard/cards", label: "Billetera", icon: CreditCard },
     { href: "/dashboard/profile", label: "Perfil", icon: User },
   ];
 
