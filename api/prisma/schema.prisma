@@ -13,6 +13,8 @@ model User {
   categories   Category[]
   transactions Transaction[]
   createdAt    DateTime      @default(now())
+
+  creditCards   CreditCard[]
 }
 
 model Category {
@@ -38,4 +40,24 @@ model Transaction {
   user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   category     Category  @relation(fields: [categoryId], references: [id], onDelete: Cascade)
   createdAt    DateTime  @default(now())
+  creditCardId String?   // Relación opcional con CreditCard
+  creditCard   CreditCard? @relation(fields: [creditCardId], references: [id], onDelete: SetNull)
+}
+
+model CreditCard {
+  id          String   @id @default(uuid())
+  alias       String   // Ej: "Visa Galicia"
+  lastFour    String   // Ej: "4567"
+  limit       Decimal  @db.Decimal(10, 2) // Cambiado a Decimal para precisión financiera
+  closingDay  Int      
+  dueDay      Int      
+  colorHex    String?  @default("#0f172a") 
+  
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade) // Agregado el Cascade
+  
+  transactions Transaction[] // Relación con los gastos
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 }

@@ -6,6 +6,7 @@ import { PrismaModule } from './prisma/prisma.module';
 import { AuthModule } from './auth/auth.module';
 import { CategoriesModule } from './categories/categories.module';
 import { TransactionsModule } from './transactions/transactions.module';
+import { CreditCardsModule } from './credit-cards/credit-cards.module';
 
 @Module({
   imports: [
@@ -14,7 +15,7 @@ import { TransactionsModule } from './transactions/transactions.module';
       envFilePath: '.env', 
     }),
     PrismaModule, 
-    AuthModule, CategoriesModule, TransactionsModule
+    AuthModule, CategoriesModule, TransactionsModule, CreditCardsModule
   ],
   controllers: [AppController],
   providers: [AppService],
