@@ -24,26 +24,48 @@ export default function TransactionsPage() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
 
+  // Estados del formulario de carga
   const [amount, setAmount] = useState("");
   const [categoryId, setCategoryId] = useState("");
   const [note, setNote] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [tab, setTab] = useState<'expense' | 'income'>('expense');
 
+  // NUEVO: Estado para el filtro del historial
+  const [filterType, setFilterType] = useState<'all' | 'income' | 'expense'>('all');
+
+  // Cargamos categorías una sola vez al inicio
   useEffect(() => {
-    fetchInitialData();
+    loadCategories();
   }, []);
 
-  const fetchInitialData = async () => {
+  // Recargamos las transacciones CADA VEZ que cambia el filtro
+  useEffect(() => {
+    loadTransactions();
+  }, [filterType]);
+
+  const loadCategories = async () => {
     try {
-      const [transData, catData] = await Promise.all([
-        apiFetch('/transactions'),
-        apiFetch('/categories')
-      ]);
-      setTransactions(transData);
-      setCategories(catData);
+      const data = await apiFetch('/categories');
+      setCategories(data);
     } catch (error) {
-      console.error("Error cargando datos:", error);
+      console.error("Error cargando categorías:", error);
+    }
+  };
+
+  const loadTransactions = async () => {
+    setLoading(true);
+    try {
+      // Armamos la URL dinámicamente según el filtro elegido
+      const queryParams = new URLSearchParams();
+      if (filterType !== 'all') {
+        queryParams.append('type', filterType);
+      }
+      
+      const data = await apiFetch(`/transactions?${queryParams.toString()}`);
+      setTransactions(data);
+    } catch (error) {
+      console.error("Error cargando transacciones:", error);
     } finally {
       setLoading(false);
     }
@@ -66,7 +88,8 @@ export default function TransactionsPage() {
       setAmount("");
       setNote("");
       setCategoryId("");
-      await fetchInitialData();
+      // Recargamos la lista para ver el movimiento nuevo
+      await loadTransactions(); 
     } catch (error) {
       console.error("Error creando transacción:", error);
       alert("Hubo un error al guardar el movimiento");
@@ -76,10 +99,6 @@ export default function TransactionsPage() {
   };
 
   const filteredCategories = categories.filter(cat => cat.type === tab);
-
-  if (loading) {
-    return <div className="p-8 text-gray-500">Cargando motor financiero...</div>;
-  }
 
   return (
     <div className="p-6 pb-24">
@@ -113,7 +132,7 @@ export default function TransactionsPage() {
               <label className="block text-xs font-medium text-gray-700 mb-1">Monto ($)</label>
               <input 
                 type="number" 
-                inputMode="decimal" // ¡Clave para celulares!
+                inputMode="decimal"
                 step="0.01"
                 required
                 value={amount}
@@ -161,12 +180,37 @@ export default function TransactionsPage() {
           </div>
         </form>
 
-        {/* Historial apilado abajo */}
+        {/* Historial con Filtros Mobile-First */}
         <div className="space-y-3">
-          <h2 className="text-lg font-bold text-gray-800 mb-2">Recientes</h2>
-          {transactions.length === 0 ? (
+          <h2 className="text-lg font-bold text-gray-800">Recientes</h2>
+          
+          {/* Chips de filtrado horizontal */}
+          <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
+            <button
+              onClick={() => setFilterType('all')}
+              className={`whitespace-nowrap px-4 py-1.5 rounded-full text-xs font-bold transition-colors border ${filterType === 'all' ? 'bg-gray-900 text-white border-gray-900' : 'bg-white text-gray-600 border-gray-200'}`}
+            >
+              Todos
+            </button>
+            <button
+              onClick={() => setFilterType('expense')}
+              className={`whitespace-nowrap px-4 py-1.5 rounded-full text-xs font-bold transition-colors border ${filterType === 'expense' ? 'bg-orange-100 text-orange-700 border-orange-200' : 'bg-white text-gray-600 border-gray-200'}`}
+            >
+              Solo Gastos
+            </button>
+            <button
+              onClick={() => setFilterType('income')}
+              className={`whitespace-nowrap px-4 py-1.5 rounded-full text-xs font-bold transition-colors border ${filterType === 'income' ? 'bg-sky-100 text-sky-700 border-sky-200' : 'bg-white text-gray-600 border-gray-200'}`}
+            >
+              Solo Ingresos
+            </button>
+          </div>
+
+          {loading ? (
+            <div className="text-center p-4 text-sm text-gray-400">Filtrando...</div>
+          ) : transactions.length === 0 ? (
             <div className="p-8 bg-gray-50 rounded-2xl border border-dashed border-gray-200 text-center text-gray-500 text-sm">
-              Sin movimientos.
+              No hay movimientos con este filtro.
             </div>
           ) : (
             transactions.map(t => {

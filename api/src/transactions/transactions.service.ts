@@ -1,6 +1,8 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateTransactionDto } from './dto/create-transaction.dto';
+import { GetTransactionsFilterDto } from './dto/get-transactions-filter.dto';
+import { Prisma } from '@prisma/client';
 
 @Injectable()
 export class TransactionsService {
@@ -21,12 +23,39 @@ export class TransactionsService {
     });
   }
 
-  async findAllByUser(userId: string) {
+  async findAllByUser(userId: string, filters: GetTransactionsFilterDto) {
+    const { month, year, categoryId, type } = filters;
+
+    const whereClause: Prisma.TransactionWhereInput = {
+      userId: userId,
+    };
+
+    if (categoryId) {
+      whereClause.categoryId = categoryId;
+    }
+
+    if (type) {
+      whereClause.category = {
+        type: type,
+      };
+    }
+    if (month && year) {
+      // En JavaScript, los meses arrancan en 0 (Enero = 0, Diciembre = 11)
+      const startDate = new Date(parseInt(year), parseInt(month) - 1, 1);
+      const endDate = new Date(parseInt(year), parseInt(month), 1); // Día 1 del mes siguiente
+
+      // Prisma buscará transacciones mayores o iguales a startDate, y estrictamente menores a endDate
+      whereClause.date = {
+        gte: startDate,
+        lt: endDate,
+      };
+    }
+
     return this.prisma.transaction.findMany({
-      where: { userId },
+      where: whereClause,
       orderBy: { date: 'desc' }, // Los más recientes primero
       include: {
-        category: true, // Traemos el nombre, color e ícono de cada gasto
+        category: true, // Traemos la data visual de la categoría
       },
     });
   }

@@ -1,8 +1,9 @@
-import { Controller, Get, Post, Body, Param, Delete, UseGuards, Req } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, Delete, UseGuards, Req, Query } from '@nestjs/common';
 import { TransactionsService } from './transactions.service';
 import { CreateTransactionDto } from './dto/create-transaction.dto';
 import { AuthGuard } from '@nestjs/passport';
 import { Request } from 'express';
+import { GetTransactionsFilterDto } from './dto/get-transactions-filter.dto';
 
 interface RequestWithUser extends Request {
   user: { userId: string; email: string; };
@@ -19,8 +20,11 @@ export class TransactionsController {
   }
 
   @Get()
-  findAll(@Req() req: RequestWithUser) {
-    return this.transactionsService.findAllByUser(req.user.userId);
+  findAll(
+    @Req() req: RequestWithUser,
+    @Query() filters: GetTransactionsFilterDto // <-- NestJS valida la URL automáticamente
+  ) {
+    return this.transactionsService.findAllByUser(req.user.userId, filters);
   }
 
   @Delete(':id')
