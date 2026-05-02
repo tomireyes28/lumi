@@ -2,11 +2,7 @@ import { Controller, Get, Post, Body, Patch, Param, Delete, Req, UseGuards } fro
 import { RemindersService } from './reminders.service';
 import { CreateReminderDto } from './dto/create-reminder.dto';
 import { AuthGuard } from '@nestjs/passport';
-
-// Interfaz para tipar el request que viene de tu AuthGuard
-interface RequestWithUser extends Request {
-  user: { userId: string };
-}
+import type  { RequestWithUser } from '../auth/interfaces/auth.interfaces';
 
 @UseGuards(AuthGuard('jwt'))
 @Controller('reminders')
@@ -23,7 +19,7 @@ export class RemindersController {
     return this.remindersService.findAllByUser(req.user.userId);
   }
 
-  @Patch(':id/pay') // Endpoint custom para tachar un recordatorio
+  @Patch(':id/pay') 
   markAsPaid(@Req() req: RequestWithUser, @Param('id') id: string) {
     return this.remindersService.markAsPaid(id, req.user.userId);
   }
