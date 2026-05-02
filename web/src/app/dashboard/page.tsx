@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { apiFetch } from "@/lib/api";
-import { Wallet, TrendingUp, TrendingDown, CreditCard } from "lucide-react";
+import { Wallet, TrendingUp, TrendingDown, CreditCard, Sparkles } from "lucide-react";
 
 interface SummaryData {
   period: string;
@@ -12,21 +12,35 @@ interface SummaryData {
   availableCash: number;
 }
 
+interface CardRecommendation {
+  card: {
+    alias: string;
+    lastFour: string;
+  };
+  daysToClose: number;
+  message: string;
+}
+
 export default function DashboardHomePage() {
   const [summary, setSummary] = useState<SummaryData | null>(null);
+  const [recommendation, setRecommendation] = useState<CardRecommendation | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    loadSummary();
+    loadDashboardData();
   }, []);
 
-  const loadSummary = async () => {
+  const loadDashboardData = async () => {
     try {
-      // Le pegamos al endpoint nuevo que acabamos de crear en el backend
-      const data = await apiFetch('/transactions/summary');
-      setSummary(data);
+      // Hacemos las dos consultas en paralelo para que cargue más rápido
+      const [summaryData, recData] = await Promise.all([
+        apiFetch('/transactions/summary'),
+        apiFetch('/credit-cards/recommendation').catch(() => null) // Si falla (ej. no hay tarjetas), no rompe todo
+      ]);
+      setSummary(summaryData);
+      setRecommendation(recData);
     } catch (error) {
-      console.error("Error cargando el resumen:", error);
+      console.error("Error cargando el dashboard:", error);
     } finally {
       setLoading(false);
     }
@@ -39,13 +53,27 @@ export default function DashboardHomePage() {
   return (
     <div className="p-6 pb-24 flex flex-col gap-6">
       <header className="mb-2">
-        <h1 className="text-2xl font-bold text-gray-900">Hola, Creadora 👋</h1>
+        <h1 className="text-2xl font-bold text-gray-900">Hola, Aylu 👋</h1>
         <p className="text-sm text-gray-500 mt-1">Acá está tu resumen de {summary?.period || 'este mes'}.</p>
       </header>
 
+      {/* BANNER DE RECOMENDACIÓN INTELIGENTE */}
+      {recommendation && (
+        <div className="bg-[#FDBA74] p-4 rounded-2xl shadow-sm border border-orange-300 flex items-start gap-4">
+          <div className="p-2 bg-white/60 rounded-xl text-orange-600 shrink-0 mt-1">
+            <Sparkles className="w-5 h-5" />
+          </div>
+          <div>
+            <h3 className="text-xs font-bold text-orange-900 uppercase tracking-wider mb-1">Tarjeta Ideal Hoy</h3>
+            <p className="text-sm text-orange-900 leading-snug">
+              Pagá con la <span className="font-bold">💳 {recommendation.card.alias}</span>. {recommendation.message}
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* TARJETA PRINCIPAL: Plata Disponible (Caja) */}
       <div className="bg-gradient-to-br from-gray-900 to-gray-800 rounded-3xl p-6 text-white shadow-xl relative overflow-hidden">
-        {/* Decoración de fondo */}
         <div className="absolute top-0 right-0 w-40 h-40 bg-white opacity-5 rounded-full -mr-10 -mt-10"></div>
         
         <div className="relative z-10 flex items-center justify-between mb-4">

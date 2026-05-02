@@ -27,4 +27,9 @@ export class CreditCardsController {
   remove(@Param('id') id: string, @Req() req: RequestWithUser) {
     return this.creditCardsService.remove(id, req.user.userId);
   }
+
+  @Get('recommendation')
+  getRecommendation(@Req() req: RequestWithUser) {
+    return this.creditCardsService.getBestCardToUse(req.user.userId);
+  }
 }

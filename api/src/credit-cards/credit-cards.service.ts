@@ -76,4 +76,48 @@ export class CreditCardsService {
       where: { id },
     });
   }
+
+  async getBestCardToUse(userId: string) {
+    const cards = await this.prisma.creditCard.findMany({
+      where: { userId },
+    });
+
+    if (cards.length === 0) return null;
+
+    const today = new Date();
+    const currentDay = today.getDate();
+    const currentMonth = today.getMonth();
+    const currentYear = today.getFullYear();
+
+    let bestCard: typeof cards[0] | null = null;
+    let maxDaysToClose = -1;
+
+    for (const card of cards) {
+      let daysToClose : number;
+
+      if (currentDay < card.closingDay) {
+        // Cierra este mismo mes. Ej: Hoy es 10, cierra el 25. Faltan 15 días.
+        daysToClose = card.closingDay - currentDay;
+      } else {
+        // Ya cerró este mes (es la ideal). Cierra el mes que viene.
+        // Calculamos cuántos días faltan para que termine el mes actual + el día de cierre del próximo
+        const daysInCurrentMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
+        const daysLeftInMonth = daysInCurrentMonth - currentDay;
+        daysToClose = daysLeftInMonth + card.closingDay;
+      }
+
+      if (daysToClose > maxDaysToClose) {
+        maxDaysToClose = daysToClose;
+        bestCard = card;
+      }
+    }
+
+    if (!bestCard) return null;
+
+    return {
+      card: bestCard,
+      daysToClose: maxDaysToClose,
+      message: `Ideal para usar hoy. Tenés ${maxDaysToClose} días hasta el próximo cierre.`
+    };
+  }
 }
