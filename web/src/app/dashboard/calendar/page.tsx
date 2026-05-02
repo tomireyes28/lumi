@@ -1,81 +1,63 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import Calendar from "react-calendar";
-import "react-calendar/dist/Calendar.css"; // Estilos base
-import { apiFetch } from "@/lib/api";
+import "react-calendar/dist/Calendar.css";
 import { isSameDay } from "date-fns";
-
-interface Transaction {
-  id: string;
-  date: string;
-  amount: string;
-  type: 'INCOME' | 'EXPENSE';
-}
-
-interface Reminder {
-  id: string;
-  title: string;
-  amount: string | null;
-  dueDate: string;
-  isPaid: boolean;
-}
+import { motion, Variants, AnimatePresence } from "framer-motion";
+import { useCalendar } from "@/hooks/useCalendar";
 
 export default function CalendarPage() {
-  const [date, setDate] = useState<Date>(new Date());
-  const [transactions, setTransactions] = useState<Transaction[]>([]);
-  const [reminders, setReminders] = useState<Reminder[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { 
+    date, 
+    setDate, 
+    transactions, 
+    reminders, 
+    loading, 
+    selectedTransactions, 
+    selectedReminders 
+  } = useCalendar();
 
-  useEffect(() => {
-    loadData();
-  }, []);
-
-  const loadData = async () => {
-    try {
-      const [transData, remData] = await Promise.all([
-        apiFetch('/transactions'),
-        apiFetch('/reminders')
-      ]);
-      setTransactions(transData);
-      setReminders(remData);
-    } catch (error) {
-      console.error("Error cargando datos del calendario:", error);
-    } finally {
-      setLoading(false);
-    }
+  // Variantes para la página general
+  const containerVariants: Variants = {
+    hidden: { opacity: 0 },
+    visible: { opacity: 1, transition: { staggerChildren: 0.1 } }
   };
 
-  // Función que le inyecta contenido (los puntitos) a cada día del calendario
+  const itemVariants: Variants = {
+    hidden: { opacity: 0, y: 15 },
+    visible: { opacity: 1, y: 0, transition: { duration: 0.4, ease: "easeOut" } }
+  };
+
+  // Función inyectora para los puntitos del calendario
   const renderTileContent = ({ date: tileDate, view }: { date: Date, view: string }) => {
     if (view !== 'month') return null;
 
-    // Buscamos si hay algo en esta fecha específica
     const hasTransaction = transactions.some(t => isSameDay(new Date(t.date), tileDate));
     const hasReminder = reminders.some(r => isSameDay(new Date(r.dueDate), tileDate));
 
     return (
       <div className="flex justify-center gap-1 mt-1 h-2">
-        {hasTransaction && <div className="w-1.5 h-1.5 rounded-full bg-[#7DD3FC]" title="Movimiento" />}
-        {hasReminder && <div className="w-1.5 h-1.5 rounded-full bg-[#F9A8D4]" title="Vencimiento" />}
+        {hasTransaction && <div className="w-1.5 h-1.5 rounded-full bg-sky-300" title="Movimiento" />}
+        {hasReminder && <div className="w-1.5 h-1.5 rounded-full bg-pink-300" title="Vencimiento" />}
       </div>
     );
   };
 
   if (loading) {
-    return <div className="p-8 text-center text-gray-500">Cargando calendario...</div>;
+    return <div className="p-8 text-center text-gray-500 animate-pulse">Cargando calendario...</div>;
   }
 
-  // Filtramos qué pasó o qué va a pasar en el día seleccionado
-  const selectedTransactions = transactions.filter(t => isSameDay(new Date(t.date), date));
-  const selectedReminders = reminders.filter(r => isSameDay(new Date(r.dueDate), date));
-
   return (
-    <div className="p-6 pb-24 flex flex-col gap-6">
-      <header>
+    <motion.div 
+      className="p-6 pb-24 flex flex-col gap-6"
+      initial="hidden"
+      animate="visible"
+      variants={containerVariants}
+    >
+      <motion.header variants={itemVariants}>
         <h1 className="text-2xl font-bold text-gray-900">Calendario</h1>
         <p className="text-sm text-gray-500 mt-1">Tus finanzas mes a mes.</p>
-      </header>
+      </motion.header>
 
       {/* PISANDO LOS ESTILOS DE LA LIBRERÍA */}
       <style dangerouslySetInnerHTML={{ __html: `
@@ -124,19 +106,19 @@ export default function CalendarPage() {
         }
       `}} />
 
-      <div className="bg-white p-4 rounded-3xl shadow-sm border border-gray-100">
+      <motion.div variants={itemVariants} className="bg-white p-4 rounded-3xl shadow-sm border border-gray-100">
         <Calendar 
           onChange={(value) => setDate(value as Date)} 
           value={date}
           tileContent={renderTileContent}
           minDetail="year"
-          next2Label={null} // Oculta botones de saltar años
+          next2Label={null} 
           prev2Label={null}
         />
-      </div>
+      </motion.div>
 
       {/* DETALLE DEL DÍA SELECCIONADO */}
-      <div className="flex flex-col gap-4 mt-2">
+      <motion.div variants={itemVariants} className="flex flex-col gap-4 mt-2">
         <h3 className="text-sm font-bold text-gray-800 uppercase tracking-wider">
           {date.toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long' })}
         </h3>
@@ -147,28 +129,45 @@ export default function CalendarPage() {
           </div>
         )}
 
-        {/* Lista de Vencimientos (Futuro) */}
-        {selectedReminders.map(r => (
-          <div key={r.id} className="p-3 bg-pink-50 rounded-xl border border-[#F9A8D4] flex justify-between items-center">
-            <span className="font-bold text-gray-900 text-sm">🔔 {r.title}</span>
-            <span className="font-bold text-pink-600 text-sm">
-              {r.amount ? `$${Number(r.amount).toLocaleString('es-AR')}` : 'Pendiente'}
-            </span>
-          </div>
-        ))}
+        {/* AnimatePresence permite animar la entrada/salida cuando cambias de día */}
+        <div className="flex flex-col gap-3">
+          <AnimatePresence mode="popLayout">
+            {selectedReminders.map(r => (
+              <motion.div 
+                key={r.id}
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.95 }}
+                transition={{ duration: 0.2 }}
+                className="p-3 bg-pink-50 rounded-xl border border-pink-200 flex justify-between items-center"
+              >
+                <span className="font-bold text-gray-900 text-sm">🔔 {r.title}</span>
+                <span className="font-bold text-pink-600 text-sm">
+                  {r.amount ? `$${Number(r.amount).toLocaleString('es-AR')}` : 'Pendiente'}
+                </span>
+              </motion.div>
+            ))}
 
-        {/* Lista de Transacciones (Pasado) */}
-        {selectedTransactions.map(t => (
-          <div key={t.id} className="p-3 bg-white shadow-sm border border-gray-100 rounded-xl flex justify-between items-center">
-            <span className="font-medium text-gray-700 text-sm">
-              {t.type === 'INCOME' ? 'Ingreso' : 'Gasto'}
-            </span>
-            <span className={`font-bold text-sm ${t.type === 'INCOME' ? 'text-sky-600' : 'text-gray-900'}`}>
-              {t.type === 'INCOME' ? '+' : '-'}${Number(t.amount).toLocaleString('es-AR')}
-            </span>
-          </div>
-        ))}
-      </div>
-    </div>
+            {selectedTransactions.map(t => (
+              <motion.div 
+                key={t.id}
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.95 }}
+                transition={{ duration: 0.2 }}
+                className="p-3 bg-white shadow-sm border border-gray-100 rounded-xl flex justify-between items-center"
+              >
+                <span className="font-medium text-gray-700 text-sm">
+                  {t.type === 'INCOME' ? 'Ingreso' : 'Gasto'}
+                </span>
+                <span className={`font-bold text-sm ${t.type === 'INCOME' ? 'text-sky-600' : 'text-gray-900'}`}>
+                  {t.type === 'INCOME' ? '+' : '-'}${Number(t.amount).toLocaleString('es-AR')}
+                </span>
+              </motion.div>
+            ))}
+          </AnimatePresence>
+        </div>
+      </motion.div>
+    </motion.div>
   );
 }
