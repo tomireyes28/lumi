@@ -9,7 +9,7 @@ interface RequestWithUser extends Request {
   user: { userId: string; email: string; };
 }
 
-@UseGuards(AuthGuard('jwt')) // <-- Protegemos toda la ruta
+@UseGuards(AuthGuard('jwt'))
 @Controller('transactions')
 export class TransactionsController {
   constructor(private readonly transactionsService: TransactionsService) {}
@@ -22,7 +22,7 @@ export class TransactionsController {
   @Get()
   findAll(
     @Req() req: RequestWithUser,
-    @Query() filters: GetTransactionsFilterDto // <-- NestJS valida la URL automáticamente
+    @Query() filters: GetTransactionsFilterDto
   ) {
     return this.transactionsService.findAllByUser(req.user.userId, filters);
   }
@@ -38,10 +38,11 @@ export class TransactionsController {
     @Query('month') month?: string,
     @Query('year') year?: string,
   ) {
-    // Si no mandan mes/año, calculamos el actual por defecto
-    const targetMonth = month ? parseInt(month) : new Date().getMonth() + 1;
-    const targetYear = year ? parseInt(year) : new Date().getFullYear();
-
-    return this.transactionsService.getMonthlySummary(req.user.userId, targetMonth, targetYear);
+    // Solo pasamos los datos, el Servicio se encarga de la lógica por defecto
+    return this.transactionsService.getMonthlySummary(
+      req.user.userId, 
+      month ? parseInt(month) : undefined, 
+      year ? parseInt(year) : undefined
+    );
   }
 }

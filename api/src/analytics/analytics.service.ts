@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { getMonthDateRange } from '../utils/date.util'; // <-- Importamos nuestra herramienta
 
 @Injectable()
 export class AnalyticsService {
@@ -7,53 +8,42 @@ export class AnalyticsService {
 
   async getMonthlyAnalytics(userId: string) {
     const now = new Date();
-    
-    // 1. Definimos los límites del mes actual y el anterior
-    const startOfCurrentMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-    const endOfCurrentMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
-    
-    const startOfLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-    const endOfLastMonth = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59);
+    const currentYear = now.getFullYear();
+    const currentMonth = now.getMonth() + 1; // JS es 0-indexado (0 a 11)
 
-    // 2. Buscamos TODOS los EGRESOS del mes actual
-    const currentMonthExpenses = await this.prisma.transaction.findMany({
-      where: {
-        userId,
-        // Filtramos a través de la relación con la categoría
-        category: {
-          type: 'expense', // Asegurate de que esto coincida con cómo guardás las categorías (si usás mayúsculas, cambialo a 'EXPENSE')
-        },
-        date: {
-          gte: startOfCurrentMonth,
-          lte: endOfCurrentMonth,
-        },
-      },
-      include: {
-        category: true, // Traemos el nombre y color de la categoría
-      },
-    });
+    // 1. Calculamos las fechas usando nuestra utilidad DRY
+    const currentMonthRange = getMonthDateRange(currentYear, currentMonth);
+    const lastMonthRange = getMonthDateRange(currentYear, currentMonth - 1); 
 
-    // 3. Buscamos TODOS los EGRESOS del mes pasado
-    const lastMonthExpenses = await this.prisma.transaction.findMany({
-      where: {
-        userId,
-        category: {
-          type: 'expense', 
+    // 2. Ejecutamos las consultas EN PARALELO
+    const [currentMonthExpenses, lastMonthAgg] = await Promise.all([
+      // A. Traemos el detalle de este mes (porque necesitamos armar la dona por categoría)
+      this.prisma.transaction.findMany({
+        where: {
+          userId,
+          category: { type: 'expense' },
+          date: { gte: currentMonthRange.startDate, lt: currentMonthRange.endDate },
         },
-        date: {
-          gte: startOfLastMonth,
-          lte: endOfLastMonth,
+        include: { category: true },
+      }),
+      // B. Le pedimos a la Base de Datos que SUME el mes pasado sola (ahorramos RAM)
+      this.prisma.transaction.aggregate({
+        where: {
+          userId,
+          category: { type: 'expense' },
+          date: { gte: lastMonthRange.startDate, lt: lastMonthRange.endDate },
         },
-      },
-    });
+        _sum: { amount: true },
+      })
+    ]);
 
-    // 4. Algoritmo de agrupación: Sumamos los gastos por categoría
+    // 3. Algoritmo de agrupación: Sumamos los gastos por categoría (Gráfico de Dona)
     const expensesByCategory = currentMonthExpenses.reduce((acc, current) => {
       const catId = current.categoryId;
       if (!acc[catId]) {
         acc[catId] = {
           name: current.category?.name || 'Sin categoría',
-          color: current.category?.colorHex || '#CBD5E1', // Corregido a colorHex según tu schema
+          color: current.category?.colorHex || '#CBD5E1',
           total: 0,
         };
       }
@@ -61,12 +51,11 @@ export class AnalyticsService {
       return acc;
     }, {} as Record<string, { name: string; color: string; total: number }>);
 
-    // Transformamos el objeto en un array ordenado de mayor a menor gasto
     const categoryBreakdown = Object.values(expensesByCategory).sort((a, b) => b.total - a.total);
 
-    // 5. Calculamos totales y porcentajes
+    // 4. Calculamos totales y porcentajes
     const totalCurrentMonth = currentMonthExpenses.reduce((sum, t) => sum + Number(t.amount), 0);
-    const totalLastMonth = lastMonthExpenses.reduce((sum, t) => sum + Number(t.amount), 0);
+    const totalLastMonth = Number(lastMonthAgg._sum.amount || 0); // Convertimos el resultado de la DB
 
     let percentageChange = 0;
     if (totalLastMonth > 0) {
