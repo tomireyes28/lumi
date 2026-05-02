@@ -1,61 +1,112 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useSearchParams, useRouter } from "next/navigation";
+import { apiFetch } from "@/lib/api";
+import { Wallet, TrendingUp, TrendingDown, CreditCard } from "lucide-react";
 
-export default function DashboardPage() {
-  const searchParams = useSearchParams();
-  const router = useRouter();
-  const [token, setToken] = useState<string | null>(null);
+interface SummaryData {
+  period: string;
+  totalIncome: number;
+  totalCashExpense: number;
+  totalCardExpense: number;
+  availableCash: number;
+}
+
+export default function DashboardHomePage() {
+  const [summary, setSummary] = useState<SummaryData | null>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Agarramos el token de la URL
-    const urlToken = searchParams.get("token");
+    loadSummary();
+  }, []);
 
-    if (urlToken) {
-      // Lo guardamos en el navegador para no perder la sesión
-      localStorage.setItem("lumi_token", urlToken);
-      setToken(urlToken);
-      
-      // Limpiamos la URL por seguridad (sacamos el choclazo de letras de la vista)
-      router.replace("/dashboard");
-    } else {
-      // Si entramos sin token en la URL, nos fijamos si ya teníamos uno guardado
-      const savedToken = localStorage.getItem("lumi_token");
-      if (savedToken) {
-        setToken(savedToken);
-      } else {
-        // Si no hay token, lo pateamos al inicio
-        router.push("/");
-      }
+  const loadSummary = async () => {
+    try {
+      // Le pegamos al endpoint nuevo que acabamos de crear en el backend
+      const data = await apiFetch('/transactions/summary');
+      setSummary(data);
+    } catch (error) {
+      console.error("Error cargando el resumen:", error);
+    } finally {
+      setLoading(false);
     }
-  }, [searchParams, router]);
+  };
 
-  if (!token) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <p className="text-gray-500">Cargando tu sesión...</p>
-      </div>
-    );
+  if (loading) {
+    return <div className="p-8 text-center text-gray-500">Calculando tus finanzas...</div>;
   }
 
   return (
-    <div className="min-h-screen p-8 bg-gray-50">
-      <header className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900">Mi Tablero</h1>
-        <p className="text-gray-600">Bienvenido a Lumi Finanzas</p>
+    <div className="p-6 pb-24 flex flex-col gap-6">
+      <header className="mb-2">
+        <h1 className="text-2xl font-bold text-gray-900">Hola, Creadora 👋</h1>
+        <p className="text-sm text-gray-500 mt-1">Acá está tu resumen de {summary?.period || 'este mes'}.</p>
       </header>
-      
-      <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 max-w-2xl">
-        <h2 className="text-xl font-semibold mb-4 text-green-600">¡Login exitoso!</h2>
-        <p className="text-gray-700 mb-4">
-          Ya tenés tu JWT guardado de forma segura en el navegador. 
-          A partir de ahora, cada vez que le pidas datos a NestJS, le vamos a adjuntar este token.
-        </p>
-        <div className="bg-gray-100 p-4 rounded-lg break-all text-xs font-mono text-gray-500">
-          Tu token actual empieza con: {token.substring(0, 20)}...
+
+      {/* TARJETA PRINCIPAL: Plata Disponible (Caja) */}
+      <div className="bg-gradient-to-br from-gray-900 to-gray-800 rounded-3xl p-6 text-white shadow-xl relative overflow-hidden">
+        {/* Decoración de fondo */}
+        <div className="absolute top-0 right-0 w-40 h-40 bg-white opacity-5 rounded-full -mr-10 -mt-10"></div>
+        
+        <div className="relative z-10 flex items-center justify-between mb-4">
+          <span className="text-sm font-medium text-gray-300 uppercase tracking-wider">Plata Disponible</span>
+          <Wallet className="w-6 h-6 text-sky-400" />
+        </div>
+        
+        <div className="relative z-10">
+          <span className="text-4xl font-bold tracking-tight">
+            ${summary?.availableCash.toLocaleString('es-AR')}
+          </span>
+          <p className="text-xs text-gray-400 mt-2 font-medium">
+            (Ingresos menos gastos en efectivo)
+          </p>
         </div>
       </div>
+
+      <div className="grid grid-cols-2 gap-4">
+        {/* TARJETA SECUNDARIA: Ingresos */}
+        <div className="bg-white p-4 rounded-2xl border border-sky-100 shadow-sm flex flex-col gap-2">
+          <div className="flex items-center gap-2">
+            <div className="p-2 bg-sky-50 rounded-lg text-sky-600">
+              <TrendingUp className="w-4 h-4" />
+            </div>
+            <span className="text-xs font-bold text-gray-600 uppercase">Ingresos</span>
+          </div>
+          <span className="text-lg font-bold text-gray-900">
+            ${summary?.totalIncome.toLocaleString('es-AR')}
+          </span>
+        </div>
+
+        {/* TARJETA SECUNDARIA: Gastos Efectivo */}
+        <div className="bg-white p-4 rounded-2xl border border-orange-100 shadow-sm flex flex-col gap-2">
+          <div className="flex items-center gap-2">
+            <div className="p-2 bg-orange-50 rounded-lg text-orange-600">
+              <TrendingDown className="w-4 h-4" />
+            </div>
+            <span className="text-xs font-bold text-gray-600 uppercase">Efectivo</span>
+          </div>
+          <span className="text-lg font-bold text-gray-900">
+            ${summary?.totalCashExpense.toLocaleString('es-AR')}
+          </span>
+        </div>
+      </div>
+
+      {/* TARJETA TERCIARIA: Consumos con Tarjeta */}
+      <div className="bg-white p-5 rounded-2xl border border-purple-100 shadow-sm flex items-center justify-between mt-2">
+        <div className="flex items-center gap-4">
+          <div className="p-3 bg-purple-50 rounded-xl text-purple-600">
+            <CreditCard className="w-6 h-6" />
+          </div>
+          <div>
+            <h3 className="text-sm font-bold text-gray-800 uppercase tracking-wider">A pagar en tarjetas</h3>
+            <p className="text-xs text-gray-500 font-medium">Consumos del ciclo actual</p>
+          </div>
+        </div>
+        <span className="text-xl font-bold text-purple-700">
+          ${summary?.totalCardExpense.toLocaleString('es-AR')}
+        </span>
+      </div>
+
     </div>
   );
 }
