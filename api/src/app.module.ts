@@ -7,6 +7,7 @@ import { AuthModule } from './auth/auth.module';
 import { CategoriesModule } from './categories/categories.module';
 import { TransactionsModule } from './transactions/transactions.module';
 import { CreditCardsModule } from './credit-cards/credit-cards.module';
+import { RemindersModule } from './reminders/reminders.module';
 
 @Module({
   imports: [
@@ -15,7 +16,7 @@ import { CreditCardsModule } from './credit-cards/credit-cards.module';
       envFilePath: '.env', 
     }),
     PrismaModule, 
-    AuthModule, CategoriesModule, TransactionsModule, CreditCardsModule
+    AuthModule, CategoriesModule, TransactionsModule, CreditCardsModule, RemindersModule
   ],
   controllers: [AppController],
   providers: [AppService],

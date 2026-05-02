@@ -15,6 +15,7 @@ model User {
   createdAt    DateTime      @default(now())
 
   creditCards   CreditCard[]
+  reminders     Reminder[]
 }
 
 model Category {
@@ -60,4 +61,22 @@ model CreditCard {
   
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+}
+
+model Reminder {
+  id          String   @id @default(uuid())
+  title       String   // Ej: "Alquiler", "Netflix"
+  amount      Decimal? // Opcional, por si sabe cuánta plata es
+  dueDate     DateTime // La fecha en la que vence
+  isPaid      Boolean  @default(false) // Para tacharlo cuando lo pague
+  
+  // Relación con el usuario (solo ve sus propios recordatorios)
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([userId])
+  @@index([dueDate]) // Índice para que el CRON Job busque rápido las fechas
 }
