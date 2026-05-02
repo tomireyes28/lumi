@@ -3,17 +3,8 @@ import { CategoriesService } from './categories.service';
 import { CreateCategoryDto } from './dto/create-category.dto';
 import { UpdateCategoryDto } from './dto/update-category.dto';
 import { AuthGuard } from '@nestjs/passport';
-import { Request } from 'express';
+import type { RequestWithUser } from '../auth/interfaces/auth.interfaces'; 
 
-// Tipamos estrictamente la Request inyectada por Passport
-interface RequestWithUser extends Request {
-  user: {
-    userId: string;
-    email: string;
-  };
-}
-
-// Protegemos todas las rutas de este controlador
 @UseGuards(AuthGuard('jwt')) 
 @Controller('categories')
 export class CategoriesController {
@@ -21,7 +12,6 @@ export class CategoriesController {
 
   @Post()
   create(@Body() createCategoryDto: CreateCategoryDto, @Req() req: RequestWithUser) {
-    // req.user.userId viene directamente del token validado, 100% seguro
     return this.categoriesService.create(createCategoryDto, req.user.userId);
   }
 

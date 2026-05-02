@@ -1,12 +1,22 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { PrismaService } from '../prisma/prisma.service'; // Asegurate de que la ruta sea correcta
+import { PrismaService } from '../prisma/prisma.service';
 import { CreateCategoryDto } from './dto/create-category.dto';
 import { UpdateCategoryDto } from './dto/update-category.dto';
 
 @Injectable()
 export class CategoriesService {
-  // Inyectamos nuestro PrismaService
   constructor(private readonly prisma: PrismaService) {}
+
+  // 👇 DRY: Método privado para centralizar la validación de seguridad
+  private async getCategoryOrThrow(id: string, userId: string) {
+    const category = await this.prisma.category.findUnique({ where: { id } });
+    
+    if (!category || category.userId !== userId) {
+      throw new NotFoundException('Categoría no encontrada o no autorizada');
+    }
+    
+    return category;
+  }
 
   async create(createCategoryDto: CreateCategoryDto, userId: string) {
     return this.prisma.category.create({
@@ -15,9 +25,7 @@ export class CategoriesService {
         type: createCategoryDto.type,       
         colorHex: createCategoryDto.colorHex, 
         icon: createCategoryDto.icon,
-        user: {
-          connect: { id: userId },
-        },
+        user: { connect: { id: userId } },
       },
     });
   }
@@ -25,17 +33,13 @@ export class CategoriesService {
   async findAllByUser(userId: string) {
     return this.prisma.category.findMany({
       where: { userId },
-      orderBy: { name: 'asc' }, // Las traemos ordenadas alfabéticamente
+      orderBy: { name: 'asc' }, 
     });
   }
 
   async update(id: string, updateCategoryDto: UpdateCategoryDto, userId: string) {
-    // Primero verificamos que la categoría exista y pertenezca a este usuario
-    const category = await this.prisma.category.findUnique({ where: { id } });
-    
-    if (!category || category.userId !== userId) {
-      throw new NotFoundException('Categoría no encontrada o no autorizada');
-    }
+    // Reutilizamos la validación de seguridad
+    await this.getCategoryOrThrow(id, userId); 
 
     return this.prisma.category.update({
       where: { id },
@@ -44,11 +48,8 @@ export class CategoriesService {
   }
 
   async remove(id: string, userId: string) {
-    const category = await this.prisma.category.findUnique({ where: { id } });
-    
-    if (!category || category.userId !== userId) {
-      throw new NotFoundException('Categoría no encontrada o no autorizada');
-    }
+    // Reutilizamos la validación de seguridad
+    await this.getCategoryOrThrow(id, userId); 
 
     return this.prisma.category.delete({
       where: { id },
