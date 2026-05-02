@@ -1,11 +1,9 @@
 import { Injectable, BadRequestException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { PrismaService } from '../prisma/prisma.service';
+import { GoogleUser } from './interfaces/auth.interfaces';
 
-export interface GoogleUser {
-  email: string;
-  name: string;
-}
+
 
 @Injectable()
 export class AuthService {

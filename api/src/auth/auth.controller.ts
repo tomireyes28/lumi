@@ -1,12 +1,10 @@
 import { Controller, Get, Req, Res, UseGuards } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
-import { AuthService, GoogleUser } from './auth.service';
+import { AuthService } from './auth.service';
 import type { Request, Response } from 'express';
+import type { GoogleAuthRequest } from './interfaces/auth.interfaces';
 
-// Extendemos la Request de Express para avisarle que dentro viene nuestro GoogleUser
-interface GoogleAuthRequest extends Request {
-  user: GoogleUser;
-}
+
 
 @Controller('auth')
 export class AuthController {
