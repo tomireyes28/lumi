@@ -10,6 +10,7 @@ import { CreditCardsModule } from './credit-cards/credit-cards.module';
 import { RemindersModule } from './reminders/reminders.module';
 import { ScheduleModule } from '@nestjs/schedule';
 import { NotificationsModule } from './notifications/notifications.module';
+import { AnalyticsModule } from './analytics/analytics.module';
 
 @Module({
   imports: [
@@ -19,7 +20,7 @@ import { NotificationsModule } from './notifications/notifications.module';
     }),
     ScheduleModule.forRoot(),
     PrismaModule, 
-    AuthModule, CategoriesModule, TransactionsModule, CreditCardsModule, RemindersModule, NotificationsModule
+    AuthModule, CategoriesModule, TransactionsModule, CreditCardsModule, RemindersModule, NotificationsModule, AnalyticsModule
   ],
   controllers: [AppController],
   providers: [AppService],
