@@ -1,27 +1,49 @@
 "use client";
 
+import { useAuth } from "@/hooks/useAuth";
+import { motion } from "framer-motion";
+
 export default function Home() {
-  const handleGoogleLogin = () => {
-    // Redirigimos directamente a tu propio backend de NestJS
-    // Asegurate de que el puerto (3001) coincida con donde corre tu API
-    window.location.href = "http://localhost:3000/auth/google";
+  // 1. Extraemos la lógica del Hook (UI tonta)
+  const { loginWithGoogle } = useAuth();
+
+  // 2. Definimos una animación genérica para reutilizar
+  const fadeUpVariant = {
+    hidden: { opacity: 0, y: 30 },
+    visible: { opacity: 1, y: 0, transition: { duration: 0.6, ease: "easeOut" } }
   };
 
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center p-24">
+    <main className="flex min-h-screen flex-col items-center justify-center p-24 bg-gray-50">
       <div className="text-center">
-        <h1 className="text-5xl font-bold text-brand-text mb-4">
-          Lumi <span className="text-brand-accent">Finanzas</span>
-        </h1>
-        <p className="text-xl text-brand-text/80 mb-8">
-          Tus cuentas claras, sin límites.
-        </p>
-        <button 
-          onClick={handleGoogleLogin}
-          className="bg-brand-accent text-white px-6 py-3 rounded-full font-semibold hover:opacity-90 transition-opacity"
+        
+        {/* Envolvemos los elementos en motion.div para animarlos en cascada */}
+        <motion.div
+          initial="hidden"
+          animate="visible"
+          variants={{
+            visible: { transition: { staggerChildren: 0.2 } } // Hace que aparezcan uno después del otro
+          }}
         >
-          Ingresar con Google
-        </button>
+          <motion.h1 variants={fadeUpVariant} className="text-5xl font-bold text-gray-900 mb-4">
+            Lumi <span className="text-sky-500">Finanzas</span>
+          </motion.h1>
+          
+          <motion.p variants={fadeUpVariant} className="text-xl text-gray-500 mb-8 font-medium">
+            Tus cuentas claras, sin límites.
+          </motion.p>
+          
+          <motion.button 
+            variants={fadeUpVariant}
+            onClick={loginWithGoogle}
+            whileHover={{ scale: 1.05 }} // Micro-interacción: crece al pasar el mouse
+            whileTap={{ scale: 0.95 }}   // Micro-interacción: se hunde al hacer click
+            className="bg-sky-500 text-white px-8 py-4 rounded-full font-bold shadow-lg shadow-sky-200 hover:bg-sky-600 transition-colors"
+          >
+            Ingresar con Google
+          </motion.button>
+        </motion.div>
+
       </div>
     </main>
   );
