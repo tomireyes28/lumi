@@ -2,13 +2,9 @@ import { Controller, Get, Post, Body, Param, Delete, UseGuards, Req } from '@nes
 import { CreditCardsService } from './credit-cards.service';
 import { CreateCreditCardDto } from './dto/create-credit-card.dto';
 import { AuthGuard } from '@nestjs/passport';
-import { Request } from 'express';
+import type { RequestWithUser } from '../auth/interfaces/auth.interfaces'; 
 
-interface RequestWithUser extends Request {
-  user: { userId: string; email: string; };
-}
-
-@UseGuards(AuthGuard('jwt')) // <-- Protegemos toda la ruta
+@UseGuards(AuthGuard('jwt'))
 @Controller('credit-cards')
 export class CreditCardsController {
   constructor(private readonly creditCardsService: CreditCardsService) {}
