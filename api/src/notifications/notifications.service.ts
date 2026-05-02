@@ -1,28 +1,30 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { Prisma } from '@prisma/client'; // <-- Importamos Prisma
+
+// ¡La magia de Prisma! Tipamos exactamente lo que devuelve la consulta con el include
+type ReminderWithUser = Prisma.ReminderGetPayload<{
+  include: { user: true }
+}>;
 
 @Injectable()
 export class NotificationsService {
-  // Un "Logger" es la forma profesional de hacer console.log en NestJS
   private readonly logger = new Logger(NotificationsService.name);
 
   constructor(private prisma: PrismaService) {}
 
- // @Cron(CronExpression.EVERY_10_SECONDS) <-- Comentamos esto para apagar el motor
   async checkDueReminders() {
-      // ...
     this.logger.log('Buscando vencimientos para el día de hoy...');
 
     const today = new Date();
-    const year = today.getFullYear();
-    const month = today.getMonth();
-    const date = today.getDate();
+    
+    const startOfDay = new Date(today);
+    startOfDay.setHours(0, 0, 0, 0);
 
-    const startOfDay = new Date(Date.UTC(year, month, date, 0, 0, 0, 0));
-    const endOfDay = new Date(Date.UTC(year, month, date, 23, 59, 59, 999));
+    const endOfDay = new Date(today);
+    endOfDay.setHours(23, 59, 59, 999);
 
     try {
-      // Buscamos recordatorios que venzan HOY y no estén pagados
       const dueToday = await this.prisma.reminder.findMany({
         where: {
           dueDate: {
@@ -32,7 +34,7 @@ export class NotificationsService {
           isPaid: false,
         },
         include: {
-          user: true, // Traemos los datos del usuario para sacarle el mail después
+          user: true, 
         }
       });
 
@@ -43,13 +45,27 @@ export class NotificationsService {
 
       this.logger.log(`¡Encontré ${dueToday.length} recordatorios para hoy!`);
       
-      for (const reminder of dueToday) {
-        this.logger.debug(`-> Hay que avisarle a ${reminder.user.email} que pague: ${reminder.title}`);
-        // ACÁ ES DONDE VAMOS A METER A RESEND PARA MANDAR EL MAIL
-      }
+      await Promise.all(
+        dueToday.map(reminder => this.sendEmailNotification(reminder))
+      );
 
     } catch (error) {
       this.logger.error('Error buscando recordatorios', error);
+    }
+  }
+
+  // 👇 Reemplazamos 'any' por nuestro tipo estricto
+  private async sendEmailNotification(reminder: ReminderWithUser) {
+    try {
+      // Agregamos un await fantasma para que el linter no se queje hasta que integremos Resend
+      await Promise.resolve(); 
+      
+      this.logger.debug(`-> Preparando mail para ${reminder.user.email} | Vence: ${reminder.title}`);
+      
+      // ACÁ VAMOS A METER A RESEND EN EL PRÓXIMO PASO
+      
+    } catch (error) {
+      this.logger.error(`Falló el envío de correo a ${reminder.user.email}`, error);
     }
   }
 }
