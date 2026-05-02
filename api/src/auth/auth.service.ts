@@ -2,7 +2,6 @@ import { Injectable, BadRequestException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { PrismaService } from '../prisma/prisma.service';
 
-// Tipamos estrictamente lo que esperamos de Google
 export interface GoogleUser {
   email: string;
   name: string;
@@ -20,18 +19,15 @@ export class AuthService {
       throw new BadRequestException('No user from Google');
     }
 
-    let user = await this.prisma.user.findUnique({
+    // Usamos UPSERT: 1 solo viaje a la DB, 0 riesgo de duplicaciones
+    const user = await this.prisma.user.upsert({
       where: { email: reqUser.email },
+      update: { name: reqUser.name }, // Si ya existe, de paso le actualizamos el nombre por si lo cambió en Google
+      create: {
+        email: reqUser.email,
+        name: reqUser.name,
+      },
     });
-
-    if (!user) {
-      user = await this.prisma.user.create({
-        data: {
-          email: reqUser.email,
-          name: reqUser.name,
-        },
-      });
-    }
 
     const payload = { sub: user.id, email: user.email };
     return this.jwtService.sign(payload, { secret: process.env.JWT_SECRET, expiresIn: '7d' });
