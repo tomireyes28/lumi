@@ -8,6 +8,8 @@ import { CategoriesModule } from './categories/categories.module';
 import { TransactionsModule } from './transactions/transactions.module';
 import { CreditCardsModule } from './credit-cards/credit-cards.module';
 import { RemindersModule } from './reminders/reminders.module';
+import { ScheduleModule } from '@nestjs/schedule';
+import { NotificationsModule } from './notifications/notifications.module';
 
 @Module({
   imports: [
@@ -15,8 +17,9 @@ import { RemindersModule } from './reminders/reminders.module';
       isGlobal: true,
       envFilePath: '.env', 
     }),
+    ScheduleModule.forRoot(),
     PrismaModule, 
-    AuthModule, CategoriesModule, TransactionsModule, CreditCardsModule, RemindersModule
+    AuthModule, CategoriesModule, TransactionsModule, CreditCardsModule, RemindersModule, NotificationsModule
   ],
   controllers: [AppController],
   providers: [AppService],

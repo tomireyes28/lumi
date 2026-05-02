@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { apiFetch } from "@/lib/api";
-import { Wallet, TrendingUp, TrendingDown, CreditCard, Sparkles } from "lucide-react";
+import { Wallet, TrendingUp, TrendingDown, CreditCard, Sparkles, BellRing } from "lucide-react";
 
 interface SummaryData {
   period: string;
@@ -21,9 +21,19 @@ interface CardRecommendation {
   message: string;
 }
 
+// Agregamos la interfaz para los recordatorios
+interface Reminder {
+  id: string;
+  title: string;
+  amount: string | null;
+  dueDate: string;
+  isPaid: boolean;
+}
+
 export default function DashboardHomePage() {
   const [summary, setSummary] = useState<SummaryData | null>(null);
   const [recommendation, setRecommendation] = useState<CardRecommendation | null>(null);
+  const [dueToday, setDueToday] = useState<Reminder[]>([]); // Estado para las alertas
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -32,13 +42,30 @@ export default function DashboardHomePage() {
 
   const loadDashboardData = async () => {
     try {
-      // Hacemos las dos consultas en paralelo para que cargue más rápido
-      const [summaryData, recData] = await Promise.all([
+      // Ahora hacemos TRES consultas en paralelo
+      const [summaryData, recData, remindersData] = await Promise.all([
         apiFetch('/transactions/summary'),
-        apiFetch('/credit-cards/recommendation').catch(() => null) // Si falla (ej. no hay tarjetas), no rompe todo
+        apiFetch('/credit-cards/recommendation').catch(() => null),
+        apiFetch('/reminders').catch(() => []) // Si falla, devolvemos array vacío
       ]);
+      
       setSummary(summaryData);
       setRecommendation(recData);
+
+      // Filtramos los recordatorios para encontrar los que vencen HOY y no están pagados
+      const today = new Date();
+      const todayAlerts = (remindersData as Reminder[]).filter(r => {
+        if (r.isPaid) return false;
+        
+        const dueDate = new Date(r.dueDate);
+        // Comparamos el día, mes y año asegurando que coincidan las fechas
+        return dueDate.getUTCDate() === today.getDate() &&
+               dueDate.getUTCMonth() === today.getMonth() &&
+               dueDate.getUTCFullYear() === today.getFullYear();
+      });
+      
+      setDueToday(todayAlerts);
+
     } catch (error) {
       console.error("Error cargando el dashboard:", error);
     } finally {
@@ -56,6 +83,29 @@ export default function DashboardHomePage() {
         <h1 className="text-2xl font-bold text-gray-900">Hola, Aylu 👋</h1>
         <p className="text-sm text-gray-500 mt-1">Acá está tu resumen de {summary?.period || 'este mes'}.</p>
       </header>
+
+      {/* BANNER DE VENCIMIENTOS DE HOY (Color Rosa Pastel del PRD) */}
+      {dueToday.length > 0 && (
+        <div className="bg-pink-50 p-4 rounded-2xl shadow-sm border border-[#F9A8D4] flex flex-col gap-3 relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-24 h-24 bg-[#F9A8D4] opacity-10 rounded-full -mr-8 -mt-8"></div>
+          
+          <div className="flex items-center gap-2 relative z-10">
+            <BellRing className="w-5 h-5 text-pink-500 animate-pulse" />
+            <h3 className="text-xs font-bold text-pink-600 uppercase tracking-wider">¡Vencimientos de hoy!</h3>
+          </div>
+          
+          <div className="flex flex-col gap-2 relative z-10">
+            {dueToday.map(reminder => (
+              <div key={reminder.id} className="flex justify-between items-center bg-white/60 p-2 rounded-lg">
+                <span className="text-sm font-bold text-gray-800">{reminder.title}</span>
+                {reminder.amount && (
+                  <span className="text-sm font-bold text-pink-600">${Number(reminder.amount).toLocaleString('es-AR')}</span>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* BANNER DE RECOMENDACIÓN INTELIGENTE */}
       {recommendation && (
