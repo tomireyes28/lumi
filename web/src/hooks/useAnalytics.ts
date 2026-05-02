@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { apiFetch } from "@/lib/api";
 import { AnalyticsData } from "@/types/analytics";
+import { toast } from "sonner";
 
 export const useAnalytics = () => {
   const [data, setData] = useState<AnalyticsData | null>(null);
@@ -17,6 +18,7 @@ export const useAnalytics = () => {
         }
       } catch (error) {
         console.error("Error cargando analíticas:", error);
+        toast.error("Hubo un error al cargar las analíticas.");
       } finally {
         if (isMounted) {
           setLoading(false);

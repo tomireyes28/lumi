@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { apiFetch } from "@/lib/api";
 import { Category } from "@/types/categories";
+import { toast } from "sonner";
 
 export const useCategories = () => {
   const [categories, setCategories] = useState<Category[]>([]);
@@ -62,7 +63,7 @@ export const useCategories = () => {
       await reloadCategories();
     } catch (error) {
       console.error("Error creando categoría:", error);
-      alert("Hubo un error al crear la categoría");
+      toast.error("Hubo un error al crear la categoría");
     } finally {
       setIsSubmitting(false);
     }

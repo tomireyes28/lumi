@@ -2,6 +2,7 @@ import { useEffect, useState, useMemo } from "react";
 import { apiFetch } from "@/lib/api";
 import { isSameDay } from "date-fns";
 import { CalendarTransaction, CalendarReminder } from "@/types/calendar";
+import { toast } from "sonner";
 
 export const useCalendar = () => {
   const [date, setDate] = useState<Date>(new Date());
@@ -25,6 +26,7 @@ export const useCalendar = () => {
         }
       } catch (error) {
         console.error("Error cargando datos del calendario:", error);
+        toast.error("Hubo un error al cargar los datos del calendario.");
       } finally {
         if (isMounted) {
           setLoading(false);

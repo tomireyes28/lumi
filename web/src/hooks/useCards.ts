@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { apiFetch } from "@/lib/api";
 import { CreditCard } from "@/types/cards";
+import { toast } from "sonner";
 
 export const useCards = () => {
   const [cards, setCards] = useState<CreditCard[]>([]);
@@ -25,6 +26,7 @@ export const useCards = () => {
         if (isMounted) setCards(data);
       } catch (error) {
         console.error("Error cargando tarjetas:", error);
+        toast.error("Hubo un error al cargar las tarjetas.");
       } finally {
         if (isMounted) setLoading(false);
       }
@@ -44,6 +46,7 @@ export const useCards = () => {
       setCards(data);
     } catch (error) {
       console.error("Error recargando tarjetas:", error);
+      toast.error("Hubo un error al recargar las tarjetas.");
     }
   };
 
@@ -75,7 +78,7 @@ export const useCards = () => {
       await reloadCards();
     } catch (error) {
       console.error("Error creando tarjeta:", error);
-      alert("Hubo un error al guardar la tarjeta. Revisá los datos.");
+      toast.error("Hubo un error al guardar la tarjeta. Revisá los datos.");
     } finally {
       setIsSubmitting(false);
     }

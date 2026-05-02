@@ -1,6 +1,7 @@
 import { useEffect, useState, useMemo } from "react";
 import { apiFetch } from "@/lib/api";
 import { Reminder } from "@/types/reminders";
+import { toast } from "sonner";
 
 export const useReminders = () => {
   const [reminders, setReminders] = useState<Reminder[]>([]);
@@ -22,6 +23,7 @@ export const useReminders = () => {
         if (isMounted) setReminders(data);
       } catch (error) {
         console.error("Error cargando recordatorios:", error);
+        toast.error("Hubo un error al cargar los recordatorios.");
       } finally {
         if (isMounted) setLoading(false);
       }
@@ -63,7 +65,7 @@ export const useReminders = () => {
       await reloadReminders();
     } catch (error) {
       console.error("Error creando recordatorio:", error);
-      alert("Error al guardar el recordatorio.");
+      toast.error("Error al guardar el recordatorio.");
     } finally {
       setIsSubmitting(false);
     }
@@ -75,6 +77,7 @@ export const useReminders = () => {
       await reloadReminders();
     } catch (error) {
       console.error("Error al actualizar:", error);
+      toast.error("Hubo un error al actualizar el recordatorio.");
     }
   };
 
@@ -84,7 +87,9 @@ export const useReminders = () => {
       await apiFetch(`/reminders/${id}`, { method: 'DELETE' });
       await reloadReminders();
     } catch (error) {
+      
       console.error("Error al borrar:", error);
+      toast.error("Hubo un error al borrar el recordatorio.");
     }
   };
 

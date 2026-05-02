@@ -3,6 +3,7 @@ import { apiFetch } from "@/lib/api";
 import { Transaction } from "@/types/transactions";
 import { Category } from "@/types/categories";
 import { CreditCard } from "@/types/cards";
+import { toast } from "sonner";
 
 export const useTransactions = () => {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
@@ -107,7 +108,7 @@ export const useTransactions = () => {
       await reloadTransactions(); 
     } catch (error) {
       console.error("Error creando transacción:", error);
-      alert("Hubo un error al guardar el movimiento");
+      toast.error("Hubo un error al guardar el movimiento");
     } finally {
       setIsSubmitting(false);
     }
@@ -119,11 +120,10 @@ export const useTransactions = () => {
 
     try {
       await apiFetch(`/transactions/${id}`, { method: 'DELETE' });
-      // Llamamos a la recarga segura
       await reloadTransactions(); 
     } catch (error) {
       console.error("Error borrando transacción:", error);
-      alert("Hubo un error al borrar. Intentá de nuevo.");
+      toast.error("Hubo un error al borrar. Intentá de nuevo.");
     }
   };
 
