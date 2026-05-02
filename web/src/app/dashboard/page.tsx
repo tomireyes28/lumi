@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { apiFetch } from "@/lib/api";
-import { Wallet, TrendingUp, TrendingDown, CreditCard, Sparkles, BellRing } from "lucide-react";
+import { Wallet, TrendingUp, TrendingDown, CreditCard, Sparkles, BellRing, Calendar as CalendarIcon, Bell } from "lucide-react";
+import Link from "next/link"; // Importamos Link para navegar
 
 interface SummaryData {
   period: string;
@@ -21,7 +22,6 @@ interface CardRecommendation {
   message: string;
 }
 
-// Agregamos la interfaz para los recordatorios
 interface Reminder {
   id: string;
   title: string;
@@ -33,7 +33,8 @@ interface Reminder {
 export default function DashboardHomePage() {
   const [summary, setSummary] = useState<SummaryData | null>(null);
   const [recommendation, setRecommendation] = useState<CardRecommendation | null>(null);
-  const [dueToday, setDueToday] = useState<Reminder[]>([]); // Estado para las alertas
+  const [reminders, setReminders] = useState<Reminder[]>([]); // Todos los recordatorios (para la campanita)
+  const [dueToday, setDueToday] = useState<Reminder[]>([]); // Solo los de hoy (para el banner)
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -42,23 +43,24 @@ export default function DashboardHomePage() {
 
   const loadDashboardData = async () => {
     try {
-      // Ahora hacemos TRES consultas en paralelo
       const [summaryData, recData, remindersData] = await Promise.all([
         apiFetch('/transactions/summary'),
         apiFetch('/credit-cards/recommendation').catch(() => null),
-        apiFetch('/reminders').catch(() => []) // Si falla, devolvemos array vacío
+        apiFetch('/reminders').catch(() => []) 
       ]);
       
       setSummary(summaryData);
       setRecommendation(recData);
+      
+      // Guardamos todos los recordatorios para saber si hay pendientes
+      const allReminders = remindersData as Reminder[];
+      setReminders(allReminders);
 
-      // Filtramos los recordatorios para encontrar los que vencen HOY y no están pagados
       const today = new Date();
-      const todayAlerts = (remindersData as Reminder[]).filter(r => {
+      const todayAlerts = allReminders.filter(r => {
         if (r.isPaid) return false;
         
         const dueDate = new Date(r.dueDate);
-        // Comparamos el día, mes y año asegurando que coincidan las fechas
         return dueDate.getUTCDate() === today.getDate() &&
                dueDate.getUTCMonth() === today.getMonth() &&
                dueDate.getUTCFullYear() === today.getFullYear();
@@ -79,32 +81,52 @@ export default function DashboardHomePage() {
 
   return (
     <div className="p-6 pb-24 flex flex-col gap-6">
-      <header className="mb-2">
-        <h1 className="text-2xl font-bold text-gray-900">Hola, Aylu 👋</h1>
-        <p className="text-sm text-gray-500 mt-1">Acá está tu resumen de {summary?.period || 'este mes'}.</p>
+      
+      {/* HEADER CON BOTONES DE ACCESO RÁPIDO */}
+      <header className="mb-2 flex justify-between items-start">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Hola, Aylu 👋</h1>
+          <p className="text-sm text-gray-500 mt-1">Acá está tu resumen de {summary?.period || 'este mes'}.</p>
+        </div>
+        
+        {/* Accesos a Calendario y Vencimientos */}
+        <div className="flex gap-2">
+          <Link href="/dashboard/calendar" className="p-2.5 bg-gray-100/80 rounded-full text-gray-600 hover:bg-gray-200 transition-colors">
+            <CalendarIcon className="w-5 h-5" />
+          </Link>
+          <Link href="/dashboard/reminders" className="p-2.5 bg-gray-100/80 rounded-full text-gray-600 hover:bg-gray-200 transition-colors relative">
+            <Bell className="w-5 h-5" />
+            {/* Un puntito rojo sutil si hay vencimientos pendientes en general */}
+            {reminders.some(r => !r.isPaid) && (
+              <span className="absolute top-2 right-2.5 w-2 h-2 bg-pink-500 rounded-full border-2 border-gray-100"></span>
+            )}
+          </Link>
+        </div>
       </header>
 
-      {/* BANNER DE VENCIMIENTOS DE HOY (Color Rosa Pastel del PRD) */}
+      {/* BANNER DE VENCIMIENTOS (AHORA ES UN LINK CLICKEABLE) */}
       {dueToday.length > 0 && (
-        <div className="bg-pink-50 p-4 rounded-2xl shadow-sm border border-[#F9A8D4] flex flex-col gap-3 relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-24 h-24 bg-[#F9A8D4] opacity-10 rounded-full -mr-8 -mt-8"></div>
-          
-          <div className="flex items-center gap-2 relative z-10">
-            <BellRing className="w-5 h-5 text-pink-500 animate-pulse" />
-            <h3 className="text-xs font-bold text-pink-600 uppercase tracking-wider">¡Vencimientos de hoy!</h3>
+        <Link href="/dashboard/reminders" className="block cursor-pointer transition-transform hover:scale-[1.02] active:scale-[0.98]">
+          <div className="bg-pink-50 p-4 rounded-2xl shadow-sm border border-[#F9A8D4] flex flex-col gap-3 relative overflow-hidden">
+            <div className="absolute top-0 right-0 w-24 h-24 bg-[#F9A8D4] opacity-10 rounded-full -mr-8 -mt-8"></div>
+            
+            <div className="flex items-center gap-2 relative z-10">
+              <BellRing className="w-5 h-5 text-pink-500 animate-pulse" />
+              <h3 className="text-xs font-bold text-pink-600 uppercase tracking-wider">¡Vencimientos de hoy!</h3>
+            </div>
+            
+            <div className="flex flex-col gap-2 relative z-10">
+              {dueToday.map(reminder => (
+                <div key={reminder.id} className="flex justify-between items-center bg-white/60 p-2 rounded-lg">
+                  <span className="text-sm font-bold text-gray-800">{reminder.title}</span>
+                  {reminder.amount && (
+                    <span className="text-sm font-bold text-pink-600">${Number(reminder.amount).toLocaleString('es-AR')}</span>
+                  )}
+                </div>
+              ))}
+            </div>
           </div>
-          
-          <div className="flex flex-col gap-2 relative z-10">
-            {dueToday.map(reminder => (
-              <div key={reminder.id} className="flex justify-between items-center bg-white/60 p-2 rounded-lg">
-                <span className="text-sm font-bold text-gray-800">{reminder.title}</span>
-                {reminder.amount && (
-                  <span className="text-sm font-bold text-pink-600">${Number(reminder.amount).toLocaleString('es-AR')}</span>
-                )}
-              </div>
-            ))}
-          </div>
-        </div>
+        </Link>
       )}
 
       {/* BANNER DE RECOMENDACIÓN INTELIGENTE */}
