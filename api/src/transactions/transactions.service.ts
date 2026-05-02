@@ -71,4 +71,56 @@ export class TransactionsService {
       where: { id },
     });
   }
+
+  async getMonthlySummary(userId: string, month: number, year: number) {
+    // Definimos el inicio y fin del mes actual
+    const startDate = new Date(year, month - 1, 1);
+    const endDate = new Date(year, month, 1);
+
+    const baseWhere = {
+      userId,
+      date: { gte: startDate, lt: endDate },
+    };
+
+    // 1. Sumar todos los Ingresos del mes
+    const incomes = await this.prisma.transaction.aggregate({
+      where: { ...baseWhere, category: { type: 'income' } },
+      _sum: { amount: true },
+    });
+    const totalIncome = Number(incomes._sum.amount || 0);
+
+    // 2. Sumar todos los Gastos en EFECTIVO/DÉBITO del mes (creditCardId es null)
+    const cashExpenses = await this.prisma.transaction.aggregate({
+      where: { 
+        ...baseWhere, 
+        category: { type: 'expense' },
+        creditCardId: null // Solo los que NO se pagaron con tarjeta
+      },
+      _sum: { amount: true },
+    });
+    const totalCashExpense = Number(cashExpenses._sum.amount || 0);
+
+    // 3. Sumar Gastos con TARJETA DE CRÉDITO del mes
+    const cardExpenses = await this.prisma.transaction.aggregate({
+      where: { 
+        ...baseWhere, 
+        category: { type: 'expense' },
+        creditCardId: { not: null } // Solo los que SÍ tienen tarjeta
+      },
+      _sum: { amount: true },
+    });
+    const totalCardExpense = Number(cardExpenses._sum.amount || 0);
+
+    // 4. El cálculo que pediste: ¿Cuánta plata real me queda?
+    const availableCash = totalIncome - totalCashExpense;
+
+    return {
+      period: `${month}/${year}`,
+      totalIncome,
+      totalCashExpense,
+      totalCardExpense, // Esta plata se debe, pero no se restó del sueldo aún
+      availableCash,    // El sueldo descontando lo que ya se pagó
+    };
+  }
 }
+

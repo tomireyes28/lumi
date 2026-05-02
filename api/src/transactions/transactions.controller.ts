@@ -31,4 +31,17 @@ export class TransactionsController {
   remove(@Param('id') id: string, @Req() req: RequestWithUser) {
     return this.transactionsService.remove(id, req.user.userId);
   }
+
+  @Get('summary')
+  getSummary(
+    @Req() req: RequestWithUser,
+    @Query('month') month?: string,
+    @Query('year') year?: string,
+  ) {
+    // Si no mandan mes/año, calculamos el actual por defecto
+    const targetMonth = month ? parseInt(month) : new Date().getMonth() + 1;
+    const targetYear = year ? parseInt(year) : new Date().getFullYear();
+
+    return this.transactionsService.getMonthlySummary(req.user.userId, targetMonth, targetYear);
+  }
 }
