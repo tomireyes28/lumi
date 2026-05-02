@@ -1,79 +1,48 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { apiFetch } from "@/lib/api";
-
-interface Category {
-  id: string;
-  name: string;
-  type: 'income' | 'expense';
-  colorHex: string | null;
-  icon: string | null;
-}
+import { motion, Variants } from "framer-motion";
+import { useCategories } from "@/hooks/useCategories";
 
 export default function CategoriesPage() {
-  const [categories, setCategories] = useState<Category[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { categories, loading, form, handleSubmit } = useCategories();
 
-  // Estados del formulario
-  const [name, setName] = useState("");
-  const [type, setType] = useState<'income' | 'expense'>('expense');
-  const [colorHex, setColorHex] = useState("#fb923c"); // Naranja/Durazno por defecto
-  const [icon, setIcon] = useState("🛒");
-  const [isSubmitting, setIsSubmitting] = useState(false);
-
-  useEffect(() => {
-    loadCategories();
-  }, []);
-
-  const loadCategories = async () => {
-    try {
-      const data = await apiFetch('/categories');
-      setCategories(data);
-    } catch (error) {
-      console.error("Error cargando categorías:", error);
-    } finally {
-      setLoading(false);
-    }
+  // Variantes de animación
+  const containerVariants: Variants = {
+    hidden: { opacity: 0 },
+    visible: { opacity: 1, transition: { staggerChildren: 0.1 } }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsSubmitting(true);
-    try {
-      await apiFetch('/categories', {
-        method: 'POST',
-        body: JSON.stringify({ name, type, colorHex, icon }),
-      });
-      
-      setName("");
-      setIcon("🛒");
-      await loadCategories();
-    } catch (error) {
-      console.error("Error creando categoría:", error);
-      alert("Hubo un error al crear la categoría");
-    } finally {
-      setIsSubmitting(false);
-    }
+  const itemVariants: Variants = {
+    hidden: { opacity: 0, y: 15 },
+    visible: { opacity: 1, y: 0, transition: { duration: 0.4, ease: "easeOut" } }
   };
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center p-12">
+      <div className="flex items-center justify-center p-12 animate-pulse">
         <p className="text-gray-500 font-medium">Cargando categorías...</p>
       </div>
     );
   }
 
   return (
-    <div className="p-6 pb-24 flex flex-col gap-8">
-      <header>
+    <motion.div 
+      className="p-6 pb-24 flex flex-col gap-8"
+      initial="hidden"
+      animate="visible"
+      variants={containerVariants}
+    >
+      <motion.header variants={itemVariants}>
         <h1 className="text-2xl font-bold text-gray-900">Categorías</h1>
         <p className="text-sm text-gray-500 mt-1">Personalizá tus clasificaciones.</p>
-      </header>
+      </motion.header>
 
       {/* Formulario de Nueva Categoría */}
-      <form onSubmit={handleSubmit} className="bg-white p-5 rounded-2xl shadow-sm border border-sky-100">
+      <motion.form 
+        variants={itemVariants} 
+        onSubmit={handleSubmit} 
+        className="bg-white p-5 rounded-2xl shadow-sm border border-sky-100"
+      >
         <h2 className="text-sm font-bold text-gray-800 mb-4 uppercase tracking-wider">Nueva Categoría</h2>
         
         <div className="space-y-4">
@@ -82,8 +51,8 @@ export default function CategoriesPage() {
             <input 
               type="text" 
               required
-              value={name}
-              onChange={(e) => setName(e.target.value)}
+              value={form.name}
+              onChange={(e) => form.setName(e.target.value)}
               placeholder="Ej: Supermercado"
               className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-sky-500"
             />
@@ -94,15 +63,15 @@ export default function CategoriesPage() {
             <div className="flex gap-2">
               <button
                 type="button"
-                onClick={() => setType('expense')}
-                className={`flex-1 py-2 text-xs font-bold rounded-xl transition-all ${type === 'expense' ? 'bg-orange-100 text-orange-700 border border-orange-200' : 'bg-gray-50 text-gray-400 border border-transparent'}`}
+                onClick={() => form.setType('expense')}
+                className={`flex-1 py-2 text-xs font-bold rounded-xl transition-all ${form.type === 'expense' ? 'bg-orange-100 text-orange-700 border border-orange-200' : 'bg-gray-50 text-gray-400 border border-transparent'}`}
               >
                 Gasto
               </button>
               <button
                 type="button"
-                onClick={() => setType('income')}
-                className={`flex-1 py-2 text-xs font-bold rounded-xl transition-all ${type === 'income' ? 'bg-sky-100 text-sky-700 border border-sky-200' : 'bg-gray-50 text-gray-400 border border-transparent'}`}
+                onClick={() => form.setType('income')}
+                className={`flex-1 py-2 text-xs font-bold rounded-xl transition-all ${form.type === 'income' ? 'bg-sky-100 text-sky-700 border border-sky-200' : 'bg-gray-50 text-gray-400 border border-transparent'}`}
               >
                 Ingreso
               </button>
@@ -114,8 +83,8 @@ export default function CategoriesPage() {
               <label className="block text-xs font-medium text-gray-700 mb-1">Color</label>
               <input 
                 type="color" 
-                value={colorHex}
-                onChange={(e) => setColorHex(e.target.value)}
+                value={form.colorHex}
+                onChange={(e) => form.setColorHex(e.target.value)}
                 className="w-full h-10 p-1 border border-gray-200 rounded-xl cursor-pointer bg-gray-50"
               />
             </div>
@@ -124,33 +93,40 @@ export default function CategoriesPage() {
               <input 
                 type="text" 
                 required
-                value={icon}
-                onChange={(e) => setIcon(e.target.value)}
+                value={form.icon}
+                onChange={(e) => form.setIcon(e.target.value)}
                 className="w-full h-10 px-2 border border-gray-200 rounded-xl text-center text-xl focus:outline-none focus:ring-2 focus:ring-sky-500 bg-gray-50"
               />
             </div>
           </div>
 
-          <button 
+          <motion.button 
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
             type="submit" 
-            disabled={isSubmitting}
+            disabled={form.isSubmitting}
             className="w-full mt-2 bg-gray-900 text-white font-bold py-3 rounded-xl hover:bg-gray-800 transition-colors disabled:opacity-50"
           >
-            {isSubmitting ? 'Guardando...' : 'Crear Categoría'}
-          </button>
+            {form.isSubmitting ? 'Guardando...' : 'Crear Categoría'}
+          </motion.button>
         </div>
-      </form>
+      </motion.form>
 
       {/* Lista de Categorías */}
-      <div className="flex flex-col gap-3">
+      <motion.div variants={itemVariants} className="flex flex-col gap-3">
         <h2 className="text-sm font-bold text-gray-800 mb-1 uppercase tracking-wider">Tus Etiquetas</h2>
+        
         {categories.length === 0 ? (
           <div className="p-8 bg-sky-50 rounded-2xl border border-dashed border-sky-200 text-center text-sky-700 text-sm">
             No hay categorías todavía.
           </div>
         ) : (
           categories.map(cat => (
-            <div key={cat.id} className="p-3 bg-white rounded-xl shadow-sm border border-gray-100 flex items-center justify-between">
+            <motion.div 
+              variants={itemVariants} // ¡Magia! Reutilizamos la variante para que entren en cascada
+              key={cat.id} 
+              className="p-3 bg-white rounded-xl shadow-sm border border-gray-100 flex items-center justify-between"
+            >
               <div className="flex items-center gap-3">
                 <div 
                   className="w-10 h-10 rounded-lg flex items-center justify-center text-xl bg-opacity-20 shadow-inner"
@@ -165,10 +141,10 @@ export default function CategoriesPage() {
                   </span>
                 </div>
               </div>
-            </div>
+            </motion.div>
           ))
         )}
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
   );
 }
