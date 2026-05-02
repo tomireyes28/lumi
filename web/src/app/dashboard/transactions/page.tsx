@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { apiFetch } from "@/lib/api";
+import { Trash2 } from "lucide-react"; 
 
 interface Category {
   id: string;
@@ -106,6 +107,20 @@ export default function TransactionsPage() {
       alert("Hubo un error al guardar el movimiento");
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    const isConfirmed = window.confirm("¿Estás segura de que querés borrar este movimiento? Esta acción no se puede deshacer.");
+    
+    if (!isConfirmed) return;
+
+    try {
+      await apiFetch(`/transactions/${id}`, { method: 'DELETE' });
+      await loadTransactions(); // Recargamos la lista para que desaparezca
+    } catch (error) {
+      console.error("Error borrando transacción:", error);
+      alert("Hubo un error al borrar. Intentá de nuevo.");
     }
   };
 
@@ -217,26 +232,38 @@ export default function TransactionsPage() {
               const formattedDate = new Date(t.date).toLocaleDateString('es-AR', { day: '2-digit', month: 'short' });
 
               return (
-                <div key={t.id} className="p-3 bg-white rounded-xl shadow-sm border border-gray-100 flex flex-col gap-2 relative">
+                <div key={t.id} className="p-3 bg-white rounded-xl shadow-sm border border-gray-100 flex items-center justify-between relative">
                   {/* Etiquetita de Tarjeta si se pagó con una */}
                   {t.creditCard && (
-                    <span className="absolute top-3 right-3 text-[10px] font-bold bg-gray-100 text-gray-600 px-2 py-0.5 rounded-md flex items-center gap-1">
+                    <span className="absolute top-2 right-12 text-[10px] font-bold bg-gray-100 text-gray-600 px-2 py-0.5 rounded-md flex items-center gap-1">
                       💳 {t.creditCard.alias}
                     </span>
                   )}
+                  
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 rounded-lg flex items-center justify-center text-xl bg-opacity-20" style={{ backgroundColor: t.category?.colorHex ? `${t.category.colorHex}30` : '#f3f4f6' }}>
                       <span>{t.category?.icon || '📁'}</span>
                     </div>
-                    <div className="mt-1">
+                    <div>
                       <h3 className="font-bold text-gray-900 text-sm">{t.category?.name || 'Sin Categoría'}</h3>
                       <p className="text-xs text-gray-500">{t.note || 'Sin detalles'} • {formattedDate}</p>
                     </div>
                   </div>
-                  <div className="text-left ml-14">
-                    <span className={`text-base font-bold ${isIncome ? 'text-sky-600' : 'text-gray-900'}`}>
-                      {isIncome ? '+' : '-'}${Number(t.amount).toLocaleString('es-AR')}
-                    </span>
+
+                  <div className="flex items-center gap-3">
+                    <div className="text-right">
+                      <span className={`text-base font-bold block ${isIncome ? 'text-sky-600' : 'text-gray-900'}`}>
+                        {isIncome ? '+' : '-'}${Number(t.amount).toLocaleString('es-AR')}
+                      </span>
+                    </div>
+                    {/* BOTÓN DE BORRAR */}
+                    <button 
+                      onClick={() => handleDelete(t.id)}
+                      className="p-2 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                      title="Borrar movimiento"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
                   </div>
                 </div>
               );
