@@ -23,3 +23,10 @@ export interface RequestWithUser extends Request {
 export interface GoogleAuthRequest extends Request {
   user: GoogleUser;
 }
+
+export interface AuthenticatedRequest extends Request {
+  user: {
+    userId: string;
+    email: string;
+  };
+}
