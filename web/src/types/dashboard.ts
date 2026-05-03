@@ -1,3 +1,14 @@
+
+
+export interface DashboardSummary {
+  period: string;
+  availableCash: number;
+  totalIncome: number;
+  totalCashExpense: number;
+  totalCardExpense: number;
+}
+
+
 export interface SummaryData {
   period: string;
   totalIncome: number;
