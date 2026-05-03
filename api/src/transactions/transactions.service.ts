@@ -11,20 +11,59 @@ export class TransactionsService {
   constructor(private readonly prisma: PrismaService) {}
 
   async create(createTransactionDto: CreateTransactionDto, userId: string) {
-    return this.prisma.transaction.create({
-      data: {
-        amount: createTransactionDto.amount,
-        note: createTransactionDto.note,
-        date: createTransactionDto.date ? new Date(createTransactionDto.date) : new Date(),
-        user: { connect: { id: userId } },
-        category: { connect: { id: createTransactionDto.categoryId } },
-        ...(createTransactionDto.creditCardId && { 
-          creditCard: { connect: { id: createTransactionDto.creditCardId } } 
-        }),
-      },
-      include: {
-        category: true,
-      }
+    const { installments, amount, date, note, creditCardId, categoryId } = createTransactionDto;
+    const startDate = date ? new Date(date) : new Date();
+
+    // 1. SI ES UN GASTO NORMAL (Sin cuotas o 1 sola cuota)
+    if (!installments || installments <= 1) {
+      return this.prisma.transaction.create({
+        data: {
+          amount,
+          note,
+          date: startDate,
+          user: { connect: { id: userId } },
+          category: { connect: { id: categoryId } },
+          ...(creditCardId && { creditCard: { connect: { id: creditCardId } } }),
+        },
+        include: { category: true },
+      });
+    }
+
+    // 2. SI ES UN GASTO EN CUOTAS (Motor Opción A)
+    const installmentAmount = amount / installments;
+    const groupId = crypto.randomUUID(); // Generamos un ID único para vincular todas las cuotas
+    const transactionsData: Prisma.TransactionCreateManyInput[] = [];
+
+    for (let i = 1; i <= installments; i++) {
+      // Calculamos la fecha para cada cuota sumando meses
+      const installmentDate = new Date(startDate);
+      installmentDate.setMonth(startDate.getMonth() + (i - 1));
+
+      // Armamos la nota automática (Ej: "Heladera (Cuota 1/12)")
+      const baseNote = note ? note.trim() : 'Compra';
+      const installmentNote = `${baseNote} (Cuota ${i}/${installments})`;
+
+      transactionsData.push({
+        userId,
+        categoryId,
+        creditCardId: creditCardId || null,
+        amount: installmentAmount,
+        date: installmentDate,
+        note: installmentNote,
+        installmentGroupId: groupId,
+      });
+    }
+
+    // Insertamos todas las cuotas de golpe en la base de datos
+    await this.prisma.transaction.createMany({
+      data: transactionsData,
+    });
+
+    // Devolvemos la primera cuota creada para que el frontend pueda actualizar su UI
+    return this.prisma.transaction.findFirst({
+      where: { installmentGroupId: groupId },
+      orderBy: { date: 'asc' },
+      include: { category: true },
     });
   }
 

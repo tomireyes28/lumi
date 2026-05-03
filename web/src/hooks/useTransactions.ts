@@ -15,6 +15,7 @@ export const useTransactions = () => {
   const [amount, setAmount] = useState("");
   const [categoryId, setCategoryId] = useState("");
   const [creditCardId, setCreditCardId] = useState(""); 
+  const [installments, setInstallments] = useState("1"); // <-- NUEVO: Estado de cuotas
   const [note, setNote] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [tab, setTab] = useState<'expense' | 'income'>('expense');
@@ -96,10 +97,13 @@ export const useTransactions = () => {
           categoryId,
           note: note || undefined,
           creditCardId: tab === 'expense' && creditCardId ? creditCardId : undefined,
+          // Mandamos las cuotas solo si es gasto con tarjeta
+          installments: tab === 'expense' && creditCardId ? Number(installments) : undefined,
         }),
       });
       
-      setAmount(""); setNote(""); setCategoryId(""); setCreditCardId("");
+      // Reseteamos todo (incluyendo cuotas a 1)
+      setAmount(""); setNote(""); setCategoryId(""); setCreditCardId(""); setInstallments("1");
       await reloadTransactions(); 
       toast.success("Movimiento registrado");
     } catch (error) {
@@ -142,8 +146,9 @@ export const useTransactions = () => {
   }, [categories, tab]);
 
   return {
-    transactions, cards, categories, loading, // <-- Agregué categories acá
-    form: { amount, setAmount, categoryId, setCategoryId, creditCardId, setCreditCardId, note, setNote, isSubmitting },
+    transactions, cards, categories, loading,
+    // Agregamos installments al return del form
+    form: { amount, setAmount, categoryId, setCategoryId, creditCardId, setCreditCardId, installments, setInstallments, note, setNote, isSubmitting },
     tab, setTab,
     filterType, setFilterType, filteredCategories,
     editingTx, setEditingTx,

@@ -41,6 +41,8 @@ model Transaction {
   amount       Decimal   @db.Decimal(10, 2)
   date         DateTime  @default(now())
   note         String?
+
+  installmentGroupId String?
   
   user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   category     Category  @relation(fields: [categoryId], references: [id], onDelete: Cascade)

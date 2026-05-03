@@ -20,4 +20,8 @@ export class CreateTransactionDto {
   @IsOptional()
   @IsString()
   creditCardId?: string; 
+
+  @IsOptional()
+  @IsNumber()
+  installments?: number;
 }
