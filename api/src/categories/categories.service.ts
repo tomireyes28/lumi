@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateCategoryDto } from './dto/create-category.dto';
 import { UpdateCategoryDto } from './dto/update-category.dto';
@@ -7,14 +7,11 @@ import { UpdateCategoryDto } from './dto/update-category.dto';
 export class CategoriesService {
   constructor(private readonly prisma: PrismaService) {}
 
-  // 👇 DRY: Método privado para centralizar la validación de seguridad
   private async getCategoryOrThrow(id: string, userId: string) {
     const category = await this.prisma.category.findUnique({ where: { id } });
-    
     if (!category || category.userId !== userId) {
       throw new NotFoundException('Categoría no encontrada o no autorizada');
     }
-    
     return category;
   }
 
@@ -38,9 +35,7 @@ export class CategoriesService {
   }
 
   async update(id: string, updateCategoryDto: UpdateCategoryDto, userId: string) {
-    // Reutilizamos la validación de seguridad
     await this.getCategoryOrThrow(id, userId); 
-
     return this.prisma.category.update({
       where: { id },
       data: updateCategoryDto,
@@ -48,8 +43,16 @@ export class CategoriesService {
   }
 
   async remove(id: string, userId: string) {
-    // Reutilizamos la validación de seguridad
     await this.getCategoryOrThrow(id, userId); 
+
+    // VALIDACIÓN DE SEGURIDAD PARA TRANSACCIONES HUÉRFANAS
+    const txCount = await this.prisma.transaction.count({
+      where: { categoryId: id }
+    });
+
+    if (txCount > 0) {
+      throw new BadRequestException(`No podés borrar esta categoría porque tiene ${txCount} movimientos asociados. Editala o borrá los gastos primero.`);
+    }
 
     return this.prisma.category.delete({
       where: { id },
