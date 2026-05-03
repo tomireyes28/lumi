@@ -1,8 +1,9 @@
-import { Controller, Get, Post, Body, Param, Delete, UseGuards, Req } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, Delete, UseGuards, Req, Patch } from '@nestjs/common';
 import { CreditCardsService } from './credit-cards.service';
 import { CreateCreditCardDto } from './dto/create-credit-card.dto';
 import { AuthGuard } from '@nestjs/passport';
-import type { RequestWithUser } from '../auth/interfaces/auth.interfaces'; 
+import type { AuthenticatedRequest, RequestWithUser } from '../auth/interfaces/auth.interfaces'; 
+import { UpdateCreditCardDto } from './dto/update-credit-card.dto';
 
 @UseGuards(AuthGuard('jwt'))
 @Controller('credit-cards')
@@ -27,5 +28,14 @@ export class CreditCardsController {
   @Get('recommendation')
   getRecommendation(@Req() req: RequestWithUser) {
     return this.creditCardsService.getBestCardToUse(req.user.userId);
+  }
+
+  @Patch(':id')
+  update(
+    @Param('id') id: string, 
+    @Body() updateCreditCardDto: UpdateCreditCardDto, 
+    @Req() req: AuthenticatedRequest
+  ) {
+    return this.creditCardsService.update(id, updateCreditCardDto, req.user.userId);
   }
 }

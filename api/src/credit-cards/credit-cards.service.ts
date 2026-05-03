@@ -1,15 +1,14 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateCreditCardDto } from './dto/create-credit-card.dto';
+import { UpdateCreditCardDto } from './dto/update-credit-card.dto';
 
 @Injectable()
 export class CreditCardsService {
   constructor(private readonly prisma: PrismaService) {}
 
-  // 👇 DRY: Helper de seguridad y existencia
   private async getCardOrThrow(id: string, userId: string) {
     const card = await this.prisma.creditCard.findUnique({ where: { id } });
-    
     if (!card || card.userId !== userId) {
       throw new NotFoundException('Tarjeta no encontrada o no autorizada');
     }
@@ -38,7 +37,6 @@ export class CreditCardsService {
 
     const today = new Date();
 
-    // Resolviendo consumos en paralelo
     const cardsWithConsumption = await Promise.all(
       cards.map(async (card) => {
         const cycleStart = new Date(today.getFullYear(), today.getMonth(), card.closingDay);
@@ -65,20 +63,27 @@ export class CreditCardsService {
     return cardsWithConsumption;
   }
 
-  async remove(id: string, userId: string) {
-    // Reutilizamos la validación de seguridad
+  // ==========================================
+  // NUEVO MÉTODO: UPDATE SEGURO
+  // ==========================================
+  async update(id: string, updateCreditCardDto: UpdateCreditCardDto, userId: string) {
+    // 1. Verificamos pertenencia
     await this.getCardOrThrow(id, userId);
 
-    return this.prisma.creditCard.delete({
+    // 2. Actualizamos
+    return this.prisma.creditCard.update({
       where: { id },
+      data: updateCreditCardDto,
     });
   }
 
-  async getBestCardToUse(userId: string) {
-    const cards = await this.prisma.creditCard.findMany({
-      where: { userId },
-    });
+  async remove(id: string, userId: string) {
+    await this.getCardOrThrow(id, userId);
+    return this.prisma.creditCard.delete({ where: { id } });
+  }
 
+  async getBestCardToUse(userId: string) {
+    const cards = await this.prisma.creditCard.findMany({ where: { userId } });
     if (cards.length === 0) return null;
 
     const today = new Date();
@@ -91,7 +96,6 @@ export class CreditCardsService {
 
     for (const card of cards) {
       let daysToClose: number;
-
       if (currentDay < card.closingDay) {
         daysToClose = card.closingDay - currentDay;
       } else {

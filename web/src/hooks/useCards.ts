@@ -7,7 +7,7 @@ export const useCards = () => {
   const [cards, setCards] = useState<CreditCard[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Estados del formulario
+  // Estados del formulario de Creación
   const [alias, setAlias] = useState("");
   const [lastFour, setLastFour] = useState("");
   const [limit, setLimit] = useState("");
@@ -16,10 +16,13 @@ export const useCards = () => {
   const [colorHex, setColorHex] = useState("#0f172a");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // 1. Carga inicial: Aislada y segura dentro del useEffect
+  // Estados de los Modales
+  const [editingCard, setEditingCard] = useState<CreditCard | null>(null);
+  const [deletingCard, setDeletingCard] = useState<CreditCard | null>(null);
+
+  // 1. Carga inicial
   useEffect(() => {
     let isMounted = true;
-
     const initialLoad = async () => {
       try {
         const data = await apiFetch('/credit-cards');
@@ -31,15 +34,11 @@ export const useCards = () => {
         if (isMounted) setLoading(false);
       }
     };
-
     initialLoad();
-    
-    return () => {
-      isMounted = false;
-    };
+    return () => { isMounted = false; };
   }, []);
 
-  // 2. Función dedicada para recargar los datos de fondo al crear una tarjeta
+  // 2. Función de recarga
   const reloadCards = async () => {
     try {
       const data = await apiFetch('/credit-cards');
@@ -50,6 +49,8 @@ export const useCards = () => {
     }
   };
 
+  // --- ACCIONES CRUD ---
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
@@ -57,45 +58,56 @@ export const useCards = () => {
       await apiFetch('/credit-cards', {
         method: 'POST',
         body: JSON.stringify({
-          alias,
-          lastFour,
+          alias, lastFour, colorHex,
           limit: Number(limit),
           closingDay: Number(closingDay),
           dueDay: Number(dueDay),
-          colorHex,
         }),
       });
       
-      // Limpiamos el formulario
-      setAlias("");
-      setLastFour("");
-      setLimit("");
-      setClosingDay("");
-      setDueDay("");
-      setColorHex("#0f172a");
-      
-      // Recargamos el carrusel con la función limpia
+      setAlias(""); setLastFour(""); setLimit(""); setClosingDay(""); setDueDay(""); setColorHex("#0f172a");
       await reloadCards();
+      toast.success("Tarjeta guardada");
     } catch (error) {
       console.error("Error creando tarjeta:", error);
-      toast.error("Hubo un error al guardar la tarjeta. Revisá los datos.");
+      toast.error("Hubo un error al guardar la tarjeta.");
     } finally {
       setIsSubmitting(false);
     }
   };
 
+  const handleUpdate = async (id: string, updatedData: Partial<CreditCard>) => {
+    try {
+      await apiFetch(`/credit-cards/${id}`, {
+        method: 'PATCH',
+        body: JSON.stringify(updatedData),
+      });
+      toast.success('Tarjeta actualizada');
+      setEditingCard(null);
+      await reloadCards();
+    } catch (error) {
+      console.error(error);
+      toast.error('No se pudo actualizar la tarjeta');
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    try {
+      await apiFetch(`/credit-cards/${id}`, { method: 'DELETE' });
+      toast.success("Tarjeta eliminada");
+      setDeletingCard(null);
+      await reloadCards();
+    } catch (error) {
+      console.error("Error borrando tarjeta:", error);
+      toast.error("Hubo un error al borrar. Intentá de nuevo.");
+    }
+  };
+
   return {
-    cards,
-    loading,
-    form: {
-      alias, setAlias,
-      lastFour, setLastFour,
-      limit, setLimit,
-      closingDay, setClosingDay,
-      dueDay, setDueDay,
-      colorHex, setColorHex,
-      isSubmitting
-    },
-    handleSubmit
+    cards, loading,
+    form: { alias, setAlias, lastFour, setLastFour, limit, setLimit, closingDay, setClosingDay, dueDay, setDueDay, colorHex, setColorHex, isSubmitting },
+    editingCard, setEditingCard,
+    deletingCard, setDeletingCard,
+    handleUpdate, handleSubmit, handleDelete
   };
 };
