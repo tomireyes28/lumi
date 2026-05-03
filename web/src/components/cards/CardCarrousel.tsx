@@ -20,7 +20,14 @@ export function CardCarousel({ cards, itemVariants, cardVariants, onEditClick, o
           Todavía no tenés tarjetas cargadas.
         </div>
       ) : (
-        <div className="flex gap-4 overflow-x-auto pb-4 scrollbar-hide snap-x">
+        /* 
+          1. CONTENEDOR DEL SCROLL:
+          - snap-x snap-mandatory: Activa el magnetismo.
+          - scrollbar-hide: Oculta la barra nativa. (Si no te funciona, podemos usar clases estándar).
+          - -mx-6 px-6: Esto es un truco PRO de Tailwind. Permite que la tarjeta se deslice hasta 
+            el borde de la pantalla, pero cuando vuelve al inicio, respeta el padding general de tu app.
+        */
+        <div className="flex gap-4 overflow-x-auto pb-4 pt-2 -mx-6 px-6 scrollbar-hide snap-x snap-mandatory">
           {cards.map(card => {
             const limitNum = Number(card.limit);
             const consumedNum = card.consumed || 0;
@@ -34,12 +41,18 @@ export function CardCarousel({ cards, itemVariants, cardVariants, onEditClick, o
               <motion.div 
                 variants={cardVariants}
                 key={card.id} 
-                className="shrink-0 w-80 h-48 rounded-2xl p-5 text-white shadow-lg flex flex-col justify-between relative overflow-hidden snap-center group"
+                /* 
+                  2. LA TARJETA:
+                  - min-w-[85vw] sm:min-w-[320px]: En celu ocupa el 85% de la pantalla (deja espiar a la otra), 
+                    en compu/tablet se clava en 320px para no quedar gigante.
+                  - snap-center: Cuando soltás el dedo, la tarjeta se centra.
+                */
+                className="shrink-0 min-w-[85vw] sm:min-w-[320px] h-48 rounded-2xl p-5 text-white shadow-lg flex flex-col justify-between relative overflow-hidden snap-center group"
                 style={{ backgroundColor: card.colorHex || '#0f172a' }}
               >
                 <div className="absolute top-0 right-0 w-32 h-32 bg-white opacity-10 rounded-full -mr-10 -mt-10 pointer-events-none"></div>
                 
-                {/* Botones de acción (visibles en hover o tap) */}
+                {/* Botones de acción */}
                 <div className="absolute top-3 left-3 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity z-20 bg-black/20 p-1.5 rounded-lg backdrop-blur-sm">
                   <button onClick={() => onEditClick(card)} className="p-1 hover:text-white text-white/70 transition-colors" title="Editar">
                     <Pencil className="w-3.5 h-3.5" />

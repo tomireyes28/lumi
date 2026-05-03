@@ -11,10 +11,7 @@ export default function DashboardHomePage() {
 
   const containerVariants: Variants = {
     hidden: { opacity: 0 },
-    visible: {
-      opacity: 1,
-      transition: { staggerChildren: 0.1 }
-    }
+    visible: { opacity: 1, transition: { staggerChildren: 0.1 } }
   };
 
   const itemVariants: Variants = {
@@ -33,24 +30,28 @@ export default function DashboardHomePage() {
       animate="visible"
       variants={containerVariants}
     >
+      {/* 1. Header (Saludo y Botones) */}
       <DashboardHeader 
         summary={summary} 
         reminders={reminders} 
         itemVariants={itemVariants} 
       />
 
+      {/* 2. LO MÁS IMPORTANTE: El Saldo Actual */}
+      <DashboardStats 
+        summary={summary} 
+        itemVariants={itemVariants} 
+      />
+
+      {/* 3. URGENCIA: Vencimientos de Hoy */}
       <DueTodayBanner 
         dueToday={dueToday} 
         itemVariants={itemVariants} 
       />
 
+      {/* 4. INTELIGENCIA: Recomendación de Tarjeta */}
       <RecommendationBanner 
         recommendation={recommendation} 
-        itemVariants={itemVariants} 
-      />
-
-      <DashboardStats 
-        summary={summary} 
         itemVariants={itemVariants} 
       />
     </motion.div>

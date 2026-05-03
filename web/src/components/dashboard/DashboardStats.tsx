@@ -24,7 +24,7 @@ export function DashboardStats({ summary, itemVariants }: DashboardStatsProps) {
             ${summary?.availableCash.toLocaleString('es-AR')}
           </span>
           <p className="text-xs text-gray-400 mt-2 font-medium">
-            (Ingresos menos gastos en efectivo)
+            (Ingresos menos gastos en efectivo/débito)
           </p>
         </div>
       </motion.div>
@@ -36,20 +36,20 @@ export function DashboardStats({ summary, itemVariants }: DashboardStatsProps) {
             <div className="p-2 bg-sky-50 rounded-lg text-sky-600">
               <TrendingUp className="w-4 h-4" />
             </div>
-            <span className="text-xs font-bold text-gray-600 uppercase">Ingresos</span>
+            <span className="text-xs font-bold text-gray-600 uppercase tracking-wider">Ingresos</span>
           </div>
           <span className="text-lg font-bold text-gray-900">
             ${summary?.totalIncome.toLocaleString('es-AR')}
           </span>
         </motion.div>
 
-        {/* TARJETA SECUNDARIA: Gastos Efectivo */}
+        {/* TARJETA SECUNDARIA: Gastos Fijos (Efectivo) */}
         <motion.div variants={itemVariants} className="bg-white p-4 rounded-2xl border border-orange-100 shadow-sm flex flex-col gap-2">
           <div className="flex items-center gap-2">
             <div className="p-2 bg-orange-50 rounded-lg text-orange-600">
               <TrendingDown className="w-4 h-4" />
             </div>
-            <span className="text-xs font-bold text-gray-600 uppercase">Efectivo</span>
+            <span className="text-xs font-bold text-gray-600 uppercase tracking-wider">Gastos Fijos</span>
           </div>
           <span className="text-lg font-bold text-gray-900">
             ${summary?.totalCashExpense.toLocaleString('es-AR')}
