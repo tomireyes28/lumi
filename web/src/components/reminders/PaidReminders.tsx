@@ -4,11 +4,11 @@ import { Reminder } from "@/types/reminders";
 
 interface PaidRemindersProps {
   reminders: Reminder[];
-  handleDelete: (id: string) => void;
+  onDeleteClick: (r: Reminder) => void;
   itemVariants: Variants;
 }
 
-export function PaidReminders({ reminders, handleDelete, itemVariants }: PaidRemindersProps) {
+export function PaidReminders({ reminders, onDeleteClick, itemVariants }: PaidRemindersProps) {
   if (reminders.length === 0) return null;
 
   return (
@@ -17,18 +17,13 @@ export function PaidReminders({ reminders, handleDelete, itemVariants }: PaidRem
       <AnimatePresence mode="popLayout">
         {reminders.map(r => (
           <motion.div 
-            key={r.id}
-            layout
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: 'auto' }}
-            exit={{ opacity: 0, scale: 0.9, x: 50 }}
-            transition={{ duration: 0.3 }}
+            key={r.id} layout initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, scale: 0.9, x: 50 }} transition={{ duration: 0.3 }}
             className="p-3 bg-gray-50 rounded-xl flex items-center justify-between"
           >
             <span className="text-sm font-medium line-through">{r.title}</span>
             <button 
-              onClick={() => handleDelete(r.id)}
-              className="p-1.5 text-gray-400 hover:text-red-500 rounded-lg"
+              onClick={() => onDeleteClick(r)}
+              className="p-1.5 text-gray-400 hover:text-red-500 rounded-lg transition-colors"
             >
               <Trash2 className="w-4 h-4" />
             </button>
