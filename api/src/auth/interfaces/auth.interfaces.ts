@@ -4,6 +4,7 @@ import { Request } from 'express';
 export interface GoogleUser {
   email: string;
   name: string;
+  picture?: string;
 }
 
 // Tipado de lo que guardamos adentro del Token JWT
