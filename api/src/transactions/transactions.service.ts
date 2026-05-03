@@ -2,6 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateTransactionDto } from './dto/create-transaction.dto';
 import { GetTransactionsFilterDto } from './dto/get-transactions-filter.dto';
+import { UpdateTransactionDto } from './dto/update-transaction.dto'; // <-- Importación nueva
 import { Prisma } from '@prisma/client';
 import { getMonthDateRange } from '../utils/date.util';
 
@@ -17,7 +18,6 @@ export class TransactionsService {
         date: createTransactionDto.date ? new Date(createTransactionDto.date) : new Date(),
         user: { connect: { id: userId } },
         category: { connect: { id: createTransactionDto.categoryId } },
-        // Agregamos la vinculación condicional con la tarjeta de crédito
         ...(createTransactionDto.creditCardId && { 
           creditCard: { connect: { id: createTransactionDto.creditCardId } } 
         }),
@@ -47,6 +47,40 @@ export class TransactionsService {
     });
   }
 
+  // ==========================================
+  // NUEVO MÉTODO: UPDATE BLINDADO
+  // ==========================================
+  async update(id: string, updateTransactionDto: UpdateTransactionDto, userId: string) {
+    // 1. Verificamos que la transacción exista y sea de este usuario
+    const transaction = await this.prisma.transaction.findUnique({ where: { id } });
+    
+    if (!transaction || transaction.userId !== userId) {
+      throw new NotFoundException('Transacción no encontrada o no autorizada');
+    }
+
+    // 2. Armamos el objeto de datos a actualizar
+    const dataToUpdate: Prisma.TransactionUpdateInput = {};
+
+    if (updateTransactionDto.amount !== undefined) dataToUpdate.amount = updateTransactionDto.amount;
+    if (updateTransactionDto.note !== undefined) dataToUpdate.note = updateTransactionDto.note;
+    if (updateTransactionDto.date !== undefined) dataToUpdate.date = new Date(updateTransactionDto.date);
+    
+    if (updateTransactionDto.categoryId) {
+      dataToUpdate.category = { connect: { id: updateTransactionDto.categoryId } };
+    }
+    
+    if (updateTransactionDto.creditCardId) {
+      dataToUpdate.creditCard = { connect: { id: updateTransactionDto.creditCardId } };
+    }
+
+    // 3. Actualizamos en la base de datos
+    return this.prisma.transaction.update({
+      where: { id },
+      data: dataToUpdate,
+      include: { category: true },
+    });
+  }
+
   async remove(id: string, userId: string) {
     const transaction = await this.prisma.transaction.findUnique({ where: { id } });
     
@@ -58,7 +92,6 @@ export class TransactionsService {
   }
 
   async getMonthlySummary(userId: string, targetMonth?: number, targetYear?: number) {
-    // Si no mandan mes/año, calculamos el actual por defecto acá en el servicio
     const month = targetMonth || new Date().getMonth() + 1;
     const year = targetYear || new Date().getFullYear();
 
@@ -69,7 +102,6 @@ export class TransactionsService {
       date: { gte: startDate, lt: endDate },
     };
 
-    // Disparamos las tres consultas a la DB EN PARALELO (3x más rápido)
     const [incomes, cashExpenses, cardExpenses] = await Promise.all([
       this.prisma.transaction.aggregate({
         where: { ...baseWhere, category: { type: 'income' } },
