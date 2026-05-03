@@ -2,7 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateTransactionDto } from './dto/create-transaction.dto';
 import { GetTransactionsFilterDto } from './dto/get-transactions-filter.dto';
-import { UpdateTransactionDto } from './dto/update-transaction.dto'; // <-- Importación nueva
+import { UpdateTransactionDto } from './dto/update-transaction.dto';
 import { Prisma } from '@prisma/client';
 import { getMonthDateRange } from '../utils/date.util';
 
@@ -43,22 +43,17 @@ export class TransactionsService {
     return this.prisma.transaction.findMany({
       where: whereClause,
       orderBy: { date: 'desc' },
-      include: { category: true },
+      include: { category: true, creditCard: true }, // <-- Agregué creditCard acá también para que el listado la traiga siempre
     });
   }
 
-  // ==========================================
-  // NUEVO MÉTODO: UPDATE BLINDADO
-  // ==========================================
   async update(id: string, updateTransactionDto: UpdateTransactionDto, userId: string) {
-    // 1. Verificamos que la transacción exista y sea de este usuario
     const transaction = await this.prisma.transaction.findUnique({ where: { id } });
     
     if (!transaction || transaction.userId !== userId) {
       throw new NotFoundException('Transacción no encontrada o no autorizada');
     }
 
-    // 2. Armamos el objeto de datos a actualizar
     const dataToUpdate: Prisma.TransactionUpdateInput = {};
 
     if (updateTransactionDto.amount !== undefined) dataToUpdate.amount = updateTransactionDto.amount;
@@ -69,15 +64,21 @@ export class TransactionsService {
       dataToUpdate.category = { connect: { id: updateTransactionDto.categoryId } };
     }
     
-    if (updateTransactionDto.creditCardId) {
+    // ==========================================
+    // LÓGICA DE TARJETA BLINDADA
+    // ==========================================
+    if (updateTransactionDto.creditCardId === null) {
+      // Si el frontend manda null explícitamente, desconectamos la tarjeta (pasó a efectivo)
+      dataToUpdate.creditCard = { disconnect: true };
+    } else if (updateTransactionDto.creditCardId !== undefined) {
+      // Si manda un ID, conectamos la nueva tarjeta
       dataToUpdate.creditCard = { connect: { id: updateTransactionDto.creditCardId } };
     }
 
-    // 3. Actualizamos en la base de datos
     return this.prisma.transaction.update({
       where: { id },
       data: dataToUpdate,
-      include: { category: true },
+      include: { category: true, creditCard: true },
     });
   }
 

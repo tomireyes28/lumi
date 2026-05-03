@@ -1,4 +1,4 @@
-import { Trash2 } from "lucide-react"; 
+import { Trash2, Pencil } from "lucide-react"; 
 import { motion, AnimatePresence, Variants } from "framer-motion";
 import { Transaction } from "@/types/transactions";
 
@@ -7,12 +7,13 @@ interface TransactionListProps {
   loading: boolean;
   filterType: 'all' | 'income' | 'expense';
   setFilterType: (type: 'all' | 'income' | 'expense') => void;
-  handleDelete: (id: string) => void;
+  onEditClick: (tx: Transaction) => void;
+  onDeleteClick: (tx: Transaction) => void;
   itemVariants: Variants; 
 }
 
 export function TransactionList({ 
-  transactions, loading, filterType, setFilterType, handleDelete, itemVariants 
+  transactions, loading, filterType, setFilterType, onEditClick, onDeleteClick, itemVariants 
 }: TransactionListProps) {
   return (
     <motion.div variants={itemVariants} className="space-y-3">
@@ -41,16 +42,12 @@ export function TransactionList({
 
                 return (
                   <motion.div 
-                    layout
-                    initial={{ opacity: 0, scale: 0.95 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    exit={{ opacity: 0, scale: 0.9, x: -50 }}
-                    transition={{ duration: 0.2 }}
+                    layout initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.9, x: -50 }} transition={{ duration: 0.2 }}
                     key={t.id} 
-                    className="p-3 bg-white rounded-xl shadow-sm border border-gray-100 flex items-center justify-between relative"
+                    className="p-3 bg-white rounded-xl shadow-sm border border-gray-100 flex items-center justify-between relative group"
                   >
                     {t.creditCard && (
-                      <span className="absolute top-2 right-12 text-[10px] font-bold bg-gray-100 text-gray-600 px-2 py-0.5 rounded-md flex items-center gap-1">
+                      <span className="absolute top-2 right-16 text-[10px] font-bold bg-gray-100 text-gray-600 px-2 py-0.5 rounded-md flex items-center gap-1">
                         💳 {t.creditCard.alias}
                       </span>
                     )}
@@ -65,19 +62,18 @@ export function TransactionList({
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-3">
-                      <div className="text-right">
-                        <span className={`text-base font-bold block ${isIncome ? 'text-sky-600' : 'text-gray-900'}`}>
-                          {isIncome ? '+' : '-'}${Number(t.amount).toLocaleString('es-AR')}
-                        </span>
+                    <div className="flex flex-col items-end gap-1">
+                      <span className={`text-base font-bold ${isIncome ? 'text-sky-600' : 'text-gray-900'}`}>
+                        {isIncome ? '+' : '-'}${Number(t.amount).toLocaleString('es-AR')}
+                      </span>
+                      <div className="flex gap-1">
+                        <button onClick={() => onEditClick(t)} className="p-1.5 text-gray-300 hover:text-sky-600 hover:bg-sky-50 rounded-lg transition-colors" title="Editar movimiento">
+                          <Pencil className="w-3.5 h-3.5" />
+                        </button>
+                        <button onClick={() => onDeleteClick(t)} className="p-1.5 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors" title="Borrar movimiento">
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
                       </div>
-                      <button 
-                        onClick={() => handleDelete(t.id)}
-                        className="p-2 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
-                        title="Borrar movimiento"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
                     </div>
                   </motion.div>
                 );

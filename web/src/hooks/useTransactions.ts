@@ -11,18 +11,22 @@ export const useTransactions = () => {
   const [cards, setCards] = useState<CreditCard[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Estados del formulario
+  // Estados del formulario de Creación
   const [amount, setAmount] = useState("");
   const [categoryId, setCategoryId] = useState("");
   const [creditCardId, setCreditCardId] = useState(""); 
   const [note, setNote] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [tab, setTab] = useState<'expense' | 'income'>('expense');
+  
+  // Estados para los Modales
+  const [editingTx, setEditingTx] = useState<Transaction | null>(null);
+  const [deletingTx, setDeletingTx] = useState<Transaction | null>(null);
 
   // Filtro de lista
   const [filterType, setFilterType] = useState<'all' | 'income' | 'expense'>('all');
 
-  // 1. Carga inicial de datos de soporte (Categorías y Tarjetas)
+  // 1. Carga inicial de datos de soporte
   useEffect(() => {
     let isMounted = true;
     const fetchInitialData = async () => {
@@ -43,10 +47,9 @@ export const useTransactions = () => {
     return () => { isMounted = false; };
   }, []);
 
-  // 2. Efecto seguro para cargar transacciones cuando cambia el filtro
+  // 2. Efecto seguro para cargar transacciones
   useEffect(() => {
     let isMounted = true;
-
     const fetchTransactions = async () => {
       if (isMounted) setLoading(true);
       try {
@@ -62,15 +65,11 @@ export const useTransactions = () => {
         if (isMounted) setLoading(false);
       }
     };
-
     fetchTransactions();
-
-    return () => {
-      isMounted = false;
-    };
+    return () => { isMounted = false; };
   }, [filterType]);
 
-  // 3. Función exclusiva para recargar tras una mutación (Crear/Borrar)
+  // 3. Función exclusiva para recargar
   const reloadTransactions = async () => {
     try {
       const queryParams = new URLSearchParams();
@@ -84,10 +83,11 @@ export const useTransactions = () => {
     }
   };
 
+  // --- ACCIONES CRUD ---
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
-    
     try {
       await apiFetch('/transactions', {
         method: 'POST',
@@ -99,13 +99,9 @@ export const useTransactions = () => {
         }),
       });
       
-      setAmount("");
-      setNote("");
-      setCategoryId("");
-      setCreditCardId("");
-      
-      // Llamamos a la recarga segura
+      setAmount(""); setNote(""); setCategoryId(""); setCreditCardId("");
       await reloadTransactions(); 
+      toast.success("Movimiento registrado");
     } catch (error) {
       console.error("Error creando transacción:", error);
       toast.error("Hubo un error al guardar el movimiento");
@@ -114,12 +110,26 @@ export const useTransactions = () => {
     }
   };
 
-  const handleDelete = async (id: string) => {
-    const isConfirmed = window.confirm("¿Estás segura de que querés borrar este movimiento? Esta acción no se puede deshacer.");
-    if (!isConfirmed) return;
+  const handleUpdate = async (id: string, updatedData: Partial<{ amount: number; categoryId: string; note: string; creditCardId: string | null }>) => {
+    try {
+      await apiFetch(`/transactions/${id}`, {
+        method: 'PATCH',
+        body: JSON.stringify(updatedData),
+      });
+      toast.success('Movimiento actualizado con éxito');
+      setEditingTx(null);
+      await reloadTransactions(); 
+    } catch (error) {
+      console.error(error);
+      toast.error('No se pudo actualizar el movimiento');
+    }
+  };
 
+  const handleDelete = async (id: string) => {
     try {
       await apiFetch(`/transactions/${id}`, { method: 'DELETE' });
+      toast.success("Movimiento eliminado");
+      setDeletingTx(null); // Cerramos el modal
       await reloadTransactions(); 
     } catch (error) {
       console.error("Error borrando transacción:", error);
@@ -132,14 +142,12 @@ export const useTransactions = () => {
   }, [categories, tab]);
 
   return {
-    transactions,
-    cards,
-    loading,
+    transactions, cards, categories, loading, // <-- Agregué categories acá
     form: { amount, setAmount, categoryId, setCategoryId, creditCardId, setCreditCardId, note, setNote, isSubmitting },
     tab, setTab,
-    filterType, setFilterType,
-    filteredCategories,
-    handleSubmit,
-    handleDelete
+    filterType, setFilterType, filteredCategories,
+    editingTx, setEditingTx,
+    deletingTx, setDeletingTx,
+    handleUpdate, handleSubmit, handleDelete
   };
 };
