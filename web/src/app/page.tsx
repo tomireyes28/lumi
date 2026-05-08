@@ -4,6 +4,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { motion, Variants } from "framer-motion";
 import { AuthForm } from "@/components/auth/AuthForm";
 import { GoogleButton } from "@/components/auth/GoogleButton";
+import Image from "next/image"; // <-- Importamos el componente de imagen optimizada
 
 export default function Home() {
   const { loginWithGoogle } = useAuth();
@@ -24,6 +25,7 @@ export default function Home() {
   return (
     <main className="flex min-h-screen items-center justify-center bg-gray-50 p-4 sm:p-8">
       
+      {/* Fondos difuminados */}
       <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none">
         <div className="absolute top-[-20%] left-[-10%] w-[50%] h-[50%] rounded-full bg-sky-100 blur-[120px] opacity-60"></div>
         <div className="absolute top-[60%] right-[-10%] w-[40%] h-[40%] rounded-full bg-pink-100 blur-[120px] opacity-60"></div>
@@ -35,13 +37,19 @@ export default function Home() {
         animate="visible"
         variants={containerVariant}
       >
-        <div className="p-8 pb-6 text-center">
-          <motion.h1 variants={fadeUpVariant} className="text-4xl font-bold text-gray-900 mb-2">
-            Lumi <span className="text-sky-500">Finanzas</span>
-          </motion.h1>
-          <motion.p variants={fadeUpVariant} className="text-sm text-gray-500 font-medium">
-            Tus cuentas claras, sin límites.
-          </motion.p>
+        
+        {/* ACÁ ESTÁ LA MAGIA: El nuevo Logo */}
+        <div className="p-8 pb-4 flex justify-center">
+          <motion.div variants={fadeUpVariant} className="relative flex justify-center w-full">
+            <Image 
+              src="/logo-completo.png" 
+              alt="Lumi Finanzas Claras" 
+              width={220} // Ajustá este valor si lo querés más grande o chico
+              height={100}
+              priority // Le dice a Next.js que cargue esta imagen primero
+              className="object-contain"
+            />
+          </motion.div>
         </div>
 
         {/* Formulario Modularizado */}
