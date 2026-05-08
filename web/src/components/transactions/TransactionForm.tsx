@@ -50,11 +50,11 @@ export function TransactionForm({
         <div>
           <label className="block text-xs font-medium text-gray-700 mb-1">Categoría</label>
           <select required value={form.categoryId} onChange={(e) => form.setCategoryId(e.target.value)} className="w-full px-3 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-sky-500">
-            <option value="" disabled>Seleccionar...</option>
-            {filteredCategories.map(cat => (
-              <option key={cat.id} value={cat.id}>{cat.icon} {cat.name}</option>
-            ))}
-          </select>
+  <option value="" disabled>Seleccionar...</option>
+  {filteredCategories.map(cat => (
+    <option key={cat.id} value={cat.id}>{cat.name}</option>
+  ))}
+</select>
         </div>
 
         <AnimatePresence>
@@ -159,10 +159,10 @@ export function EditTransactionForm({ transaction, categories, cards, onSave, on
       <div>
         <label className="block text-xs font-medium text-gray-700 mb-1">Categoría</label>
         <select required value={categoryId} onChange={(e) => setCategoryId(e.target.value)} className="w-full px-3 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none">
-          {availableCategories.map(cat => (
-            <option key={cat.id} value={cat.id}>{cat.icon} {cat.name}</option>
-          ))}
-        </select>
+  {availableCategories.map(cat => (
+    <option key={cat.id} value={cat.id}>{cat.name}</option>
+  ))}
+</select>
       </div>
 
       {isExpense && (

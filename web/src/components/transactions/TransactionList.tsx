@@ -1,3 +1,4 @@
+import * as LucideIcons from "lucide-react"; // Importamos todos los íconos
 import { Trash2, Pencil } from "lucide-react"; 
 import { motion, AnimatePresence, Variants } from "framer-motion";
 import { Transaction } from "@/types/transactions";
@@ -40,6 +41,12 @@ export function TransactionList({
                 const isIncome = t.category?.type === 'income';
                 const formattedDate = new Date(t.date).toLocaleDateString('es-AR', { day: '2-digit', month: 'short' });
 
+                // Magia: Buscamos el ícono en la librería. Si no existe o es un emoji, fallamos con gracia.
+                const iconName = t.category?.icon;
+                const IconComponent = iconName && iconName in LucideIcons 
+                  ? LucideIcons[iconName as keyof typeof LucideIcons] as React.ElementType
+                  : null;
+
                 return (
                   <motion.div 
                     layout initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.9, x: -50 }} transition={{ duration: 0.2 }}
@@ -49,14 +56,18 @@ export function TransactionList({
                     
                     {/* PARTE IZQUIERDA: Ícono, Categoría, Tarjeta y Fecha */}
                     <div className="flex items-center gap-3 overflow-hidden">
-                      <div className="shrink-0 w-10 h-10 rounded-lg flex items-center justify-center text-xl bg-opacity-20" style={{ backgroundColor: t.category?.colorHex ? `${t.category.colorHex}30` : '#f3f4f6' }}>
-                        <span>{t.category?.icon || '📁'}</span>
+                      <div className="shrink-0 w-10 h-10 rounded-lg flex items-center justify-center bg-opacity-20" style={{ backgroundColor: t.category?.colorHex ? `${t.category.colorHex}30` : '#f3f4f6' }}>
+                        {/* Si encontramos el ícono de Lucide lo mostramos, si no (ej: si era un emoji) lo mostramos como texto */}
+                        {IconComponent ? (
+                          <IconComponent className="w-5 h-5 text-gray-700" style={{ color: t.category?.colorHex || '#374151' }} />
+                        ) : (
+                          <span className="text-xl">{t.category?.icon || '📁'}</span>
+                        )}
                       </div>
                       
                       <div className="flex flex-col min-w-0">
                         <div className="flex items-center gap-2 mb-0.5 flex-wrap">
                           <h3 className="font-bold text-gray-900 text-sm truncate">{t.category?.name || 'Sin Categoría'}</h3>
-                          {/* Etiqueta movida acá, dentro del flujo normal */}
                           {t.creditCard && (
                             <span className="text-[10px] font-bold bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded flex items-center gap-1 whitespace-nowrap">
                               💳 {t.creditCard.alias}
@@ -67,7 +78,7 @@ export function TransactionList({
                       </div>
                     </div>
 
-                    {/* PARTE DERECHA: Monto y Botones (Con shrink-0 para que nunca se aplaste) */}
+                    {/* PARTE DERECHA: Monto y Botones */}
                     <div className="flex flex-col items-end gap-1 shrink-0">
                       <span className={`text-base font-bold ${isIncome ? 'text-sky-600' : 'text-gray-900'}`}>
                         {isIncome ? '+' : '-'}${Number(t.amount).toLocaleString('es-AR')}
