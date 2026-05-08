@@ -44,25 +44,31 @@ export function TransactionList({
                   <motion.div 
                     layout initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.9, x: -50 }} transition={{ duration: 0.2 }}
                     key={t.id} 
-                    className="p-3 bg-white rounded-xl shadow-sm border border-gray-100 flex items-center justify-between relative group"
+                    className="p-3 bg-white rounded-xl shadow-sm border border-gray-100 flex items-center justify-between gap-2 relative group"
                   >
-                    {t.creditCard && (
-                      <span className="absolute top-2 right-16 text-[10px] font-bold bg-gray-100 text-gray-600 px-2 py-0.5 rounded-md flex items-center gap-1">
-                        💳 {t.creditCard.alias}
-                      </span>
-                    )}
                     
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-lg flex items-center justify-center text-xl bg-opacity-20" style={{ backgroundColor: t.category?.colorHex ? `${t.category.colorHex}30` : '#f3f4f6' }}>
+                    {/* PARTE IZQUIERDA: Ícono, Categoría, Tarjeta y Fecha */}
+                    <div className="flex items-center gap-3 overflow-hidden">
+                      <div className="shrink-0 w-10 h-10 rounded-lg flex items-center justify-center text-xl bg-opacity-20" style={{ backgroundColor: t.category?.colorHex ? `${t.category.colorHex}30` : '#f3f4f6' }}>
                         <span>{t.category?.icon || '📁'}</span>
                       </div>
-                      <div>
-                        <h3 className="font-bold text-gray-900 text-sm">{t.category?.name || 'Sin Categoría'}</h3>
-                        <p className="text-xs text-gray-500">{t.note || 'Sin detalles'} • {formattedDate}</p>
+                      
+                      <div className="flex flex-col min-w-0">
+                        <div className="flex items-center gap-2 mb-0.5 flex-wrap">
+                          <h3 className="font-bold text-gray-900 text-sm truncate">{t.category?.name || 'Sin Categoría'}</h3>
+                          {/* Etiqueta movida acá, dentro del flujo normal */}
+                          {t.creditCard && (
+                            <span className="text-[10px] font-bold bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded flex items-center gap-1 whitespace-nowrap">
+                              💳 {t.creditCard.alias}
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-xs text-gray-500 truncate">{t.note || 'Sin detalles'} • {formattedDate}</p>
                       </div>
                     </div>
 
-                    <div className="flex flex-col items-end gap-1">
+                    {/* PARTE DERECHA: Monto y Botones (Con shrink-0 para que nunca se aplaste) */}
+                    <div className="flex flex-col items-end gap-1 shrink-0">
                       <span className={`text-base font-bold ${isIncome ? 'text-sky-600' : 'text-gray-900'}`}>
                         {isIncome ? '+' : '-'}${Number(t.amount).toLocaleString('es-AR')}
                       </span>
