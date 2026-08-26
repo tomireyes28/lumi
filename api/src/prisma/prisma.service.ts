@@ -9,7 +9,6 @@ export class PrismaService extends PrismaClient implements OnModuleInit {
     const pool = new Pool({ connectionString: process.env.DATABASE_URL });
     const adapter = new PrismaPg(pool);
     
-    // Le pasamos la única propiedad que existe y acepta Prisma 7
     super({ adapter });
   }
 

@@ -40,15 +40,20 @@ export class CreditCardsService {
     const cardsWithConsumption = await Promise.all(
       cards.map(async (card) => {
         const cycleStart = new Date(today.getFullYear(), today.getMonth(), card.closingDay);
+        const cycleEnd = new Date(today.getFullYear(), today.getMonth() + 1, card.closingDay);
         
         if (today.getDate() < card.closingDay) {
           cycleStart.setMonth(cycleStart.getMonth() - 1);
+          cycleEnd.setMonth(cycleEnd.getMonth() - 1);
         }
 
         const expenses = await this.prisma.transaction.aggregate({
           where: {
             creditCardId: card.id,
-            date: { gte: cycleStart },
+            date: { 
+              gte: cycleStart,
+              lt: cycleEnd,
+            },
           },
           _sum: { amount: true },
         });
