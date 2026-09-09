@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { motion, Variants } from "framer-motion";
-import { Calendar as CalendarIcon, Bell, BarChart3, Tags, Wallet, Calculator } from "lucide-react";
+import { Calendar as CalendarIcon, Bell, BarChart3, Tags, Wallet, Calculator, Target, TrendingUp } from "lucide-react";
 import { DashboardSummary } from "@/types/dashboard";
 import { Reminder } from "@/types/reminders";
 import { useAuthStore } from "@/store/useAuthStore";
@@ -80,6 +80,22 @@ export function DashboardHeader({ summary, reminders, itemVariants }: DashboardH
 
         {/* FILA INFERIOR: Navegación Rápida */}
         <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
+          <Link 
+            href="/dashboard/budgets" 
+            className="flex items-center gap-2 px-4 py-2.5 bg-white border border-gray-200 rounded-xl shadow-sm hover:border-emerald-300 hover:bg-emerald-50 hover:text-emerald-700 transition-all shrink-0"
+          >
+            <Target className="w-4 h-4 text-emerald-500" />
+            <span className="text-sm font-bold text-gray-700">Presupuestos</span>
+          </Link>
+
+          <Link 
+            href="/dashboard/forecast" 
+            className="flex items-center gap-2 px-4 py-2.5 bg-white border border-gray-200 rounded-xl shadow-sm hover:border-purple-300 hover:bg-purple-50 hover:text-purple-700 transition-all shrink-0"
+          >
+            <TrendingUp className="w-4 h-4 text-purple-500" />
+            <span className="text-sm font-bold text-gray-700">Proyección</span>
+          </Link>
+
           <Link 
             href="/dashboard/analytics" 
             className="flex items-center gap-2 px-4 py-2.5 bg-white border border-gray-200 rounded-xl shadow-sm hover:border-sky-300 hover:bg-sky-50 hover:text-sky-700 transition-all shrink-0"

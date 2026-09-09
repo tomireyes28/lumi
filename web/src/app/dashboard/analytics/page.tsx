@@ -1,5 +1,7 @@
 "use client";
 
+import Link from "next/link";
+import { TrendingUp, ChevronRight } from "lucide-react";
 import { motion, Variants } from "framer-motion";
 import { useAnalytics } from "@/hooks/useAnalytics";
 import { AnalyticsTrendCard } from "@/components/analytics/AnalyticsTrendCard";
@@ -60,6 +62,25 @@ export default function AnalyticsPage() {
         data={data} 
         itemVariants={itemVariants} 
       />
+
+      {/* Acceso directo a Proyección de Cuotas */}
+      <motion.div variants={itemVariants}>
+        <Link
+          href="/dashboard/forecast"
+          className="p-4 bg-gradient-to-r from-purple-600 via-indigo-600 to-purple-700 text-white rounded-3xl shadow-sm flex items-center justify-between hover:opacity-95 transition-all group"
+        >
+          <div className="flex items-center gap-3">
+            <div className="p-2.5 bg-white/20 rounded-2xl group-hover:scale-105 transition-transform">
+              <TrendingUp className="w-5 h-5 text-white" />
+            </div>
+            <div>
+              <h4 className="font-bold text-sm leading-tight">Proyección de Cuotas</h4>
+              <p className="text-xs text-purple-100 mt-0.5">Anticipá tus compromisos de los próximos meses</p>
+            </div>
+          </div>
+          <ChevronRight className="w-5 h-5 text-white/70 group-hover:translate-x-0.5 transition-transform" />
+        </Link>
+      </motion.div>
 
       <AnalyticsCategoryList 
         data={data} 

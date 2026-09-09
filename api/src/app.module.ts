@@ -11,6 +11,7 @@ import { RemindersModule } from './reminders/reminders.module';
 import { ScheduleModule } from '@nestjs/schedule';
 import { NotificationsModule } from './notifications/notifications.module';
 import { AnalyticsModule } from './analytics/analytics.module';
+import { BudgetsModule } from './budgets/budgets.module';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { APP_GUARD } from '@nestjs/core';
 
@@ -26,7 +27,7 @@ import { APP_GUARD } from '@nestjs/core';
     }),
     ScheduleModule.forRoot(),
     PrismaModule, 
-    AuthModule, CategoriesModule, TransactionsModule, CreditCardsModule, RemindersModule, NotificationsModule, AnalyticsModule
+    AuthModule, CategoriesModule, TransactionsModule, CreditCardsModule, RemindersModule, NotificationsModule, AnalyticsModule, BudgetsModule
   ],
   controllers: [AppController],
   providers: [{

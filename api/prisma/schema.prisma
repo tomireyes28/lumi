@@ -17,6 +17,7 @@ model User {
   categories   Category[]
   creditCards  CreditCard[]
   reminders    Reminder[]
+  budgets      Budget[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @default(now()) @updatedAt 
@@ -31,6 +32,7 @@ model Category {
   icon         String?       
   user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
   transactions Transaction[]
+  budgets      Budget[]
   createdAt    DateTime      @default(now())
 
   @@index([userId])
@@ -93,4 +95,18 @@ model Reminder {
 
   @@index([userId])
   @@index([dueDate]) // Índice para que el CRON Job busque rápido las fechas
+}
+
+model Budget {
+  id         String   @id @default(uuid())
+  userId     String
+  categoryId String
+  amount     Decimal  @db.Decimal(10, 2)
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  category   Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@unique([userId, categoryId])
+  @@index([userId])
 }
