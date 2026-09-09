@@ -1,4 +1,5 @@
 import { Controller, Get, Post, Body, Param, Delete, UseGuards, Req, Query, Patch } from '@nestjs/common';
+import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { TransactionsService } from './transactions.service';
 import { CreateTransactionDto } from './dto/create-transaction.dto';
 import { AuthGuard } from '@nestjs/passport';
@@ -6,7 +7,8 @@ import { GetTransactionsFilterDto } from './dto/get-transactions-filter.dto';
 import type { AuthenticatedRequest } from '../auth/interfaces/auth.interfaces';
 import { UpdateTransactionDto } from './dto/update-transaction.dto';
 
-
+@ApiTags('Transactions')
+@ApiBearerAuth()
 @UseGuards(AuthGuard('jwt'))
 @Controller('transactions')
 export class TransactionsController {

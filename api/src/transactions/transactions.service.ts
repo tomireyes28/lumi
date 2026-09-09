@@ -5,6 +5,7 @@ import { GetTransactionsFilterDto } from './dto/get-transactions-filter.dto';
 import { UpdateTransactionDto } from './dto/update-transaction.dto';
 import { Prisma } from '@prisma/client';
 import { getMonthDateRange } from '../utils/date.util';
+import { InstallmentCalculator } from './utils/installment-calculator.util';
 
 @Injectable()
 export class TransactionsService {
@@ -47,33 +48,16 @@ export class TransactionsService {
       });
     }
 
-    // 2. SI ES UN GASTO EN CUOTAS (Motor Opción A)
-    const installmentAmount = Math.round((amount / installments) * 100) / 100;
-    const groupId = crypto.randomUUID(); // Generamos un ID único para vincular todas las cuotas
-    const transactionsData: Prisma.TransactionCreateManyInput[] = [];
-    const startDay = startDate.getDate();
-
-    for (let i = 1; i <= installments; i++) {
-      // Calculamos la fecha de la cuota ajustando los días al último día del mes si hay desborde
-      const installmentDate = new Date(startDate.getFullYear(), startDate.getMonth() + (i - 1), 1);
-      const daysInMonth = new Date(installmentDate.getFullYear(), installmentDate.getMonth() + 1, 0).getDate();
-      installmentDate.setDate(Math.min(startDay, daysInMonth));
-      installmentDate.setHours(startDate.getHours(), startDate.getMinutes(), startDate.getSeconds(), startDate.getMilliseconds());
-
-      // Armamos la nota automática (Ej: "Heladera (Cuota 1/12)")
-      const baseNote = note ? note.trim() : 'Compra';
-      const installmentNote = `${baseNote} (Cuota ${i}/${installments})`;
-
-      transactionsData.push({
-        userId,
-        categoryId,
-        creditCardId: creditCardId || null,
-        amount: installmentAmount,
-        date: installmentDate,
-        note: installmentNote,
-        installmentGroupId: groupId,
-      });
-    }
+    // 2. SI ES UN GASTO EN CUOTAS (Delegado al motor InstallmentCalculator - SRP)
+    const { groupId, transactionsData } = InstallmentCalculator.calculate({
+      amount,
+      installments,
+      startDate,
+      userId,
+      categoryId,
+      creditCardId,
+      note,
+    });
 
     // Insertamos todas las cuotas de golpe en la base de datos
     await this.prisma.transaction.createMany({
@@ -84,12 +68,12 @@ export class TransactionsService {
     return this.prisma.transaction.findFirst({
       where: { installmentGroupId: groupId },
       orderBy: { date: 'asc' },
-      include: { category: true },
+      include: { category: true, creditCard: true },
     });
   }
 
   async findAllByUser(userId: string, filters: GetTransactionsFilterDto) {
-    const { month, year, categoryId, type } = filters;
+    const { month, year, categoryId, type, page, limit } = filters;
     const whereClause: Prisma.TransactionWhereInput = { userId };
 
     if (categoryId) whereClause.categoryId = categoryId;
@@ -100,10 +84,39 @@ export class TransactionsService {
       whereClause.date = { gte: startDate, lt: endDate };
     }
 
+    // Si se especifican parámetros de paginación, retornamos objeto paginado con metadatos
+    if (page !== undefined || limit !== undefined) {
+      const currentPage = Math.max(1, page || 1);
+      const take = Math.max(1, Math.min(100, limit || 20));
+      const skip = (currentPage - 1) * take;
+
+      const [total, items] = await Promise.all([
+        this.prisma.transaction.count({ where: whereClause }),
+        this.prisma.transaction.findMany({
+          where: whereClause,
+          orderBy: { date: 'desc' },
+          skip,
+          take,
+          include: { category: true, creditCard: true },
+        }),
+      ]);
+
+      return {
+        data: items,
+        meta: {
+          total,
+          page: currentPage,
+          limit: take,
+          totalPages: Math.ceil(total / take),
+        },
+      };
+    }
+
+    // Comportamiento sin paginación (retrocompatible con frontend existente)
     return this.prisma.transaction.findMany({
       where: whereClause,
       orderBy: { date: 'desc' },
-      include: { category: true, creditCard: true }, // <-- Agregué creditCard acá también para que el listado la traiga siempre
+      include: { category: true, creditCard: true },
     });
   }
 

@@ -1,10 +1,13 @@
 import { Controller, Get, Post, Body, Param, Delete, UseGuards, Req, Patch } from '@nestjs/common';
+import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { CreditCardsService } from './credit-cards.service';
 import { CreateCreditCardDto } from './dto/create-credit-card.dto';
 import { AuthGuard } from '@nestjs/passport';
 import type { AuthenticatedRequest, RequestWithUser } from '../auth/interfaces/auth.interfaces'; 
 import { UpdateCreditCardDto } from './dto/update-credit-card.dto';
 
+@ApiTags('Credit Cards')
+@ApiBearerAuth()
 @UseGuards(AuthGuard('jwt'))
 @Controller('credit-cards')
 export class CreditCardsController {

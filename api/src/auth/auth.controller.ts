@@ -1,10 +1,12 @@
 import { Controller, Get, Post, Body, Req, Res, UseGuards, BadRequestException } from '@nestjs/common';
+import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { AuthGuard } from '@nestjs/passport';
 import { AuthService } from './auth.service';
 import { RegisterDto, LoginDto } from './dto/auth.dto'; // <-- Importamos los tipos
 import type { Request, Response } from 'express';
 import type { AuthenticatedRequest, GoogleAuthRequest } from './interfaces/auth.interfaces';
 
+@ApiTags('Auth')
 @Controller('auth')
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
@@ -53,6 +55,7 @@ export class AuthController {
   // ==========================================
   // RUTA DE PERFIL (PROTEGIDA)
   // ==========================================
+  @ApiBearerAuth()
   @Get('me')
   @UseGuards(AuthGuard('jwt')) // <-- Este patovica pide el Token JWT sí o sí
   getProfile(@Req() req: AuthenticatedRequest) {
