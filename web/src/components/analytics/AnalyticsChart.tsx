@@ -1,3 +1,4 @@
+import { memo } from "react";
 import { motion, Variants } from "framer-motion";
 import { PieChart as PieChartIcon } from "lucide-react";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
@@ -8,7 +9,7 @@ interface AnalyticsChartProps {
   itemVariants: Variants;
 }
 
-export function AnalyticsChart({ data, itemVariants }: AnalyticsChartProps) {
+export const AnalyticsChart = memo(function AnalyticsChart({ data, itemVariants }: AnalyticsChartProps) {
   return (
     <motion.div
       variants={itemVariants}
@@ -63,4 +64,4 @@ export function AnalyticsChart({ data, itemVariants }: AnalyticsChartProps) {
       )}
     </motion.div>
   );
-}
+});

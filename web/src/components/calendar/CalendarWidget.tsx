@@ -1,6 +1,7 @@
+import { useMemo } from "react";
 import Calendar from "react-calendar";
 import "react-calendar/dist/Calendar.css";
-import { isSameDay } from "date-fns";
+import { format } from "date-fns";
 import { motion, Variants } from "framer-motion";
 import { CalendarTransaction, CalendarReminder } from "@/types/calendar";
 
@@ -13,12 +14,43 @@ interface CalendarWidgetProps {
 }
 
 export function CalendarWidget({ date, setDate, transactions, reminders, itemVariants }: CalendarWidgetProps) {
-  
+  // Optimizamos el rendimiento de O(N * 42) a O(1) precomputando conjuntos indexados de fechas
+  const transactionDates = useMemo(() => {
+    const set = new Set<string>();
+    for (const t of transactions) {
+      if (t.date) {
+        try {
+          set.add(format(new Date(t.date), 'yyyy-MM-dd'));
+        } catch {
+          // Ignorar fechas con formato inválido
+        }
+      }
+    }
+    return set;
+  }, [transactions]);
+
+  const reminderDates = useMemo(() => {
+    const set = new Set<string>();
+    for (const r of reminders) {
+      if (r.dueDate) {
+        try {
+          set.add(format(new Date(r.dueDate), 'yyyy-MM-dd'));
+        } catch {
+          // Ignorar fechas con formato inválido
+        }
+      }
+    }
+    return set;
+  }, [reminders]);
+
   const renderTileContent = ({ date: tileDate, view }: { date: Date, view: string }) => {
     if (view !== 'month') return null;
 
-    const hasTransaction = transactions.some(t => isSameDay(new Date(t.date), tileDate));
-    const hasReminder = reminders.some(r => isSameDay(new Date(r.dueDate), tileDate));
+    const tileKey = format(tileDate, 'yyyy-MM-dd');
+    const hasTransaction = transactionDates.has(tileKey);
+    const hasReminder = reminderDates.has(tileKey);
+
+    if (!hasTransaction && !hasReminder) return null;
 
     return (
       <div className="flex justify-center gap-1 mt-1 h-2">
