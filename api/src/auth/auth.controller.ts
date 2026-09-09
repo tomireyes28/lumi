@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Req, Res, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Body, Req, Res, UseGuards, BadRequestException } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { AuthService } from './auth.service';
 import { RegisterDto, LoginDto } from './dto/auth.dto'; // <-- Importamos los tipos
@@ -22,7 +22,19 @@ export class AuthController {
   @UseGuards(AuthGuard('google'))
   async googleAuthRedirect(@Req() req: GoogleAuthRequest, @Res() res: Response) {
     const token = await this.authService.googleLogin(req.user);
-    res.redirect(`${process.env.FRONTEND_URL}/auth/callback?token=${token}`);
+    // SEGURIDAD: Nunca pasamos el JWT directamente en la URL pública.
+    // Generamos un código de un solo uso con 60 segundos de validez.
+    const code = this.authService.createOAuthExchangeCode(token);
+    res.redirect(`${process.env.FRONTEND_URL}/auth/callback?code=${code}`);
+  }
+
+  // Intercambio seguro del código temporal por el Token JWT + datos de usuario
+  @Post('exchange')
+  exchangeCode(@Body('code') code: string) {
+    if (!code || typeof code !== 'string') {
+      throw new BadRequestException('Código de intercambio no proporcionado o inválido.');
+    }
+    return this.authService.exchangeOAuthCode(code);
   }
 
   // ==========================================

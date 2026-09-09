@@ -32,7 +32,8 @@ export const useAuthStore = create<AuthState>((set) => ({
       
       // NUEVO: Guardamos el token también en una Cookie. 
       // Esto es fundamental para que el Middleware (que corre en el servidor) pueda leerlo.
-      document.cookie = `lumi_token=${token}; path=/; max-age=604800; SameSite=Strict`; 
+      const isSecure = window.location.protocol === 'https:';
+      document.cookie = `lumi_token=${token}; path=/; max-age=604800; SameSite=Strict${isSecure ? '; Secure' : ''}`; 
     }
     set({ token, user, isAuthenticated: true });
   },

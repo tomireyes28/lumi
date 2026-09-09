@@ -1,12 +1,13 @@
-import { IsNotEmpty, IsNumber, IsOptional, IsString } from 'class-validator';
+import { IsNotEmpty, IsNumber, IsOptional, IsString, IsPositive, IsInt, Min, Max } from 'class-validator';
 
 export class CreateTransactionDto {
-  @IsNotEmpty()
-  @IsNumber()
+  @IsNotEmpty({ message: 'El monto es obligatorio' })
+  @IsNumber({}, { message: 'El monto debe ser un número válido' })
+  @IsPositive({ message: 'El monto debe ser mayor a 0' })
   amount!: number;
 
-  @IsNotEmpty()
-  @IsString()
+  @IsNotEmpty({ message: 'La categoría es obligatoria' })
+  @IsString({ message: 'El ID de la categoría debe ser un texto válido' })
   categoryId!: string;
 
   @IsOptional()
@@ -22,6 +23,8 @@ export class CreateTransactionDto {
   creditCardId?: string; 
 
   @IsOptional()
-  @IsNumber()
+  @IsInt({ message: 'Las cuotas deben ser un número entero' })
+  @Min(1, { message: 'La cantidad mínima de cuotas es 1' })
+  @Max(120, { message: 'La cantidad máxima de cuotas es 120' })
   installments?: number;
 }

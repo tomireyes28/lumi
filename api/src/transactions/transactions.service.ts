@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateTransactionDto } from './dto/create-transaction.dto';
 import { GetTransactionsFilterDto } from './dto/get-transactions-filter.dto';
@@ -14,6 +14,24 @@ export class TransactionsService {
     const { installments, amount, date, note, creditCardId, categoryId } = createTransactionDto;
     const startDate = date ? new Date(date) : new Date();
 
+    // 0. Verificamos que la categoría pertenezca al usuario autenticado (anti-IDOR)
+    const category = await this.prisma.category.findUnique({
+      where: { id: categoryId },
+    });
+    if (!category || category.userId !== userId) {
+      throw new BadRequestException('La categoría especificada no existe o no pertenece a tu usuario.');
+    }
+
+    // Si se especificó tarjeta, verificamos que pertenezca al usuario autenticado (anti-IDOR)
+    if (creditCardId) {
+      const creditCard = await this.prisma.creditCard.findUnique({
+        where: { id: creditCardId },
+      });
+      if (!creditCard || creditCard.userId !== userId) {
+        throw new BadRequestException('La tarjeta especificada no existe o no pertenece a tu usuario.');
+      }
+    }
+
     // 1. SI ES UN GASTO NORMAL (Sin cuotas o 1 sola cuota)
     if (!installments || installments <= 1) {
       return this.prisma.transaction.create({
@@ -25,7 +43,7 @@ export class TransactionsService {
           category: { connect: { id: categoryId } },
           ...(creditCardId && { creditCard: { connect: { id: creditCardId } } }),
         },
-        include: { category: true },
+        include: { category: true, creditCard: true },
       });
     }
 
@@ -100,17 +118,29 @@ export class TransactionsService {
     if (updateTransactionDto.date !== undefined) dataToUpdate.date = new Date(updateTransactionDto.date);
     
     if (updateTransactionDto.categoryId) {
+      const category = await this.prisma.category.findUnique({
+        where: { id: updateTransactionDto.categoryId },
+      });
+      if (!category || category.userId !== userId) {
+        throw new BadRequestException('La categoría especificada no existe o no pertenece a tu usuario.');
+      }
       dataToUpdate.category = { connect: { id: updateTransactionDto.categoryId } };
     }
     
     // ==========================================
-    // LÓGICA DE TARJETA BLINDADA
+    // LÓGICA DE TARJETA BLINDADA (CON VALIDACIÓN DE PERTENENCIA)
     // ==========================================
     if (updateTransactionDto.creditCardId === null) {
       // Si el frontend manda null explícitamente, desconectamos la tarjeta (pasó a efectivo)
       dataToUpdate.creditCard = { disconnect: true };
     } else if (updateTransactionDto.creditCardId !== undefined) {
-      // Si manda un ID, conectamos la nueva tarjeta
+      const creditCard = await this.prisma.creditCard.findUnique({
+        where: { id: updateTransactionDto.creditCardId },
+      });
+      if (!creditCard || creditCard.userId !== userId) {
+        throw new BadRequestException('La tarjeta especificada no existe o no pertenece a tu usuario.');
+      }
+      // Si manda un ID válido y propio, conectamos la nueva tarjeta
       dataToUpdate.creditCard = { connect: { id: updateTransactionDto.creditCardId } };
     }
 

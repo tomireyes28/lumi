@@ -23,6 +23,8 @@ export async function apiFetch(path: string, options: RequestInit = {}) {
   if (response.status === 401) {
     if (typeof window !== 'undefined') {
       localStorage.removeItem('lumi_token'); // Limpiamos el token viejo
+      localStorage.removeItem('lumi_user');
+      document.cookie = "lumi_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT"; // Borramos la cookie para evitar rebotes con el Middleware
       window.location.href = '/'; // Pateamos al usuario a la pantalla de login principal
     }
     throw new Error('Sesión expirada');
