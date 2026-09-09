@@ -39,23 +39,35 @@ export function DayDetails({ date, selectedTransactions, selectedReminders, item
             </motion.div>
           ))}
 
-          {selectedTransactions.map(t => (
-            <motion.div 
-              key={t.id}
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.95 }}
-              transition={{ duration: 0.2 }}
-              className="p-3 bg-white shadow-sm border border-gray-100 rounded-xl flex justify-between items-center"
-            >
-              <span className="font-medium text-gray-700 text-sm">
-                {t.type === 'INCOME' ? 'Ingreso' : 'Gasto'}
-              </span>
-              <span className={`font-bold text-sm ${t.type === 'INCOME' ? 'text-sky-600' : 'text-gray-900'}`}>
-                {t.type === 'INCOME' ? '+' : '-'}${Number(t.amount).toLocaleString('es-AR')}
-              </span>
-            </motion.div>
-          ))}
+          {selectedTransactions.map(t => {
+            const isIncome = t.category?.type === 'income';
+            return (
+              <motion.div 
+                key={t.id}
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.95 }}
+                transition={{ duration: 0.2 }}
+                className="p-3 bg-white shadow-sm border border-gray-100 rounded-xl flex justify-between items-center"
+              >
+                <div className="flex items-center gap-2.5">
+                  <div 
+                    className="w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold shrink-0"
+                    style={{ backgroundColor: t.category?.colorHex ? `${t.category.colorHex}25` : '#f3f4f6', color: t.category?.colorHex || '#374151' }}
+                  >
+                    {t.category?.name ? t.category.name.charAt(0).toUpperCase() : (isIncome ? '↑' : '↓')}
+                  </div>
+                  <div>
+                    <p className="font-semibold text-gray-800 text-sm">{t.category?.name || (isIncome ? 'Ingreso' : 'Gasto')}</p>
+                    {t.note && <p className="text-xs text-gray-400">{t.note}</p>}
+                  </div>
+                </div>
+                <span className={`font-bold text-sm ${isIncome ? 'text-sky-600' : 'text-gray-900'}`}>
+                  {isIncome ? '+' : '-'}${Number(t.amount).toLocaleString('es-AR')}
+                </span>
+              </motion.div>
+            );
+          })}
         </AnimatePresence>
       </div>
     </motion.div>

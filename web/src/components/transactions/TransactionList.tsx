@@ -1,7 +1,7 @@
-import * as LucideIcons from "lucide-react"; // Importamos todos los íconos
 import { Trash2, Pencil } from "lucide-react"; 
 import { motion, AnimatePresence, Variants } from "framer-motion";
 import { Transaction } from "@/types/transactions";
+import { IconRenderer } from "@/components/ui/IconRenderer";
 
 interface TransactionListProps {
   transactions: Transaction[];
@@ -41,12 +41,6 @@ export function TransactionList({
                 const isIncome = t.category?.type === 'income';
                 const formattedDate = new Date(t.date).toLocaleDateString('es-AR', { day: '2-digit', month: 'short' });
 
-                // Magia: Buscamos el ícono en la librería. Si no existe o es un emoji, fallamos con gracia.
-                const iconName = t.category?.icon;
-                const IconComponent = iconName && iconName in LucideIcons 
-                  ? LucideIcons[iconName as keyof typeof LucideIcons] as React.ElementType
-                  : null;
-
                 return (
                   <motion.div 
                     layout initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.9, x: -50 }} transition={{ duration: 0.2 }}
@@ -57,12 +51,7 @@ export function TransactionList({
                     {/* PARTE IZQUIERDA: Ícono, Categoría, Tarjeta y Fecha */}
                     <div className="flex items-center gap-3 overflow-hidden">
                       <div className="shrink-0 w-10 h-10 rounded-lg flex items-center justify-center bg-opacity-20" style={{ backgroundColor: t.category?.colorHex ? `${t.category.colorHex}30` : '#f3f4f6' }}>
-                        {/* Si encontramos el ícono de Lucide lo mostramos, si no (ej: si era un emoji) lo mostramos como texto */}
-                        {IconComponent ? (
-                          <IconComponent className="w-5 h-5 text-gray-700" style={{ color: t.category?.colorHex || '#374151' }} />
-                        ) : (
-                          <span className="text-xl">{t.category?.icon || '📁'}</span>
-                        )}
+                        <IconRenderer iconName={t.category?.icon} colorHex={t.category?.colorHex} className="w-5 h-5" />
                       </div>
                       
                       <div className="flex flex-col min-w-0">

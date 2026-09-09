@@ -1,8 +1,13 @@
+import { Category } from "./categories";
+import { CreditCard } from "./cards";
+
 export interface CalendarTransaction {
   id: string;
   date: string;
-  amount: string;
-  type: 'INCOME' | 'EXPENSE';
+  amount: number | string;
+  note?: string | null;
+  category?: Category;
+  creditCard?: CreditCard | null;
 }
 
 export interface CalendarReminder {

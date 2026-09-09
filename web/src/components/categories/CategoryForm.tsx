@@ -1,15 +1,10 @@
 import { motion, Variants } from "framer-motion";
 import { CategoryFormState, Category } from "@/types/categories";
 import { useState } from "react";
-import { ShoppingCart, Coffee, Utensils, Car, Bus, Home, Zap, Smartphone, Heart, Briefcase, DollarSign, TrendingUp, Plane, Gift, Tag, Monitor, Scissors, GraduationCap } from "lucide-react";
+import { ICON_MAP } from "@/components/ui/IconRenderer";
 
-// Exportamos el mapa para poder usar los mismos íconos en la lista sin importar todo lucide-react
-export const ICON_MAP: Record<string, React.ElementType> = {
-  ShoppingCart, Coffee, Utensils, Car, Bus, Home, Zap, Smartphone, Heart, 
-  Briefcase, DollarSign, TrendingUp, Plane, Gift, Tag, Monitor, Scissors, GraduationCap
-};
-
-const AVAILABLE_ICONS = Object.keys(ICON_MAP);
+export { ICON_MAP };
+const AVAILABLE_ICONS = Object.keys(ICON_MAP).filter(k => k !== 'Folder');
 
 // ==========================================
 // 1. FORMULARIO DE CREACIÓN

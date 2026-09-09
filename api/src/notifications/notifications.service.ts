@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { Prisma } from '@prisma/client'; // <-- Importamos Prisma
+import { Cron, CronExpression } from '@nestjs/schedule';
 
 // ¡La magia de Prisma! Tipamos exactamente lo que devuelve la consulta con el include
 type ReminderWithUser = Prisma.ReminderGetPayload<{
@@ -13,6 +14,7 @@ export class NotificationsService {
 
   constructor(private prisma: PrismaService) {}
 
+  @Cron(CronExpression.EVERY_DAY_AT_9AM)
   async checkDueReminders() {
     this.logger.log('Buscando vencimientos para el día de hoy...');
 

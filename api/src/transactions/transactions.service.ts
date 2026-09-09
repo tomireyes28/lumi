@@ -48,14 +48,17 @@ export class TransactionsService {
     }
 
     // 2. SI ES UN GASTO EN CUOTAS (Motor Opción A)
-    const installmentAmount = amount / installments;
+    const installmentAmount = Math.round((amount / installments) * 100) / 100;
     const groupId = crypto.randomUUID(); // Generamos un ID único para vincular todas las cuotas
     const transactionsData: Prisma.TransactionCreateManyInput[] = [];
+    const startDay = startDate.getDate();
 
     for (let i = 1; i <= installments; i++) {
-      // Calculamos la fecha para cada cuota sumando meses
-      const installmentDate = new Date(startDate);
-      installmentDate.setMonth(startDate.getMonth() + (i - 1));
+      // Calculamos la fecha de la cuota ajustando los días al último día del mes si hay desborde
+      const installmentDate = new Date(startDate.getFullYear(), startDate.getMonth() + (i - 1), 1);
+      const daysInMonth = new Date(installmentDate.getFullYear(), installmentDate.getMonth() + 1, 0).getDate();
+      installmentDate.setDate(Math.min(startDay, daysInMonth));
+      installmentDate.setHours(startDate.getHours(), startDate.getMinutes(), startDate.getSeconds(), startDate.getMilliseconds());
 
       // Armamos la nota automática (Ej: "Heladera (Cuota 1/12)")
       const baseNote = note ? note.trim() : 'Compra';

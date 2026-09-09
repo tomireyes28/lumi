@@ -29,12 +29,15 @@ export const useDashboard = () => {
         setReminders(allReminders);
 
         const today = new Date();
+        const todayYear = today.getFullYear();
+        const todayMonth = String(today.getMonth() + 1).padStart(2, '0');
+        const todayDay = String(today.getDate()).padStart(2, '0');
+        const todayString = `${todayYear}-${todayMonth}-${todayDay}`;
+
         const todayAlerts = allReminders.filter(r => {
           if (r.isPaid) return false;
-          const dueDate = new Date(r.dueDate);
-          return dueDate.getUTCDate() === today.getDate() &&
-                 dueDate.getUTCMonth() === today.getMonth() &&
-                 dueDate.getUTCFullYear() === today.getFullYear();
+          const dueString = typeof r.dueDate === 'string' ? r.dueDate.split('T')[0] : new Date(r.dueDate).toISOString().split('T')[0];
+          return dueString === todayString;
         });
         
         setDueToday(todayAlerts);

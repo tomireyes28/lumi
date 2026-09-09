@@ -32,6 +32,8 @@ model Category {
   user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
   transactions Transaction[]
   createdAt    DateTime      @default(now())
+
+  @@index([userId])
 }
 
 model Transaction {
@@ -49,6 +51,10 @@ model Transaction {
   createdAt    DateTime  @default(now())
   creditCardId String?   // Relación opcional con CreditCard
   creditCard   CreditCard? @relation(fields: [creditCardId], references: [id], onDelete: SetNull)
+
+  @@index([userId, date])
+  @@index([userId, categoryId])
+  @@index([userId, creditCardId])
 }
 
 model CreditCard {
@@ -67,6 +73,8 @@ model CreditCard {
   
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+
+  @@index([userId])
 }
 
 model Reminder {

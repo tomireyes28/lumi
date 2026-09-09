@@ -29,23 +29,42 @@ export class CreditCardsService {
     });
   }
 
+  private getCardCycleDates(closingDay: number, referenceDate: Date = new Date()) {
+    const currentYear = referenceDate.getFullYear();
+    const currentMonth = referenceDate.getMonth();
+    const currentDay = referenceDate.getDate();
+
+    let startMonth = currentMonth;
+    if (currentDay < closingDay) {
+      startMonth = currentMonth - 1;
+    }
+
+    const getClampedDate = (year: number, month: number, day: number) => {
+      const firstOfMonth = new Date(year, month, 1);
+      const daysInMonth = new Date(firstOfMonth.getFullYear(), firstOfMonth.getMonth() + 1, 0).getDate();
+      const clampedDay = Math.min(day, daysInMonth);
+      return new Date(firstOfMonth.getFullYear(), firstOfMonth.getMonth(), clampedDay, 0, 0, 0, 0);
+    };
+
+    const cycleStart = getClampedDate(currentYear, startMonth, closingDay);
+    const cycleEnd = getClampedDate(currentYear, startMonth + 1, closingDay);
+
+    return { cycleStart, cycleEnd };
+  }
+
   async findAllByUser(userId: string) {
     const cards = await this.prisma.creditCard.findMany({
       where: { userId },
       orderBy: { createdAt: 'asc' },
     });
 
+    if (cards.length === 0) return [];
+
     const today = new Date();
 
     const cardsWithConsumption = await Promise.all(
       cards.map(async (card) => {
-        const cycleStart = new Date(today.getFullYear(), today.getMonth(), card.closingDay);
-        const cycleEnd = new Date(today.getFullYear(), today.getMonth() + 1, card.closingDay);
-        
-        if (today.getDate() < card.closingDay) {
-          cycleStart.setMonth(cycleStart.getMonth() - 1);
-          cycleEnd.setMonth(cycleEnd.getMonth() - 1);
-        }
+        const { cycleStart, cycleEnd } = this.getCardCycleDates(card.closingDay, today);
 
         const expenses = await this.prisma.transaction.aggregate({
           where: {
