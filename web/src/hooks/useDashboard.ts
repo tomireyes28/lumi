@@ -15,7 +15,7 @@ export const useDashboard = () => {
     const loadDashboardData = async () => {
       try {
         const [summaryData, recData, remindersData] = await Promise.all([
-          apiFetch('/transactions/summary'),
+          apiFetch('/transactions/summary').catch(() => null),
           apiFetch('/credit-cards/recommendation').catch(() => null),
           apiFetch('/reminders').catch(() => []) 
         ]);

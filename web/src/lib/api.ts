@@ -15,6 +15,7 @@ export async function apiFetch(path: string, options: RequestInit = {}) {
   const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000'; // <-- Ajustá el puerto al de tu backend (3001 o 3000)
 
   const response = await fetch(`${apiUrl}${path}`, {
+    signal: options.signal || (typeof AbortSignal !== 'undefined' && 'timeout' in AbortSignal ? AbortSignal.timeout(10000) : undefined),
     ...options,
     headers,
   });

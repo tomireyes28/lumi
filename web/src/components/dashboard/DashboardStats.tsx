@@ -21,7 +21,7 @@ export function DashboardStats({ summary, itemVariants }: DashboardStatsProps) {
         
         <div className="relative z-10">
           <span className="text-4xl font-bold tracking-tight">
-            ${summary?.availableCash.toLocaleString('es-AR')}
+            ${(summary?.availableCash ?? 0).toLocaleString('es-AR')}
           </span>
           <p className="text-xs text-gray-400 mt-2 font-medium">
             (Ingresos menos gastos en efectivo/débito)
@@ -39,7 +39,7 @@ export function DashboardStats({ summary, itemVariants }: DashboardStatsProps) {
             <span className="text-xs font-bold text-gray-600 uppercase tracking-wider">Ingresos</span>
           </div>
           <span className="text-lg font-bold text-gray-900">
-            ${summary?.totalIncome.toLocaleString('es-AR')}
+            ${(summary?.totalIncome ?? 0).toLocaleString('es-AR')}
           </span>
         </motion.div>
 
@@ -52,7 +52,7 @@ export function DashboardStats({ summary, itemVariants }: DashboardStatsProps) {
             <span className="text-xs font-bold text-gray-600 uppercase tracking-wider">Gastos Fijos</span>
           </div>
           <span className="text-lg font-bold text-gray-900">
-            ${summary?.totalCashExpense.toLocaleString('es-AR')}
+            ${(summary?.totalCashExpense ?? 0).toLocaleString('es-AR')}
           </span>
         </motion.div>
       </div>
@@ -69,7 +69,7 @@ export function DashboardStats({ summary, itemVariants }: DashboardStatsProps) {
           </div>
         </div>
         <span className="text-xl font-bold text-purple-700">
-          ${summary?.totalCardExpense.toLocaleString('es-AR')}
+          ${(summary?.totalCardExpense ?? 0).toLocaleString('es-AR')}
         </span>
       </motion.div>
     </>
