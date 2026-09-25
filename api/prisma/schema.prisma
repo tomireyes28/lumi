@@ -72,11 +72,29 @@ model CreditCard {
   user        User     @relation(fields: [userId], references: [id], onDelete: Cascade) // Agregado el Cascade
   
   transactions Transaction[] // Relación con los gastos
+  cycles       CardCycle[]   // Ciclos mensuales con fechas personalizadas
   
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
   @@index([userId])
+}
+
+model CardCycle {
+  id           String     @id @default(uuid())
+  creditCardId String
+  creditCard   CreditCard @relation(fields: [creditCardId], references: [id], onDelete: Cascade)
+  
+  month        Int        // 1 a 12 (mes del resumen/cierre)
+  year         Int        // Año del ciclo (ej: 2026)
+  closingDate  DateTime   // Fecha exacta de cierre para este mes
+  dueDate      DateTime?  // Fecha exacta de vencimiento para este ciclo (opcional)
+
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  @@unique([creditCardId, year, month])
+  @@index([creditCardId])
 }
 
 model Reminder {

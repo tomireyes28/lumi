@@ -1,3 +1,23 @@
+export interface CardCycle {
+  id: string;
+  creditCardId: string;
+  month: number;
+  year: number;
+  closingDate: string;
+  dueDate: string | null;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface CardCycleInfo {
+  month: number;
+  year: number;
+  closingDate: string;
+  dueDate: string | null;
+  isCustom: boolean;
+  daysToClose: number;
+}
+
 export interface CreditCard {
   id: string;
   alias: string;
@@ -6,7 +26,9 @@ export interface CreditCard {
   closingDay: number;
   dueDay: number;
   colorHex: string | null;
-  consumed?: number; 
+  consumed?: number;
+  currentCycle?: CardCycleInfo;
+  cycles?: CardCycle[];
 }
 
 export interface CardFormState {

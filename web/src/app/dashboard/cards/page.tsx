@@ -4,13 +4,16 @@ import { motion, Variants } from "framer-motion";
 import { useCards } from "@/hooks/useCards";
 import { CardCarousel } from "@/components/cards/CardCarrousel";
 import { CardForm, EditCardForm } from "@/components/cards/CardForm";
+import { AdjustCycleModal } from "@/components/cards/AdjustCycleModal";
 import { Modal } from "@/components/ui/Modal";
 import { AlertTriangle, Trash2 } from "lucide-react";
 
 export default function CardsPage() {
   const { 
     cards, loading, form, handleSubmit, handleUpdate, handleDelete,
-    editingCard, setEditingCard, deletingCard, setDeletingCard
+    editingCard, setEditingCard, deletingCard, setDeletingCard,
+    adjustingCycleCard, setAdjustingCycleCard,
+    handleUpsertCycle, handleDeleteCycle,
   } = useCards();
 
   const containerVariants: Variants = { hidden: { opacity: 0 }, visible: { opacity: 1, transition: { staggerChildren: 0.15 } } };
@@ -24,15 +27,25 @@ export default function CardsPage() {
       <motion.div className="p-6 pb-24 flex flex-col gap-8" initial="hidden" animate="visible" variants={containerVariants}>
         <motion.header variants={itemVariants}>
           <h1 className="text-2xl font-bold text-gray-900">Billetera</h1>
-          <p className="text-sm text-gray-500 mt-1">Gestioná tus tarjetas de crédito.</p>
+          <p className="text-sm text-gray-500 mt-1">Gestioná tus tarjetas de crédito y fechas de cierre.</p>
         </motion.header>
 
         <CardCarousel 
           cards={cards} itemVariants={itemVariants} cardVariants={cardVariants} 
           onEditClick={setEditingCard} onDeleteClick={setDeletingCard}
+          onAdjustCycleClick={setAdjustingCycleCard}
         />
         <CardForm form={form} handleSubmit={handleSubmit} itemVariants={itemVariants} />
       </motion.div>
+
+      {/* MODAL DE AJUSTE DE CICLO MENSUAL */}
+      <AdjustCycleModal
+        card={adjustingCycleCard}
+        isOpen={!!adjustingCycleCard}
+        onClose={() => setAdjustingCycleCard(null)}
+        onSaveCycle={handleUpsertCycle}
+        onDeleteCycle={handleDeleteCycle}
+      />
 
       {/* MODAL DE EDICIÓN */}
       <Modal isOpen={!!editingCard} onClose={() => setEditingCard(null)} title="Editar Tarjeta">

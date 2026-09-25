@@ -19,6 +19,7 @@ export const useCards = () => {
   // Estados de los Modales
   const [editingCard, setEditingCard] = useState<CreditCard | null>(null);
   const [deletingCard, setDeletingCard] = useState<CreditCard | null>(null);
+  const [adjustingCycleCard, setAdjustingCycleCard] = useState<CreditCard | null>(null);
 
   // 1. Carga inicial
   useEffect(() => {
@@ -43,6 +44,11 @@ export const useCards = () => {
     try {
       const data = await apiFetch('/credit-cards');
       setCards(data);
+      // Actualizamos la tarjeta en edición de ciclo si está abierta
+      if (adjustingCycleCard) {
+        const updated = data.find((c: CreditCard) => c.id === adjustingCycleCard.id);
+        if (updated) setAdjustingCycleCard(updated);
+      }
     } catch (error) {
       console.error("Error recargando tarjetas:", error);
       toast.error("Hubo un error al recargar las tarjetas.");
@@ -103,11 +109,49 @@ export const useCards = () => {
     }
   };
 
+  // ==========================================
+  // GESTIÓN DE CICLOS MENSUALES
+  // ==========================================
+
+  const handleUpsertCycle = async (
+    cardId: string,
+    cycleData: { month: number; year: number; closingDate: string; dueDate?: string },
+  ) => {
+    try {
+      await apiFetch(`/credit-cards/${cardId}/cycles`, {
+        method: 'POST',
+        body: JSON.stringify(cycleData),
+      });
+      toast.success("Fecha de cierre mensual actualizada");
+      await reloadCards();
+    } catch (error) {
+      console.error("Error guardando ciclo:", error);
+      toast.error("No se pudo actualizar el ciclo de la tarjeta.");
+      throw error;
+    }
+  };
+
+  const handleDeleteCycle = async (cardId: string, cycleId: string) => {
+    try {
+      await apiFetch(`/credit-cards/${cardId}/cycles/${cycleId}`, {
+        method: 'DELETE',
+      });
+      toast.success("Restablecido al día de cierre habitual");
+      await reloadCards();
+    } catch (error) {
+      console.error("Error eliminando ciclo:", error);
+      toast.error("No se pudo restablecer el ciclo.");
+      throw error;
+    }
+  };
+
   return {
     cards, loading,
     form: { alias, setAlias, lastFour, setLastFour, limit, setLimit, closingDay, setClosingDay, dueDay, setDueDay, colorHex, setColorHex, isSubmitting },
     editingCard, setEditingCard,
     deletingCard, setDeletingCard,
-    handleUpdate, handleSubmit, handleDelete
+    adjustingCycleCard, setAdjustingCycleCard,
+    handleUpdate, handleSubmit, handleDelete,
+    handleUpsertCycle, handleDeleteCycle,
   };
 };
