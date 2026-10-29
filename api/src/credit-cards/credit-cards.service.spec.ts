@@ -2,6 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { CreditCardsService } from './credit-cards.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { NotFoundException } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 
 describe('CreditCardsService', () => {
   let service: CreditCardsService;
@@ -28,7 +29,7 @@ describe('CreditCardsService', () => {
     id: 'card-1',
     alias: 'Visa Galicia',
     lastFour: '4567',
-    limit: 500000 as any,
+    limit: new Prisma.Decimal(500000),
     closingDay: 24,
     dueDay: 5,
     colorHex: '#0f172a',
@@ -54,7 +55,7 @@ describe('CreditCardsService', () => {
         delete: jest.fn(),
       },
       transaction: {
-        aggregate: jest.fn().mockResolvedValue({ _sum: { amount: 15000 as any } }),
+        aggregate: jest.fn().mockResolvedValue({ _sum: { amount: new Prisma.Decimal(15000) } }),
       },
     };
 
@@ -142,7 +143,28 @@ describe('CreditCardsService', () => {
       );
 
       expect(prisma.creditCard.findUnique).toHaveBeenCalledWith({ where: { id: 'card-1' } });
-      expect(prisma.cardCycle.upsert).toHaveBeenCalled();
+      const expectedClosing = new Date(2026, 9, 25, 12, 0, 0, 0);
+      const expectedDue = new Date(2026, 10, 6, 12, 0, 0, 0);
+      expect(prisma.cardCycle.upsert).toHaveBeenCalledWith({
+        where: {
+          creditCardId_year_month: {
+            creditCardId: 'card-1',
+            year: 2026,
+            month: 10,
+          },
+        },
+        update: {
+          closingDate: expectedClosing,
+          dueDate: expectedDue,
+        },
+        create: {
+          creditCardId: 'card-1',
+          month: 10,
+          year: 2026,
+          closingDate: expectedClosing,
+          dueDate: expectedDue,
+        },
+      });
       expect(res.month).toBe(10);
     });
 

@@ -1,7 +1,7 @@
 import { Injectable, BadRequestException, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { PrismaService } from '../prisma/prisma.service';
-import { GoogleUser } from './interfaces/auth.interfaces';
+import { GoogleUser, JwtPayload } from './interfaces/auth.interfaces';
 import { RegisterDto, LoginDto } from './dto/auth.dto';
 import * as bcrypt from 'bcrypt';
 import { randomUUID } from 'crypto';
@@ -29,7 +29,7 @@ export class AuthService {
     // Acá está la magia: guardamos y actualizamos la foto
     const user = await this.prisma.user.upsert({
       where: { email: normalizedEmail },
-      update: { 
+      update: {
         name: reqUser.name,
         picture: reqUser.picture,
       },
@@ -40,7 +40,7 @@ export class AuthService {
       },
     });
 
-    const payload = { sub: user.id, email: user.email };
+    const payload: JwtPayload = { sub: user.id, email: user.email };
     return this.jwtService.sign(payload, { secret: process.env.JWT_SECRET, expiresIn: '7d' });
   }
 
@@ -73,7 +73,9 @@ export class AuthService {
     // Quemamos el código inmediatamente (uso único)
     this.oauthExchangeCodes.delete(code);
 
-    const payload = this.jwtService.verify(entry.token, { secret: process.env.JWT_SECRET });
+    const payload = this.jwtService.verify<JwtPayload>(entry.token, {
+      secret: process.env.JWT_SECRET,
+    });
     const user = await this.prisma.user.findUnique({
       where: { id: payload.sub },
       select: { id: true, name: true, email: true, picture: true },
@@ -111,7 +113,7 @@ export class AuthService {
       },
     });
 
-    const payload = { sub: newUser.id, email: newUser.email };
+    const payload: JwtPayload = { sub: newUser.id, email: newUser.email };
     return {
       token: this.jwtService.sign(payload, { secret: process.env.JWT_SECRET, expiresIn: '7d' }),
       user: { id: newUser.id, name: newUser.name, email: newUser.email, picture: newUser.picture },
@@ -123,7 +125,7 @@ export class AuthService {
     const normalizedEmail = email.trim().toLowerCase();
 
     const user = await this.prisma.user.findUnique({ where: { email: normalizedEmail } });
-    
+
     if (!user || !user.password) {
       throw new UnauthorizedException('Credenciales inválidas. Si usaste Google, iniciá sesión por ahí.');
     }
@@ -133,7 +135,7 @@ export class AuthService {
       throw new UnauthorizedException('Credenciales inválidas.');
     }
 
-    const payload = { sub: user.id, email: user.email };
+    const payload: JwtPayload = { sub: user.id, email: user.email };
     return {
       token: this.jwtService.sign(payload, { secret: process.env.JWT_SECRET, expiresIn: '7d' }),
       user: { id: user.id, name: user.name, email: user.email, picture: user.picture },

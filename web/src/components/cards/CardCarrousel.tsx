@@ -38,11 +38,12 @@ export function CardCarousel({
             if (percent > 85) barColor = "bg-red-400";
             else if (percent > 65) barColor = "bg-yellow-400";
 
-            // Formateo de fecha de cierre y vencimiento para este ciclo
+            // Formateo de fecha de cierre y vencimiento para este ciclo (usando UTC para evitar desfase -1 día en UTC-3)
             const closingLabel = card.currentCycle?.closingDate
               ? new Date(card.currentCycle.closingDate).toLocaleDateString("es-AR", {
                   day: "numeric",
                   month: "short",
+                  timeZone: "UTC",
                 })
               : `Día ${card.closingDay}`;
 
@@ -50,6 +51,7 @@ export function CardCarousel({
               ? new Date(card.currentCycle.dueDate).toLocaleDateString("es-AR", {
                   day: "numeric",
                   month: "short",
+                  timeZone: "UTC",
                 })
               : `Día ${card.dueDay}`;
 

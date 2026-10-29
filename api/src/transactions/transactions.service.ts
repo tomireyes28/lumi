@@ -4,7 +4,7 @@ import { CreateTransactionDto } from './dto/create-transaction.dto';
 import { GetTransactionsFilterDto } from './dto/get-transactions-filter.dto';
 import { UpdateTransactionDto } from './dto/update-transaction.dto';
 import { Prisma } from '@prisma/client';
-import { getMonthDateRange } from '../utils/date.util';
+import { getMonthDateRange, parseLocalDate } from '../utils/date.util';
 import { InstallmentCalculator } from './utils/installment-calculator.util';
 
 @Injectable()
@@ -13,7 +13,7 @@ export class TransactionsService {
 
   async create(createTransactionDto: CreateTransactionDto, userId: string) {
     const { installments, amount, date, note, creditCardId, categoryId } = createTransactionDto;
-    const startDate = date ? new Date(date) : new Date();
+    const startDate = date ? parseLocalDate(date) : new Date();
 
     // 0. Verificamos que la categoría pertenezca al usuario autenticado (anti-IDOR)
     const category = await this.prisma.category.findUnique({
@@ -122,7 +122,7 @@ export class TransactionsService {
 
   async update(id: string, updateTransactionDto: UpdateTransactionDto, userId: string) {
     const transaction = await this.prisma.transaction.findUnique({ where: { id } });
-    
+
     if (!transaction || transaction.userId !== userId) {
       throw new NotFoundException('Transacción no encontrada o no autorizada');
     }
@@ -131,8 +131,8 @@ export class TransactionsService {
 
     if (updateTransactionDto.amount !== undefined) dataToUpdate.amount = updateTransactionDto.amount;
     if (updateTransactionDto.note !== undefined) dataToUpdate.note = updateTransactionDto.note;
-    if (updateTransactionDto.date !== undefined) dataToUpdate.date = new Date(updateTransactionDto.date);
-    
+    if (updateTransactionDto.date !== undefined) dataToUpdate.date = parseLocalDate(updateTransactionDto.date);
+
     if (updateTransactionDto.categoryId) {
       const category = await this.prisma.category.findUnique({
         where: { id: updateTransactionDto.categoryId },
@@ -142,7 +142,7 @@ export class TransactionsService {
       }
       dataToUpdate.category = { connect: { id: updateTransactionDto.categoryId } };
     }
-    
+
     // ==========================================
     // LÓGICA DE TARJETA BLINDADA (CON VALIDACIÓN DE PERTENENCIA)
     // ==========================================
@@ -169,7 +169,7 @@ export class TransactionsService {
 
   async remove(id: string, userId: string) {
     const transaction = await this.prisma.transaction.findUnique({ where: { id } });
-    
+
     if (!transaction || transaction.userId !== userId) {
       throw new NotFoundException('Transacción no encontrada o no autorizada');
     }
@@ -200,13 +200,13 @@ export class TransactionsService {
       this.prisma.transaction.aggregate({
         where: { ...baseWhere, category: { type: 'expense' }, creditCardId: { not: null } },
         _sum: { amount: true },
-      })
+      }),
     ]);
 
     const totalIncome = Number(incomes._sum.amount || 0);
     const totalCashExpense = Number(cashExpenses._sum.amount || 0);
     const totalCardExpense = Number(cardExpenses._sum.amount || 0);
-    const availableCash = totalIncome - totalCashExpense;
+    const availableCash = Math.round((totalIncome - totalCashExpense) * 100) / 100;
 
     return {
       period: `${month}/${year}`,

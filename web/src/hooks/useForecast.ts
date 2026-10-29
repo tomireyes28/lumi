@@ -1,35 +1,52 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { apiFetch } from '@/lib/api';
 import { CashflowForecastResponse } from '@/types/forecast';
 import { toast } from 'sonner';
 
 export const useForecast = () => {
   const [data, setData] = useState<CashflowForecastResponse | null>(null);
-  const [monthsCount, setMonthsCount] = useState<number>(6);
+  const [monthsCount, setMonthsCountState] = useState<number>(6);
   const [loading, setLoading] = useState(true);
+  const [refreshIndex, setRefreshIndex] = useState(0);
 
-  const fetchForecast = useCallback(async () => {
+  const setMonthsCount = (count: number) => {
     setLoading(true);
-    try {
-      const res: CashflowForecastResponse = await apiFetch(`/analytics/forecast?months=${monthsCount}`);
-      setData(res);
-    } catch (err) {
-      console.error('Error cargando proyección financiera:', err);
-      toast.error('No se pudo cargar la proyección de cuotas');
-    } finally {
-      setLoading(false);
-    }
-  }, [monthsCount]);
+    setMonthsCountState(count);
+  };
+
+  const reload = () => {
+    setLoading(true);
+    setRefreshIndex((prev) => prev + 1);
+  };
 
   useEffect(() => {
-    fetchForecast();
-  }, [fetchForecast]);
+    let isMounted = true;
+    const loadForecast = async () => {
+      try {
+        const res: CashflowForecastResponse = await apiFetch(
+          `/analytics/forecast?months=${monthsCount}`,
+        );
+        if (isMounted) setData(res);
+      } catch (err) {
+        console.error('Error cargando proyección financiera:', err);
+        if (isMounted) toast.error('No se pudo cargar la proyección de cuotas');
+      } finally {
+        if (isMounted) setLoading(false);
+      }
+    };
+
+    loadForecast();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [monthsCount, refreshIndex]);
 
   return {
     data,
     loading,
     monthsCount,
     setMonthsCount,
-    reload: fetchForecast,
+    reload,
   };
 };

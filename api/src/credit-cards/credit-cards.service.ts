@@ -4,6 +4,7 @@ import { CreateCreditCardDto } from './dto/create-credit-card.dto';
 import { UpdateCreditCardDto } from './dto/update-credit-card.dto';
 import { UpsertCardCycleDto } from './dto/upsert-card-cycle.dto';
 import { CreditCard, CardCycle } from '@prisma/client';
+import { getCalendarDayParts, parseLocalDate } from '../utils/date.util';
 
 export type CreditCardWithCycles = CreditCard & {
   cycles?: CardCycle[];
@@ -74,17 +75,21 @@ export class CreditCardsService {
       );
 
       if (custom) {
-        const cDate = new Date(custom.closingDate);
+        const cParts = getCalendarDayParts(new Date(custom.closingDate));
         // Marcamos el final del día de cierre exacto
-        const closingDate = new Date(cDate.getFullYear(), cDate.getMonth(), cDate.getDate(), 23, 59, 59, 999);
-        const dueDate = custom.dueDate ? new Date(custom.dueDate) : null;
+        const closingDate = new Date(cParts.year, cParts.monthIndex, cParts.day, 23, 59, 59, 999);
+        let dueDate: Date | null = null;
+        if (custom.dueDate) {
+          const dParts = getCalendarDayParts(new Date(custom.dueDate));
+          dueDate = new Date(dParts.year, dParts.monthIndex, dParts.day, 12, 0, 0, 0);
+        }
         return { closingDate, dueDate, isCustom: true };
       }
 
       // Fallback: día habitual
       const closingDate = getClampedDate(targetYear, targetMonth - 1, card.closingDay, true);
-      const dueMonthYear = card.dueDay < card.closingDay ? (targetMonth === 12 ? targetYear + 1 : targetYear) : targetYear;
-      const dueMonthIndex = card.dueDay < card.closingDay ? (targetMonth === 12 ? 0 : targetMonth) : targetMonth - 1;
+      const dueMonthYear = card.dueDay <= card.closingDay ? (targetMonth === 12 ? targetYear + 1 : targetYear) : targetYear;
+      const dueMonthIndex = card.dueDay <= card.closingDay ? (targetMonth === 12 ? 0 : targetMonth) : targetMonth - 1;
       const dueDate = getClampedDate(dueMonthYear, dueMonthIndex, card.dueDay, false);
 
       return { closingDate, dueDate, isCustom: false };
@@ -241,9 +246,8 @@ export class CreditCardsService {
   async upsertCycle(cardId: string, dto: UpsertCardCycleDto, userId: string) {
     await this.getCardOrThrow(cardId, userId);
 
-    const cDate = new Date(dto.closingDate);
-    const closingDate = new Date(cDate.getFullYear(), cDate.getMonth(), cDate.getDate(), 12, 0, 0);
-    const dueDate = dto.dueDate ? new Date(new Date(dto.dueDate).getFullYear(), new Date(dto.dueDate).getMonth(), new Date(dto.dueDate).getDate(), 12, 0, 0) : null;
+    const closingDate = parseLocalDate(dto.closingDate);
+    const dueDate = dto.dueDate ? parseLocalDate(dto.dueDate) : null;
 
     return this.prisma.cardCycle.upsert({
       where: {

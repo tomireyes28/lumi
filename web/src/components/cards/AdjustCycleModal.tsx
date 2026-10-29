@@ -21,6 +21,13 @@ const MONTH_NAMES = [
   "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"
 ];
 
+// Helper para generar fecha por defecto en formato YYYY-MM-DD
+const formatDefaultDate = (year: number, month: number, day: number) => {
+  const daysInMonth = new Date(year, month, 0).getDate();
+  const clampedDay = Math.min(day, daysInMonth);
+  return `${year}-${String(month).padStart(2, "0")}-${String(clampedDay).padStart(2, "0")}`;
+};
+
 export function AdjustCycleModal({
   card,
   isOpen,
@@ -38,6 +45,8 @@ export function AdjustCycleModal({
   const [selectedYear, setSelectedYear] = useState<number>(today.getFullYear());
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [customClosingDate, setCustomClosingDate] = useState<string | null>(null);
+  const [customDueDate, setCustomDueDate] = useState<string | null>(null);
 
   if (!card) return null;
 
@@ -46,13 +55,6 @@ export function AdjustCycleModal({
     (c) => c.month === selectedMonth && c.year === selectedYear,
   );
 
-  // Helper para generar fecha por defecto en formato YYYY-MM-DD
-  const formatDefaultDate = (year: number, month: number, day: number) => {
-    const daysInMonth = new Date(year, month, 0).getDate();
-    const clampedDay = Math.min(day, daysInMonth);
-    return `${year}-${String(month).padStart(2, "0")}-${String(clampedDay).padStart(2, "0")}`;
-  };
-
   const currentClosingValue = existingCycle
     ? existingCycle.closingDate.split("T")[0]
     : formatDefaultDate(selectedYear, selectedMonth, card.closingDay);
@@ -60,41 +62,31 @@ export function AdjustCycleModal({
   const currentDueValue = existingCycle?.dueDate
     ? existingCycle.dueDate.split("T")[0]
     : (() => {
-        const dueMonth = card.dueDay < card.closingDay ? (selectedMonth === 12 ? 1 : selectedMonth + 1) : selectedMonth;
-        const dueYear = card.dueDay < card.closingDay && selectedMonth === 12 ? selectedYear + 1 : selectedYear;
+        const dueMonth = card.dueDay <= card.closingDay ? (selectedMonth === 12 ? 1 : selectedMonth + 1) : selectedMonth;
+        const dueYear = card.dueDay <= card.closingDay && selectedMonth === 12 ? selectedYear + 1 : selectedYear;
         return formatDefaultDate(dueYear, dueMonth, card.dueDay);
       })();
 
-  const [formClosingDate, setFormClosingDate] = useState<string>(currentClosingValue);
-  const [formDueDate, setFormDueDate] = useState<string>(currentDueValue);
+  const formClosingDate = customClosingDate ?? currentClosingValue;
+  const formDueDate = customDueDate ?? currentDueValue;
 
-  // Al cambiar mes o año, sincronizamos los valores del formulario
+  const handleClose = () => {
+    setCustomClosingDate(null);
+    setCustomDueDate(null);
+    onClose();
+  };
+
+  // Al cambiar mes o año, limpiamos los overrides manuales para derivar del ciclo o default
   const handleMonthChange = (month: number) => {
     setSelectedMonth(month);
-    const cycle = card.cycles?.find((c) => c.month === month && c.year === selectedYear);
-    if (cycle) {
-      setFormClosingDate(cycle.closingDate.split("T")[0]);
-      setFormDueDate(cycle.dueDate ? cycle.dueDate.split("T")[0] : "");
-    } else {
-      setFormClosingDate(formatDefaultDate(selectedYear, month, card.closingDay));
-      const dueMonth = card.dueDay < card.closingDay ? (month === 12 ? 1 : month + 1) : month;
-      const dueYear = card.dueDay < card.closingDay && month === 12 ? selectedYear + 1 : selectedYear;
-      setFormDueDate(formatDefaultDate(dueYear, dueMonth, card.dueDay));
-    }
+    setCustomClosingDate(null);
+    setCustomDueDate(null);
   };
 
   const handleYearChange = (year: number) => {
     setSelectedYear(year);
-    const cycle = card.cycles?.find((c) => c.month === selectedMonth && c.year === year);
-    if (cycle) {
-      setFormClosingDate(cycle.closingDate.split("T")[0]);
-      setFormDueDate(cycle.dueDate ? cycle.dueDate.split("T")[0] : "");
-    } else {
-      setFormClosingDate(formatDefaultDate(year, selectedMonth, card.closingDay));
-      const dueMonth = card.dueDay < card.closingDay ? (selectedMonth === 12 ? 1 : selectedMonth + 1) : selectedMonth;
-      const dueYear = card.dueDay < card.closingDay && selectedMonth === 12 ? year + 1 : year;
-      setFormDueDate(formatDefaultDate(dueYear, dueMonth, card.dueDay));
-    }
+    setCustomClosingDate(null);
+    setCustomDueDate(null);
   };
 
   const handleSave = async (e: React.FormEvent) => {
@@ -108,7 +100,7 @@ export function AdjustCycleModal({
         closingDate: formClosingDate,
         dueDate: formDueDate || undefined,
       });
-      onClose();
+      handleClose();
     } catch {
       // El toast ya lo maneja useCards
     } finally {
@@ -122,7 +114,8 @@ export function AdjustCycleModal({
     try {
       await onDeleteCycle(card.id, existingCycle.id);
       // Volvemos a los valores por defecto
-      setFormClosingDate(formatDefaultDate(selectedYear, selectedMonth, card.closingDay));
+      setCustomClosingDate(null);
+      setCustomDueDate(null);
     } catch {
       // Error manejado en hook
     } finally {
@@ -131,7 +124,7 @@ export function AdjustCycleModal({
   };
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="Elegir cierre de este mes">
+    <Modal isOpen={isOpen} onClose={handleClose} title="Elegir cierre de este mes">
       <div className="flex flex-col gap-5">
         {/* Cabecera de la Tarjeta */}
         <div className="p-4 bg-gray-50 border border-gray-100 rounded-2xl flex items-center justify-between">
@@ -233,7 +226,7 @@ export function AdjustCycleModal({
               type="date"
               required
               value={formClosingDate}
-              onChange={(e) => setFormClosingDate(e.target.value)}
+              onChange={(e) => setCustomClosingDate(e.target.value)}
               className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm text-gray-900 font-semibold focus:outline-none focus:ring-2 focus:ring-sky-500"
             />
             <p className="text-[11px] text-gray-500 mt-1">
@@ -249,7 +242,7 @@ export function AdjustCycleModal({
               id={dueDateId}
               type="date"
               value={formDueDate}
-              onChange={(e) => setFormDueDate(e.target.value)}
+              onChange={(e) => setCustomDueDate(e.target.value)}
               className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm text-gray-900 font-semibold focus:outline-none focus:ring-2 focus:ring-sky-500"
             />
             <p className="text-[11px] text-gray-500 mt-1">
@@ -260,7 +253,7 @@ export function AdjustCycleModal({
           <div className="flex gap-3 pt-2">
             <button
               type="button"
-              onClick={onClose}
+              onClick={handleClose}
               className="flex-1 py-3 font-bold text-gray-600 bg-gray-100 rounded-xl hover:bg-gray-200 transition-colors text-sm"
             >
               Cancelar

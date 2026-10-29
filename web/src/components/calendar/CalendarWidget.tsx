@@ -13,6 +13,14 @@ interface CalendarWidgetProps {
   itemVariants: Variants;
 }
 
+const toCalendarDateKey = (isoDateString: string): string => {
+  const datePart = String(isoDateString).split("T")[0];
+  if (/^\d{4}-\d{2}-\d{2}$/.test(datePart)) {
+    return datePart;
+  }
+  return format(new Date(isoDateString), "yyyy-MM-dd");
+};
+
 export function CalendarWidget({ date, setDate, transactions, reminders, itemVariants }: CalendarWidgetProps) {
   // Optimizamos el rendimiento de O(N * 42) a O(1) precomputando conjuntos indexados de fechas
   const transactionDates = useMemo(() => {
@@ -20,7 +28,7 @@ export function CalendarWidget({ date, setDate, transactions, reminders, itemVar
     for (const t of transactions) {
       if (t.date) {
         try {
-          set.add(format(new Date(t.date), 'yyyy-MM-dd'));
+          set.add(toCalendarDateKey(t.date));
         } catch {
           // Ignorar fechas con formato inválido
         }
@@ -34,7 +42,7 @@ export function CalendarWidget({ date, setDate, transactions, reminders, itemVar
     for (const r of reminders) {
       if (r.dueDate) {
         try {
-          set.add(format(new Date(r.dueDate), 'yyyy-MM-dd'));
+          set.add(toCalendarDateKey(r.dueDate));
         } catch {
           // Ignorar fechas con formato inválido
         }

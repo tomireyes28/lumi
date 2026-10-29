@@ -39,7 +39,11 @@ export function TransactionList({
             <AnimatePresence mode="popLayout">
               {transactions.map(t => {
                 const isIncome = t.category?.type === 'income';
-                const formattedDate = new Date(t.date).toLocaleDateString('es-AR', { day: '2-digit', month: 'short' });
+                const formattedDate = new Date(t.date).toLocaleDateString('es-AR', {
+                  day: '2-digit',
+                  month: 'short',
+                  timeZone: 'UTC',
+                });
 
                 return (
                   <motion.div 

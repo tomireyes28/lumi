@@ -20,7 +20,7 @@ export interface CalculatedInstallments {
 export class InstallmentCalculator {
   /**
    * Generates installment transactions data avoiding month-end overflows (e.g., Feb 30 -> Feb 28/29)
-   * and distributing amounts rounded to 2 decimal places.
+   * and distributing amounts rounded to 2 decimal places while assigning any cent remainder to the first installment.
    */
   static calculate(params: InstallmentParams): CalculatedInstallments {
     const { amount, installments, startDate, userId, categoryId, creditCardId, note } = params;
@@ -30,6 +30,7 @@ export class InstallmentCalculator {
     }
 
     const installmentAmount = Math.round((amount / installments) * 100) / 100;
+    const remainder = Math.round((amount - installmentAmount * installments) * 100) / 100;
     const groupId = params.groupId || crypto.randomUUID();
     const transactionsData: Prisma.TransactionCreateManyInput[] = [];
     const startDay = startDate.getDate();
@@ -44,16 +45,18 @@ export class InstallmentCalculator {
         startDate.getHours(),
         startDate.getMinutes(),
         startDate.getSeconds(),
-        startDate.getMilliseconds()
+        startDate.getMilliseconds(),
       );
 
       const installmentNote = installments > 1 ? `${baseNote} (Cuota ${i}/${installments})` : baseNote;
+      const currentAmount =
+        i === 1 ? Math.round((installmentAmount + remainder) * 100) / 100 : installmentAmount;
 
       transactionsData.push({
         userId,
         categoryId,
         creditCardId: creditCardId || null,
-        amount: installmentAmount,
+        amount: currentAmount,
         date: installmentDate,
         note: installmentNote,
         installmentGroupId: groupId,

@@ -1,6 +1,6 @@
 import { useEffect, useState, useMemo } from "react";
 import { apiFetch } from "@/lib/api";
-import { isSameDay } from "date-fns";
+import { format } from "date-fns";
 import { CalendarTransaction, CalendarReminder } from "@/types/calendar";
 import { toast } from "sonner";
 
@@ -41,14 +41,16 @@ export const useCalendar = () => {
     };
   }, []);
 
-  // Optimizamos el filtrado para que no consuma recursos innecesarios al renderizar
+  const selectedDateKey = useMemo(() => format(date, "yyyy-MM-dd"), [date]);
+
+  // Optimizamos el filtrado comparando YYYY-MM-DD para evitar desfase por zona horaria (UTC vs UTC-3)
   const selectedTransactions = useMemo(() => {
-    return transactions.filter(t => isSameDay(new Date(t.date), date));
-  }, [transactions, date]);
+    return transactions.filter((t) => String(t.date).split("T")[0] === selectedDateKey);
+  }, [transactions, selectedDateKey]);
 
   const selectedReminders = useMemo(() => {
-    return reminders.filter(r => isSameDay(new Date(r.dueDate), date));
-  }, [reminders, date]);
+    return reminders.filter((r) => String(r.dueDate).split("T")[0] === selectedDateKey);
+  }, [reminders, selectedDateKey]);
 
   return {
     date,

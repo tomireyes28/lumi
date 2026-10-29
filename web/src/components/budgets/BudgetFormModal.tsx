@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Modal } from '@/components/ui/Modal';
 import { Category } from '@/types/categories';
 import { IconRenderer } from '@/components/ui/IconRenderer';
@@ -20,18 +20,24 @@ export function BudgetFormModal({
   onSubmit,
   isSubmitting,
 }: BudgetFormModalProps) {
-  const [categoryId, setCategoryId] = useState('');
-  const [amount, setAmount] = useState('');
+  const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
+  const [customAmount, setCustomAmount] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (initialData) {
-      setCategoryId(initialData.categoryId);
-      setAmount(initialData.amount.toString());
-    } else {
-      setCategoryId(categories.length > 0 ? categories[0].id : '');
-      setAmount('');
-    }
-  }, [initialData, categories, isOpen]);
+  const defaultCategoryId = initialData
+    ? initialData.categoryId
+    : categories.length > 0
+      ? categories[0].id
+      : '';
+  const defaultAmount = initialData ? initialData.amount.toString() : '';
+
+  const categoryId = selectedCategoryId ?? defaultCategoryId;
+  const amount = customAmount ?? defaultAmount;
+
+  const handleClose = () => {
+    setSelectedCategoryId(null);
+    setCustomAmount(null);
+    onClose();
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -39,14 +45,14 @@ export function BudgetFormModal({
 
     const ok = await onSubmit(categoryId, Number(amount));
     if (ok) {
-      onClose();
+      handleClose();
     }
   };
 
   return (
     <Modal
       isOpen={isOpen}
-      onClose={onClose}
+      onClose={handleClose}
       title={initialData ? 'Modificar Presupuesto' : 'Definir Presupuesto'}
     >
       <form onSubmit={handleSubmit} className="flex flex-col gap-5">
@@ -61,7 +67,7 @@ export function BudgetFormModal({
                 <button
                   type="button"
                   key={cat.id}
-                  onClick={() => setCategoryId(cat.id)}
+                  onClick={() => setSelectedCategoryId(cat.id)}
                   disabled={Boolean(initialData)} // Si se está editando, no cambiamos la categoría
                   className={`flex items-center gap-2.5 p-3 rounded-2xl border text-left transition-all ${
                     isSelected
@@ -96,7 +102,7 @@ export function BudgetFormModal({
               step="any"
               placeholder="Ej: 80000"
               value={amount}
-              onChange={(e) => setAmount(e.target.value)}
+              onChange={(e) => setCustomAmount(e.target.value)}
               required
               className="w-full pl-9 pr-4 py-3.5 bg-gray-50 border border-gray-200 rounded-2xl text-gray-900 font-bold text-lg focus:outline-none focus:ring-2 focus:ring-sky-500 focus:bg-white transition-all"
             />
@@ -109,7 +115,7 @@ export function BudgetFormModal({
         <div className="flex gap-3 pt-2">
           <button
             type="button"
-            onClick={onClose}
+            onClick={handleClose}
             className="flex-1 py-3 px-4 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold text-sm rounded-2xl transition-colors"
           >
             Cancelar

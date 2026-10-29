@@ -96,6 +96,13 @@ describe('AnalyticsService - Forecast', () => {
           dueDate: new Date(currentYear, currentMonth, 20),
           isPaid: false,
         },
+        {
+          id: 'rem-paid',
+          title: 'Expensas viejas pagadas',
+          amount: 50000,
+          dueDate: new Date(currentYear, currentMonth - 2, 10),
+          isPaid: true,
+        },
       ];
 
       prisma.transaction.findMany
@@ -111,7 +118,7 @@ describe('AnalyticsService - Forecast', () => {
       expect(forecast.estimatedMonthlyIncome).toBe(100000);
       expect(forecast.forecastTimeline).toHaveLength(6);
 
-      // Mes 1: 20,000 cuota + 15,000 reminder = 35,000 total comprometido
+      // Mes 1: 20,000 cuota + 15,000 reminder impago = 35,000 total comprometido (ignora el pagado de 50,000)
       const m1 = forecast.forecastTimeline[0];
       expect(m1.installmentExpenses).toBe(20000);
       expect(m1.fixedExpenses).toBe(15000);
@@ -129,6 +136,27 @@ describe('AnalyticsService - Forecast', () => {
       expect(plan.creditCard?.alias).toBe('Visa Macro');
       expect(forecast.totalFutureDebt).toBe(60000);
       expect(forecast.debtFreePeriod).toBeDefined();
+    });
+
+    it('should divide past income by actual active months (1 month instead of 3 for new users)', async () => {
+      const now = new Date();
+      const currentYear = now.getFullYear();
+      const currentMonth = now.getMonth();
+
+      // Usuario con solo 1 mes de historial de ingresos ($180,000)
+      const mockPastIncomes = [
+        { amount: 180000, date: new Date(currentYear, currentMonth - 1, 5) },
+      ];
+
+      prisma.transaction.findMany
+        .mockResolvedValueOnce(mockPastIncomes)
+        .mockResolvedValueOnce([])
+        .mockResolvedValueOnce([]);
+      prisma.reminder.findMany.mockResolvedValue([]);
+
+      const forecast = await service.getForecast(mockUserId, 3);
+
+      expect(forecast.estimatedMonthlyIncome).toBe(180000);
     });
   });
 });

@@ -1,7 +1,7 @@
 import { InstallmentCalculator } from './installment-calculator.util';
 
 describe('InstallmentCalculator', () => {
-  it('should split total amount across installments rounded to 2 decimals', () => {
+  it('should split total amount across installments and assign cent remainder to first installment', () => {
     const result = InstallmentCalculator.calculate({
       amount: 1000,
       installments: 3,
@@ -15,10 +15,19 @@ describe('InstallmentCalculator', () => {
     expect(result.installmentAmount).toBe(333.33);
     expect(result.groupId).toBeDefined();
 
+    expect(result.transactionsData[0].amount).toBe(333.34);
+    expect(result.transactionsData[1].amount).toBe(333.33);
+    expect(result.transactionsData[2].amount).toBe(333.33);
+
+    const totalSum =
+      Math.round(
+        result.transactionsData.reduce((acc, tx) => acc + Number(tx.amount), 0) * 100,
+      ) / 100;
+    expect(totalSum).toBe(1000);
+
     result.transactionsData.forEach((tx, idx) => {
       expect(tx.userId).toBe('user-1');
       expect(tx.categoryId).toBe('cat-1');
-      expect(tx.amount).toBe(333.33);
       expect(tx.installmentGroupId).toBe(result.groupId);
       expect(tx.note).toBe(`Notebook (Cuota ${idx + 1}/3)`);
     });

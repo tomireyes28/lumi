@@ -63,6 +63,7 @@ export function DashboardHeader({ summary, reminders, itemVariants }: DashboardH
             {/* Foto de Perfil */}
             <Link href="/dashboard/profile" className="ml-1 hover:opacity-80 transition-opacity">
               {user?.picture ? (
+                /* eslint-disable-next-line @next/next/no-img-element */
                 <img 
                   src={user.picture} 
                   alt="Perfil" 
