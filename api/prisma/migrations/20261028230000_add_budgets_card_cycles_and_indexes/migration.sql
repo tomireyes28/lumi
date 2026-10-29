@@ -1,8 +1,8 @@
--- AlterTable
-ALTER TABLE "Transaction" ADD COLUMN     "installmentGroupId" TEXT;
+-- AlterTable (Idempotent)
+ALTER TABLE "Transaction" ADD COLUMN IF NOT EXISTS "installmentGroupId" TEXT;
 
--- CreateTable
-CREATE TABLE "CardCycle" (
+-- CreateTable (Idempotent)
+CREATE TABLE IF NOT EXISTS "CardCycle" (
     "id" TEXT NOT NULL,
     "creditCardId" TEXT NOT NULL,
     "month" INTEGER NOT NULL,
@@ -15,8 +15,8 @@ CREATE TABLE "CardCycle" (
     CONSTRAINT "CardCycle_pkey" PRIMARY KEY ("id")
 );
 
--- CreateTable
-CREATE TABLE "Budget" (
+-- CreateTable (Idempotent)
+CREATE TABLE IF NOT EXISTS "Budget" (
     "id" TEXT NOT NULL,
     "userId" TEXT NOT NULL,
     "categoryId" TEXT NOT NULL,
@@ -27,41 +27,65 @@ CREATE TABLE "Budget" (
     CONSTRAINT "Budget_pkey" PRIMARY KEY ("id")
 );
 
--- CreateIndex
-CREATE INDEX "Category_userId_idx" ON "Category"("userId");
+-- CreateIndex (Idempotent)
+CREATE INDEX IF NOT EXISTS "Category_userId_idx" ON "Category"("userId");
 
--- CreateIndex
-CREATE INDEX "Transaction_userId_date_idx" ON "Transaction"("userId", "date");
+-- CreateIndex (Idempotent)
+CREATE INDEX IF NOT EXISTS "Transaction_userId_date_idx" ON "Transaction"("userId", "date");
 
--- CreateIndex
-CREATE INDEX "Transaction_userId_categoryId_idx" ON "Transaction"("userId", "categoryId");
+-- CreateIndex (Idempotent)
+CREATE INDEX IF NOT EXISTS "Transaction_userId_categoryId_idx" ON "Transaction"("userId", "categoryId");
 
--- CreateIndex
-CREATE INDEX "Transaction_userId_creditCardId_idx" ON "Transaction"("userId", "creditCardId");
+-- CreateIndex (Idempotent)
+CREATE INDEX IF NOT EXISTS "Transaction_userId_creditCardId_idx" ON "Transaction"("userId", "creditCardId");
 
--- CreateIndex
-CREATE INDEX "Transaction_userId_installmentGroupId_idx" ON "Transaction"("userId", "installmentGroupId");
+-- CreateIndex (Idempotent)
+CREATE INDEX IF NOT EXISTS "Transaction_userId_installmentGroupId_idx" ON "Transaction"("userId", "installmentGroupId");
 
--- CreateIndex
-CREATE INDEX "CreditCard_userId_idx" ON "CreditCard"("userId");
+-- CreateIndex (Idempotent)
+CREATE INDEX IF NOT EXISTS "CreditCard_userId_idx" ON "CreditCard"("userId");
 
--- CreateIndex
-CREATE INDEX "CardCycle_creditCardId_idx" ON "CardCycle"("creditCardId");
+-- CreateIndex (Idempotent)
+CREATE INDEX IF NOT EXISTS "CardCycle_creditCardId_idx" ON "CardCycle"("creditCardId");
 
--- CreateIndex
-CREATE UNIQUE INDEX "CardCycle_creditCardId_year_month_key" ON "CardCycle"("creditCardId", "year", "month");
+-- CreateIndex (Idempotent)
+CREATE UNIQUE INDEX IF NOT EXISTS "CardCycle_creditCardId_year_month_key" ON "CardCycle"("creditCardId", "year", "month");
 
--- CreateIndex
-CREATE INDEX "Budget_userId_idx" ON "Budget"("userId");
+-- CreateIndex (Idempotent)
+CREATE INDEX IF NOT EXISTS "Budget_userId_idx" ON "Budget"("userId");
 
--- CreateIndex
-CREATE UNIQUE INDEX "Budget_userId_categoryId_key" ON "Budget"("userId", "categoryId");
+-- CreateIndex (Idempotent)
+CREATE UNIQUE INDEX IF NOT EXISTS "Budget_userId_categoryId_key" ON "Budget"("userId", "categoryId");
 
--- AddForeignKey
-ALTER TABLE "CardCycle" ADD CONSTRAINT "CardCycle_creditCardId_fkey" FOREIGN KEY ("creditCardId") REFERENCES "CreditCard"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+-- AddForeignKey (Idempotent)
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint WHERE conname = 'CardCycle_creditCardId_fkey'
+    ) THEN
+        ALTER TABLE "CardCycle" ADD CONSTRAINT "CardCycle_creditCardId_fkey"
+        FOREIGN KEY ("creditCardId") REFERENCES "CreditCard"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+    END IF;
+END $$;
 
--- AddForeignKey
-ALTER TABLE "Budget" ADD CONSTRAINT "Budget_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+-- AddForeignKey (Idempotent)
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint WHERE conname = 'Budget_userId_fkey'
+    ) THEN
+        ALTER TABLE "Budget" ADD CONSTRAINT "Budget_userId_fkey"
+        FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+    END IF;
+END $$;
 
--- AddForeignKey
-ALTER TABLE "Budget" ADD CONSTRAINT "Budget_categoryId_fkey" FOREIGN KEY ("categoryId") REFERENCES "Category"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+-- AddForeignKey (Idempotent)
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint WHERE conname = 'Budget_categoryId_fkey'
+    ) THEN
+        ALTER TABLE "Budget" ADD CONSTRAINT "Budget_categoryId_fkey"
+        FOREIGN KEY ("categoryId") REFERENCES "Category"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+    END IF;
+END $$;
