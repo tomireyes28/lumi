@@ -1,6 +1,6 @@
 import { motion, AnimatePresence } from "framer-motion";
 import { X } from "lucide-react";
-import { useEffect } from "react";
+import { useEffect, useId } from "react";
 
 interface ModalProps {
   isOpen: boolean;
@@ -10,14 +10,25 @@ interface ModalProps {
 }
 
 export function Modal({ isOpen, onClose, title, children }: ModalProps) {
-  // Cerramos el modal con la tecla Escape
+  const titleId = useId();
+
+  // Cerramos el modal con la tecla Escape y bloqueamos el scroll de fondo únicamente cuando está abierto
   useEffect(() => {
+    if (!isOpen) return;
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
     const handleEsc = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
+      if (e.key === "Escape") onClose();
     };
-    window.addEventListener('keydown', handleEsc);
-    return () => window.removeEventListener('keydown', handleEsc);
-  }, [onClose]);
+    window.addEventListener("keydown", handleEsc);
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener("keydown", handleEsc);
+    };
+  }, [isOpen, onClose]);
 
   return (
     <AnimatePresence>
@@ -29,12 +40,16 @@ export function Modal({ isOpen, onClose, title, children }: ModalProps) {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={onClose}
+            aria-hidden="true"
             className="fixed inset-0 bg-black/40 backdrop-blur-sm z-40"
           />
 
           {/* Contenedor del Modal */}
           <div className="fixed inset-0 flex items-center justify-center z-50 pointer-events-none px-4">
             <motion.div
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby={titleId}
               initial={{ opacity: 0, scale: 0.95, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 20 }}
@@ -43,9 +58,13 @@ export function Modal({ isOpen, onClose, title, children }: ModalProps) {
             >
               {/* Header del Modal */}
               <div className="flex items-center justify-between p-6 border-b border-gray-100">
-                <h2 className="text-xl font-bold text-gray-900">{title}</h2>
-                <button 
+                <h2 id={titleId} className="text-xl font-bold text-gray-900">
+                  {title}
+                </h2>
+                <button
+                  type="button"
                   onClick={onClose}
+                  aria-label="Cerrar modal"
                   className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-colors"
                 >
                   <X className="w-5 h-5" />
@@ -53,9 +72,7 @@ export function Modal({ isOpen, onClose, title, children }: ModalProps) {
               </div>
 
               {/* Contenido (Scrollable si es muy largo) */}
-              <div className="p-6 overflow-y-auto">
-                {children}
-              </div>
+              <div className="p-6 overflow-y-auto">{children}</div>
             </motion.div>
           </div>
         </>

@@ -5,7 +5,7 @@ import { CreateCreditCardDto } from './dto/create-credit-card.dto';
 import { UpdateCreditCardDto } from './dto/update-credit-card.dto';
 import { UpsertCardCycleDto } from './dto/upsert-card-cycle.dto';
 import { AuthGuard } from '@nestjs/passport';
-import type { AuthenticatedRequest, RequestWithUser } from '../auth/interfaces/auth.interfaces'; 
+import type { AuthenticatedRequest } from '../auth/interfaces/auth.interfaces';
 
 @ApiTags('Credit Cards')
 @ApiBearerAuth()
@@ -16,34 +16,34 @@ export class CreditCardsController {
 
   @ApiOperation({ summary: 'Crear una nueva tarjeta de crédito' })
   @Post()
-  create(@Body() createCreditCardDto: CreateCreditCardDto, @Req() req: RequestWithUser) {
+  create(@Body() createCreditCardDto: CreateCreditCardDto, @Req() req: AuthenticatedRequest) {
     return this.creditCardsService.create(createCreditCardDto, req.user.userId);
   }
 
   @ApiOperation({ summary: 'Obtener todas las tarjetas del usuario con ciclo actual y consumos' })
   @Get()
-  findAll(@Req() req: RequestWithUser) {
+  findAll(@Req() req: AuthenticatedRequest) {
     return this.creditCardsService.findAllByUser(req.user.userId);
   }
 
   @ApiOperation({ summary: 'Eliminar una tarjeta de crédito' })
   @Delete(':id')
-  remove(@Param('id') id: string, @Req() req: RequestWithUser) {
+  remove(@Param('id') id: string, @Req() req: AuthenticatedRequest) {
     return this.creditCardsService.remove(id, req.user.userId);
   }
 
   @ApiOperation({ summary: 'Recomendación de mejor tarjeta a usar hoy según días hasta el cierre' })
   @Get('recommendation')
-  getRecommendation(@Req() req: RequestWithUser) {
+  getRecommendation(@Req() req: AuthenticatedRequest) {
     return this.creditCardsService.getBestCardToUse(req.user.userId);
   }
 
   @ApiOperation({ summary: 'Actualizar datos de una tarjeta' })
   @Patch(':id')
   update(
-    @Param('id') id: string, 
-    @Body() updateCreditCardDto: UpdateCreditCardDto, 
-    @Req() req: AuthenticatedRequest
+    @Param('id') id: string,
+    @Body() updateCreditCardDto: UpdateCreditCardDto,
+    @Req() req: AuthenticatedRequest,
   ) {
     return this.creditCardsService.update(id, updateCreditCardDto, req.user.userId);
   }
@@ -57,17 +57,14 @@ export class CreditCardsController {
   upsertCycle(
     @Param('id') id: string,
     @Body() dto: UpsertCardCycleDto,
-    @Req() req: AuthenticatedRequest
+    @Req() req: AuthenticatedRequest,
   ) {
     return this.creditCardsService.upsertCycle(id, dto, req.user.userId);
   }
 
   @ApiOperation({ summary: 'Obtener historial de ciclos personalizados de una tarjeta' })
   @Get(':id/cycles')
-  getCycles(
-    @Param('id') id: string,
-    @Req() req: AuthenticatedRequest
-  ) {
+  getCycles(@Param('id') id: string, @Req() req: AuthenticatedRequest) {
     return this.creditCardsService.getCycles(id, req.user.userId);
   }
 
@@ -76,7 +73,7 @@ export class CreditCardsController {
   removeCycle(
     @Param('id') id: string,
     @Param('cycleId') cycleId: string,
-    @Req() req: AuthenticatedRequest
+    @Req() req: AuthenticatedRequest,
   ) {
     return this.creditCardsService.removeCycle(id, cycleId, req.user.userId);
   }

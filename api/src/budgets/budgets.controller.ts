@@ -3,6 +3,7 @@ import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { AuthGuard } from '@nestjs/passport';
 import { BudgetsService } from './budgets.service';
 import { CreateBudgetDto } from './dto/create-budget.dto';
+import { GetBudgetsQueryDto } from './dto/get-budgets-query.dto';
 import type { AuthenticatedRequest } from '../auth/interfaces/auth.interfaces';
 
 @ApiTags('Budgets')
@@ -20,16 +21,8 @@ export class BudgetsController {
 
   @ApiOperation({ summary: 'Obtener presupuestos y ejecución mensual con estados de alerta' })
   @Get()
-  findAll(
-    @Req() req: AuthenticatedRequest,
-    @Query('month') month?: string,
-    @Query('year') year?: string,
-  ) {
-    return this.budgetsService.findAll(
-      req.user.userId,
-      month ? parseInt(month) : undefined,
-      year ? parseInt(year) : undefined,
-    );
+  findAll(@Req() req: AuthenticatedRequest, @Query() query: GetBudgetsQueryDto) {
+    return this.budgetsService.findAll(req.user.userId, query.month, query.year);
   }
 
   @ApiOperation({ summary: 'Eliminar presupuesto de una categoría' })

@@ -1,4 +1,6 @@
+import type { Reminder } from './reminders';
 
+export type { Reminder };
 
 export interface DashboardSummary {
   period: string;
@@ -8,14 +10,7 @@ export interface DashboardSummary {
   totalCardExpense: number;
 }
 
-
-export interface SummaryData {
-  period: string;
-  totalIncome: number;
-  totalCashExpense: number;
-  totalCardExpense: number;
-  availableCash: number;
-}
+export type SummaryData = DashboardSummary;
 
 export interface CardRecommendation {
   card: {
@@ -24,12 +19,4 @@ export interface CardRecommendation {
   };
   daysToClose: number;
   message: string;
-}
-
-export interface Reminder {
-  id: string;
-  title: string;
-  amount: string | null;
-  dueDate: string;
-  isPaid: boolean;
 }

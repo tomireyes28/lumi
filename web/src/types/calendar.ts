@@ -1,5 +1,6 @@
-import { Category } from "./categories";
-import { CreditCard } from "./cards";
+import { Category } from './categories';
+import { CreditCard } from './cards';
+import type { Reminder } from './reminders';
 
 export interface CalendarTransaction {
   id: string;
@@ -10,10 +11,4 @@ export interface CalendarTransaction {
   creditCard?: CreditCard | null;
 }
 
-export interface CalendarReminder {
-  id: string;
-  title: string;
-  amount: string | null;
-  dueDate: string;
-  isPaid: boolean;
-}
+export type CalendarReminder = Reminder;

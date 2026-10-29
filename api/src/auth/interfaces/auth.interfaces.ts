@@ -13,21 +13,17 @@ export interface JwtPayload {
   email: string;
 }
 
-// Tipado de la Request de Express ya interceptada por el patovica (Guard)
-export interface RequestWithUser extends Request {
-  user: { 
-    userId: string; 
-    email?: string; 
-  };
-}
-
 export interface GoogleAuthRequest extends Request {
   user: GoogleUser;
 }
 
+// Tipado unificado de la Request de Express autenticada por JwtStrategy
 export interface AuthenticatedRequest extends Request {
   user: {
     userId: string;
     email: string;
   };
 }
+
+// Alias de compatibilidad hacia atrás
+export type RequestWithUser = AuthenticatedRequest;

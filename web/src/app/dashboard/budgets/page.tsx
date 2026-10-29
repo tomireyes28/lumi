@@ -2,12 +2,13 @@
 
 import { useState } from 'react';
 import { motion, Variants } from 'framer-motion';
-import { Plus, ChevronLeft, ChevronRight, Target, ArrowLeft } from 'lucide-react';
+import { Plus, ChevronLeft, ChevronRight, Target, ArrowLeft, AlertTriangle, Trash2 } from 'lucide-react';
 import Link from 'next/link';
 import { useBudgets } from '@/hooks/useBudgets';
 import { BudgetOverviewCard } from '@/components/budgets/BudgetOverviewCard';
 import { BudgetCard } from '@/components/budgets/BudgetCard';
 import { BudgetFormModal } from '@/components/budgets/BudgetFormModal';
+import { Modal } from '@/components/ui/Modal';
 import { BudgetProgressItem } from '@/types/budgets';
 
 const MONTH_NAMES = [
@@ -31,6 +32,7 @@ export default function BudgetsPage() {
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<BudgetProgressItem | null>(null);
+  const [deletingItem, setDeletingItem] = useState<BudgetProgressItem | null>(null);
 
   const containerVariants: Variants = {
     hidden: { opacity: 0 },
@@ -70,6 +72,12 @@ export default function BudgetsPage() {
     setIsModalOpen(true);
   };
 
+  const handleConfirmDelete = async () => {
+    if (!deletingItem) return;
+    await deleteBudget(deletingItem.id);
+    setDeletingItem(null);
+  };
+
   if (loading && !data) {
     return (
       <div className="p-8 text-center text-gray-500 animate-pulse">
@@ -91,6 +99,7 @@ export default function BudgetsPage() {
           <Link
             href="/dashboard"
             className="p-2 -ml-2 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-full transition-colors"
+            aria-label="Volver al inicio"
           >
             <ArrowLeft className="w-5 h-5" />
           </Link>
@@ -101,6 +110,7 @@ export default function BudgetsPage() {
         </div>
 
         <button
+          type="button"
           onClick={handleOpenCreate}
           className="flex items-center gap-1.5 px-3.5 py-2 bg-sky-600 hover:bg-sky-700 text-white rounded-2xl text-xs font-bold shadow-sm shadow-sky-200 transition-colors"
         >
@@ -115,7 +125,9 @@ export default function BudgetsPage() {
         className="flex items-center justify-between bg-white px-4 py-2.5 rounded-2xl border border-gray-100 shadow-xs"
       >
         <button
+          type="button"
           onClick={handlePrevMonth}
+          aria-label="Mes anterior"
           className="p-1.5 hover:bg-gray-100 text-gray-600 rounded-xl transition-colors"
         >
           <ChevronLeft className="w-4 h-4" />
@@ -124,7 +136,9 @@ export default function BudgetsPage() {
           {MONTH_NAMES[month - 1]} {year}
         </span>
         <button
+          type="button"
           onClick={handleNextMonth}
+          aria-label="Mes siguiente"
           className="p-1.5 hover:bg-gray-100 text-gray-600 rounded-xl transition-colors"
         >
           <ChevronRight className="w-4 h-4" />
@@ -146,7 +160,7 @@ export default function BudgetsPage() {
                   key={item.id}
                   item={item}
                   onEdit={handleOpenEdit}
-                  onDelete={deleteBudget}
+                  onDelete={setDeletingItem}
                   itemVariants={itemVariants}
                 />
               ))}
@@ -170,6 +184,7 @@ export default function BudgetsPage() {
             </p>
           </div>
           <button
+            type="button"
             onClick={handleOpenCreate}
             className="px-5 py-2.5 bg-sky-600 hover:bg-sky-700 text-white rounded-2xl text-xs font-bold shadow-md shadow-sky-100 transition-colors flex items-center gap-2"
           >
@@ -195,6 +210,42 @@ export default function BudgetsPage() {
         onSubmit={upsertBudget}
         isSubmitting={isSubmitting}
       />
+
+      {/* Modal de Confirmación de Borrado */}
+      <Modal
+        isOpen={Boolean(deletingItem)}
+        onClose={() => setDeletingItem(null)}
+        title="¿Eliminar presupuesto?"
+      >
+        <div className="flex flex-col items-center text-center">
+          <div className="w-16 h-16 bg-red-100 text-red-500 rounded-full flex items-center justify-center mb-4">
+            <AlertTriangle className="w-8 h-8" />
+          </div>
+          <p className="text-gray-600 mb-1">
+            Vas a eliminar el presupuesto mensual de{' '}
+            <strong className="text-gray-900">{deletingItem?.category.name}</strong>.
+          </p>
+          <p className="text-sm text-gray-500 mb-6">
+            Tus gastos registrados en esta categoría no se borrarán.
+          </p>
+        </div>
+        <div className="flex gap-3">
+          <button
+            type="button"
+            onClick={() => setDeletingItem(null)}
+            className="flex-1 py-3 font-bold text-gray-600 bg-gray-100 rounded-xl hover:bg-gray-200 transition-colors"
+          >
+            Cancelar
+          </button>
+          <button
+            type="button"
+            onClick={handleConfirmDelete}
+            className="flex-1 py-3 font-bold text-white bg-red-500 rounded-xl hover:bg-red-600 transition-colors flex items-center justify-center gap-2"
+          >
+            <Trash2 className="w-4 h-4" /> Sí, eliminar
+          </button>
+        </div>
+      </Modal>
     </motion.div>
   );
 }

@@ -64,36 +64,42 @@ export function CardCarousel({
               >
                 <div className="absolute top-0 right-0 w-32 h-32 bg-white opacity-10 rounded-full -mr-10 -mt-10 pointer-events-none"></div>
 
-                {/* Botones de acción en hover/desktop */}
-                <div className="absolute top-3 left-3 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity z-20 bg-black/20 p-1.5 rounded-lg backdrop-blur-sm">
+                {/* Botones de acción: siempre visibles en pantallas táctiles (mobile) y en hover/focus en desktop */}
+                <div className="absolute top-3 left-3 flex gap-2 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 focus-within:opacity-100 transition-opacity z-20 bg-black/25 p-1.5 rounded-lg backdrop-blur-sm">
                   {onAdjustCycleClick && (
                     <button
+                      type="button"
                       onClick={() => onAdjustCycleClick(card)}
-                      className="p-1 hover:text-sky-300 text-white/70 transition-colors"
+                      className="p-1 hover:text-sky-300 text-white/80 transition-colors"
                       title="Ajustar fecha de cierre mensual"
+                      aria-label={`Ajustar fecha de cierre de ${card.alias}`}
                     >
                       <CalendarDays className="w-3.5 h-3.5" />
                     </button>
                   )}
                   <button
+                    type="button"
                     onClick={() => onEditClick(card)}
-                    className="p-1 hover:text-white text-white/70 transition-colors"
+                    className="p-1 hover:text-white text-white/80 transition-colors"
                     title="Editar tarjeta"
+                    aria-label={`Editar tarjeta ${card.alias}`}
                   >
                     <Pencil className="w-3.5 h-3.5" />
                   </button>
                   <button
+                    type="button"
                     onClick={() => onDeleteClick(card)}
-                    className="p-1 hover:text-red-400 text-white/70 transition-colors"
+                    className="p-1 hover:text-red-400 text-white/80 transition-colors"
                     title="Borrar tarjeta"
+                    aria-label={`Borrar tarjeta ${card.alias}`}
                   >
                     <Trash2 className="w-3.5 h-3.5" />
                   </button>
                 </div>
 
-                <div className="flex justify-between items-start z-10 pl-16">
-                  <h3 className="font-bold text-lg tracking-wide">{card.alias}</h3>
-                  <div className="w-8 h-6 bg-yellow-400/80 rounded flex items-center justify-center opacity-80">
+                <div className="flex justify-between items-start z-10 pl-20">
+                  <h3 className="font-bold text-lg tracking-wide truncate">{card.alias}</h3>
+                  <div className="w-8 h-6 bg-yellow-400/80 rounded flex items-center justify-center opacity-80 shrink-0">
                     <div className="w-full h-px bg-yellow-600/50"></div>
                   </div>
                 </div>

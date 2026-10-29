@@ -6,7 +6,7 @@ import { IconRenderer } from '@/components/ui/IconRenderer';
 interface BudgetCardProps {
   item: BudgetProgressItem;
   onEdit: (item: BudgetProgressItem) => void;
-  onDelete: (id: string) => void;
+  onDelete: (item: BudgetProgressItem) => void;
   itemVariants?: Variants;
 }
 
@@ -56,16 +56,20 @@ export function BudgetCard({ item, onEdit, onDelete, itemVariants }: BudgetCardP
             {item.percentageSpent}%
           </span>
           <button
+            type="button"
             onClick={() => onEdit(item)}
             className="p-1.5 text-gray-400 hover:text-sky-600 hover:bg-sky-50 rounded-lg transition-colors"
             title="Modificar presupuesto"
+            aria-label={`Modificar presupuesto de ${item.category.name}`}
           >
             <Pencil className="w-3.5 h-3.5" />
           </button>
           <button
-            onClick={() => onDelete(item.id)}
+            type="button"
+            onClick={() => onDelete(item)}
             className="p-1.5 text-gray-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
             title="Eliminar presupuesto"
+            aria-label={`Eliminar presupuesto de ${item.category.name}`}
           >
             <Trash2 className="w-3.5 h-3.5" />
           </button>

@@ -1,5 +1,5 @@
 import { Controller, Get } from '@nestjs/common';
-import { ApiTags } from '@nestjs/swagger';
+import { ApiTags, ApiOperation } from '@nestjs/swagger';
 import { AppService } from './app.service';
 
 @ApiTags('Health')
@@ -10,5 +10,11 @@ export class AppController {
   @Get()
   getHello(): string {
     return this.appService.getHello();
+  }
+
+  @ApiOperation({ summary: 'Verificar estado de salud de la API y conexión a PostgreSQL' })
+  @Get('health')
+  checkHealth() {
+    return this.appService.checkHealth();
   }
 }
