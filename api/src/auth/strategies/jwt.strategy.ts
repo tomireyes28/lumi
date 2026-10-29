@@ -1,16 +1,27 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
-import { JwtPayload } from '../interfaces/auth.interfaces'; 
-import { PrismaService } from '../../prisma/prisma.service'; // <-- Importamos Prisma
+import { JwtPayload } from '../interfaces/auth.interfaces';
+import { PrismaService } from '../../prisma/prisma.service';
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
-  constructor(private prisma: PrismaService) { // <-- Inyectamos Prisma
+  constructor(
+    private readonly prisma: PrismaService,
+    configService: ConfigService,
+  ) {
+    const secret = configService.get<string>('JWT_SECRET') || process.env.JWT_SECRET;
+    if (!secret) {
+      throw new Error(
+        'CRITICAL: La variable de entorno JWT_SECRET es obligatoria para inicializar JwtStrategy.',
+      );
+    }
+
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       ignoreExpiration: false,
-      secretOrKey: process.env.JWT_SECRET || '', 
+      secretOrKey: secret,
     });
   }
 
@@ -27,12 +38,12 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
     if (!user) {
       throw new UnauthorizedException('Usuario no encontrado');
     }
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { password, ...result } = user;
-    
+
     return {
       ...result,
-      userId: result.id 
+      userId: result.id,
     };
   }
 }

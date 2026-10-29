@@ -57,6 +57,7 @@ model Transaction {
   @@index([userId, date])
   @@index([userId, categoryId])
   @@index([userId, creditCardId])
+  @@index([userId, installmentGroupId])
 }
 
 model CreditCard {

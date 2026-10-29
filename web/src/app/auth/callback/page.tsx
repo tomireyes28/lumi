@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, Suspense } from "react";
+import { useEffect, useRef, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { useAuthStore } from "@/store/useAuthStore";
 import { Loader2 } from "lucide-react";
@@ -8,8 +8,12 @@ import { Loader2 } from "lucide-react";
 function CallbackLogic() {
   const searchParams = useSearchParams();
   const { login } = useAuthStore();
+  const hasExchangedRef = useRef(false);
 
   useEffect(() => {
+    if (hasExchangedRef.current) return;
+    hasExchangedRef.current = true;
+
     const code = searchParams.get("code");
     const legacyToken = searchParams.get("token");
 

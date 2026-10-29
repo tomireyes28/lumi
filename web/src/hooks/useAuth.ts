@@ -13,7 +13,6 @@ export function useAuth() {
   const [loading, setLoading] = useState(false);
 
   const loginWithGoogle = () => {
-    // La lógica de redirección a Google que ya tenías
     window.location.href = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000'}/auth/google`;
   };
 
@@ -32,8 +31,10 @@ export function useAuth() {
       const result = await response.json();
 
       if (!response.ok) {
-        // Mostramos el mensaje de error que viene directo del backend
-        throw new Error(result.message || 'Error de autenticación');
+        const message = Array.isArray(result.message)
+          ? result.message[0]
+          : result.message || 'Error de autenticación';
+        throw new Error(message);
       }
 
       // Guardamos en Zustand y en la Cookie

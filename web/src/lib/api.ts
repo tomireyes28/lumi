@@ -1,4 +1,4 @@
-// web/src/lib/api.ts
+import { useAuthStore } from '@/store/useAuthStore';
 
 export async function apiFetch(path: string, options: RequestInit = {}) {
   // 1. Agarramos el token
@@ -12,21 +12,23 @@ export async function apiFetch(path: string, options: RequestInit = {}) {
   }
 
   // 3. URL Dinámica (Leemos el .env, y si no está, usamos localhost de respaldo)
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000'; // <-- Ajustá el puerto al de tu backend (3001 o 3000)
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
 
   const response = await fetch(`${apiUrl}${path}`, {
-    signal: options.signal || (typeof AbortSignal !== 'undefined' && 'timeout' in AbortSignal ? AbortSignal.timeout(10000) : undefined),
+    signal:
+      options.signal ||
+      (typeof AbortSignal !== 'undefined' && 'timeout' in AbortSignal
+        ? AbortSignal.timeout(10000)
+        : undefined),
     ...options,
     headers,
   });
 
-  // 4. NUEVO: Interceptor de Token Expirado (401 Unauthorized)
+  // 4. Interceptor de Token Expirado (401 Unauthorized)
   if (response.status === 401) {
     if (typeof window !== 'undefined') {
-      localStorage.removeItem('lumi_token'); // Limpiamos el token viejo
-      localStorage.removeItem('lumi_user');
-      document.cookie = "lumi_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT"; // Borramos la cookie para evitar rebotes con el Middleware
-      window.location.href = '/'; // Pateamos al usuario a la pantalla de login principal
+      useAuthStore.getState().logout();
+      window.location.href = '/';
     }
     throw new Error('Sesión expirada');
   }
@@ -34,7 +36,11 @@ export async function apiFetch(path: string, options: RequestInit = {}) {
   // 5. Manejo de errores genérico
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.message || 'Error en la petición a la API');
+    const rawMessage = errorData.message;
+    const formattedMessage = Array.isArray(rawMessage)
+      ? rawMessage[0]
+      : rawMessage || 'Error en la petición a la API';
+    throw new Error(formattedMessage);
   }
 
   if (response.status === 204) return null;
