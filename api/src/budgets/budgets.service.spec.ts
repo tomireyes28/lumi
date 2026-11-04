@@ -149,6 +149,24 @@ describe('BudgetsService', () => {
       expect(item3?.percentageSpent).toBe(125);
       expect(item3?.remainingAmount).toBe(0);
     });
+
+    it('should mark budget as exceeded even on a 1-cent overrun where percentage rounds to 100', async () => {
+      prisma.budget.findMany.mockResolvedValue([
+        {
+          id: 'b-edge',
+          categoryId: 'cat-edge',
+          amount: 100,
+          category: { id: 'cat-edge', name: 'Super', colorHex: '#fff', icon: 'cart' },
+        },
+      ]);
+      prisma.transaction.findMany.mockResolvedValue([
+        { categoryId: 'cat-edge', amount: 100.01 },
+      ]);
+
+      const result = await service.findAll(mockUserId, 10, 2026);
+      expect(result.items[0].status).toBe('exceeded');
+      expect(result.items[0].percentageSpent).toBe(100);
+    });
   });
 
   describe('remove', () => {

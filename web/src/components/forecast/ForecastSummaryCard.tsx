@@ -8,12 +8,18 @@ interface ForecastSummaryCardProps {
 }
 
 export function ForecastSummaryCard({ data, itemVariants }: ForecastSummaryCardProps) {
-  const isHighCommitment = data.averageCommitmentRatio > 45;
+  const hasNoIncomeWithDebt =
+    data.estimatedMonthlyIncome <= 0 &&
+    (data.totalFutureDebt > 0 || data.averageCommitmentRatio > 0);
+  const isHighCommitment = hasNoIncomeWithDebt || data.averageCommitmentRatio > 45;
   const isModerate = data.averageCommitmentRatio >= 25 && !isHighCommitment;
 
   let ratioBadge = 'bg-emerald-50 text-emerald-700 border-emerald-200';
   let ratioText = 'Compromiso Saludable';
-  if (isHighCommitment) {
+  if (hasNoIncomeWithDebt) {
+    ratioBadge = 'bg-rose-50 text-rose-700 border-rose-200';
+    ratioText = 'Sin ingresos registrados';
+  } else if (isHighCommitment) {
     ratioBadge = 'bg-rose-50 text-rose-700 border-rose-200';
     ratioText = 'Alto Compromiso';
   } else if (isModerate) {

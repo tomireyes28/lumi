@@ -157,7 +157,7 @@ export class AnalyticsService {
           orderBy: { date: 'asc' },
         }),
         this.prisma.reminder.findMany({
-          where: { userId, isPaid: false },
+          where: { userId },
           orderBy: { dueDate: 'asc' },
         }),
         this.prisma.transaction.findMany({
@@ -227,14 +227,29 @@ export class AnalyticsService {
       const installmentExpenses =
         Math.round(monthInstallmentTx.reduce((sum, tx) => sum + Number(tx.amount), 0) * 100) / 100;
 
-      // Recordatorios impagos con monto: incluimos los que vencen en ese mes específico,
-      // o los del mes actual proyectados como gasto fijo mensual recurrente
+      // Recordatorios con monto:
+      // - Puntuales (!isRecurring): solo impactan en el mes exacto de su vencimiento si siguen impagos.
+      // - Recurrentes (isRecurring === true): impactan en el mes actual si están impagos, y se proyectan en los meses futuros aunque el mes actual ya se haya abonado.
       const monthReminders = reminders.filter((r) => {
-        if (r.isPaid || r.amount === null) return false;
+        if (r.amount === null) return false;
         const rDate = new Date(r.dueDate);
         const isInTargetMonth = rDate >= startDate && rDate < endDate;
-        const isCurrentMonthRecurring = rDate >= currentMonthStart && rDate < currentMonthEnd;
-        return isInTargetMonth || isCurrentMonthRecurring;
+        const isRecurring = Boolean(
+          (r as { isRecurring?: boolean }).isRecurring,
+        );
+
+        if (isRecurring) {
+          if (i === 0) {
+            return (
+              !r.isPaid &&
+              (isInTargetMonth ||
+                (rDate >= currentMonthStart && rDate < currentMonthEnd))
+            );
+          }
+          return rDate < endDate && (!r.isPaid || rDate >= currentMonthStart);
+        }
+
+        return !r.isPaid && isInTargetMonth;
       });
 
       const fixedExpenses =
@@ -245,8 +260,10 @@ export class AnalyticsService {
         Math.round((estimatedMonthlyIncome - totalCommitted) * 100) / 100;
       const commitmentRatio =
         estimatedMonthlyIncome > 0
-          ? Math.min(100, Math.round((totalCommitted / estimatedMonthlyIncome) * 100))
-          : 0;
+          ? Math.round((totalCommitted / estimatedMonthlyIncome) * 100)
+          : totalCommitted > 0
+            ? 100
+            : 0;
 
       totalCommitmentRatioSum += commitmentRatio;
 
@@ -292,7 +309,7 @@ export class AnalyticsService {
       if (remainingTxs.length > 0) {
         const firstTx = txs[0];
         const lastTx = txs[txs.length - 1];
-        const installmentAmount = Number(lastTx.amount);
+        const installmentAmount = Number(remainingTxs[0].amount);
         const remainingAmount =
           Math.round(remainingTxs.reduce((sum, t) => sum + Number(t.amount), 0) * 100) / 100;
         const totalAmount =
@@ -340,8 +357,15 @@ export class AnalyticsService {
       debtFreePeriod = `${MONTH_NAMES[latestFinishDate.getMonth()]} ${latestFinishDate.getFullYear()}`;
     }
 
+    const hasCommittedObligations =
+      totalFutureDebt > 0 ||
+      forecastTimeline.some((item) => item.totalCommitted > 0);
     const averageCommitmentRatio =
-      monthsCount > 0 ? Math.round(totalCommitmentRatioSum / monthsCount) : 0;
+      estimatedMonthlyIncome <= 0 && hasCommittedObligations
+        ? 100
+        : monthsCount > 0
+          ? Math.round(totalCommitmentRatioSum / monthsCount)
+          : 0;
 
     return {
       monthsCount,

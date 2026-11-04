@@ -23,6 +23,7 @@ export class RemindersService {
         title: createReminderDto.title,
         amount: createReminderDto.amount,
         dueDate: parseLocalDate(createReminderDto.dueDate),
+        isRecurring: createReminderDto.isRecurring ?? false,
         userId,
       },
     });
@@ -44,8 +45,12 @@ export class RemindersService {
     // Tipamos el objeto correctamente usando Prisma
     const dataToUpdate: Prisma.ReminderUpdateInput = {};
 
-    if (updateReminderDto.title !== undefined) dataToUpdate.title = updateReminderDto.title;
-    if (updateReminderDto.amount !== undefined) dataToUpdate.amount = updateReminderDto.amount;
+    if (updateReminderDto.title !== undefined)
+      dataToUpdate.title = updateReminderDto.title;
+    if (updateReminderDto.amount !== undefined)
+      dataToUpdate.amount = updateReminderDto.amount;
+    if (updateReminderDto.isRecurring !== undefined)
+      dataToUpdate.isRecurring = updateReminderDto.isRecurring;
 
     // Si viene la fecha, la convertimos al objeto Date preservando fecha local
     if (updateReminderDto.dueDate !== undefined) {

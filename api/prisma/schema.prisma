@@ -3,7 +3,7 @@ generator client {
 }
 
 datasource db {
-  provider  = "postgresql"
+  provider = "postgresql"
 }
 
 model User {
@@ -14,7 +14,7 @@ model User {
   picture       String?
   googleId      String?  @unique
   emailVerified Boolean  @default(false)
-  
+
   transactions Transaction[]
   categories   Category[]
   creditCards  CreditCard[]
@@ -22,7 +22,7 @@ model User {
   budgets      Budget[]
 
   createdAt DateTime @default(now())
-  updatedAt DateTime @default(now()) @updatedAt 
+  updatedAt DateTime @default(now()) @updatedAt
 }
 
 model Category {
@@ -31,7 +31,7 @@ model Category {
   name         String
   type         String        // 'income' | 'expense'
   colorHex     String?       // Para los colores pasteles
-  icon         String?       
+  icon         String?
   user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
   transactions Transaction[]
   budgets      Budget[]
@@ -41,19 +41,19 @@ model Category {
 }
 
 model Transaction {
-  id           String    @id @default(uuid())
-  userId       String
-  categoryId   String
-  amount       Decimal   @db.Decimal(10, 2)
-  date         DateTime  @default(now())
-  note         String?
-
+  id                 String    @id @default(uuid())
+  userId             String
+  categoryId         String
+  amount             Decimal   @db.Decimal(10, 2)
+  date               DateTime  @default(now())
+  note               String?
+  paymentMethod      String    @default("cash") // 'cash' | 'credit_card'
   installmentGroupId String?
-  
-  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  category     Category  @relation(fields: [categoryId], references: [id], onDelete: Cascade)
-  createdAt    DateTime  @default(now())
-  creditCardId String?   // Relación opcional con CreditCard
+
+  user         User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  category     Category    @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  createdAt    DateTime    @default(now())
+  creditCardId String?     // Relación opcional con CreditCard
   creditCard   CreditCard? @relation(fields: [creditCardId], references: [id], onDelete: SetNull)
 
   @@index([userId, date])
@@ -63,22 +63,22 @@ model Transaction {
 }
 
 model CreditCard {
-  id          String   @id @default(uuid())
-  alias       String   // Ej: "Visa Galicia"
-  lastFour    String   // Ej: "4567"
-  limit       Decimal  @db.Decimal(10, 2) // Cambiado a Decimal para precisión financiera
-  closingDay  Int      
-  dueDay      Int      
-  colorHex    String?  @default("#0f172a") 
-  
-  userId      String
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade) // Agregado el Cascade
-  
-  transactions Transaction[] // Relación con los gastos
-  cycles       CardCycle[]   // Ciclos mensuales con fechas personalizadas
-  
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id         String  @id @default(uuid())
+  alias      String  // Ej: "Visa Galicia"
+  lastFour   String  // Ej: "4567"
+  limit      Decimal @db.Decimal(10, 2)
+  closingDay Int
+  dueDay     Int
+  colorHex   String? @default("#0f172a")
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  transactions Transaction[]
+  cycles       CardCycle[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([userId])
 }
@@ -87,14 +87,14 @@ model CardCycle {
   id           String     @id @default(uuid())
   creditCardId String
   creditCard   CreditCard @relation(fields: [creditCardId], references: [id], onDelete: Cascade)
-  
-  month        Int        // 1 a 12 (mes del resumen/cierre)
-  year         Int        // Año del ciclo (ej: 2026)
-  closingDate  DateTime   // Fecha exacta de cierre para este mes
-  dueDate      DateTime?  // Fecha exacta de vencimiento para este ciclo (opcional)
 
-  createdAt    DateTime   @default(now())
-  updatedAt    DateTime   @updatedAt
+  month       Int       // 1 a 12 (mes del resumen/cierre)
+  year        Int       // Año del ciclo (ej: 2026)
+  closingDate DateTime  // Fecha exacta de cierre para este mes
+  dueDate     DateTime? // Fecha exacta de vencimiento para este ciclo (opcional)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@unique([creditCardId, year, month])
   @@index([creditCardId])
@@ -103,19 +103,19 @@ model CardCycle {
 model Reminder {
   id          String   @id @default(uuid())
   title       String   // Ej: "Alquiler", "Netflix"
-  amount      Decimal? // Opcional, por si sabe cuánta plata es
+  amount      Decimal? @db.Decimal(10, 2)
   dueDate     DateTime // La fecha en la que vence
-  isPaid      Boolean  @default(false) // Para tacharlo cuando lo pague
-  
-  // Relación con el usuario (solo ve sus propios recordatorios)
-  userId      String
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  isPaid      Boolean  @default(false)
+  isRecurring Boolean  @default(false)
 
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([userId])
-  @@index([dueDate]) // Índice para que el CRON Job busque rápido las fechas
+  @@index([dueDate])
 }
 
 model Budget {

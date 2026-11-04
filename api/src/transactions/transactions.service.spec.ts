@@ -160,6 +160,69 @@ describe('TransactionsService', () => {
       expect(prisma.transaction.findFirst).toHaveBeenCalledTimes(1);
       expect(result).toHaveProperty('installmentGroupId');
     });
+
+    it('should reject installments > 1 for income categories', async () => {
+      prisma.category.findUnique.mockResolvedValue({
+        id: 'cat-income',
+        userId: mockUserId,
+        type: 'income',
+      });
+      prisma.creditCard.findUnique.mockResolvedValue({
+        id: 'card-own',
+        userId: mockUserId,
+      });
+
+      await expect(
+        service.create(
+          {
+            amount: 300,
+            categoryId: 'cat-income',
+            creditCardId: 'card-own',
+            installments: 3,
+          },
+          mockUserId,
+        ),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('should shift installment billing dates to next cycle when purchase is after card closingDay', async () => {
+      prisma.category.findUnique.mockResolvedValue({
+        id: 'cat-own',
+        userId: mockUserId,
+        type: 'expense',
+      });
+      prisma.creditCard.findUnique.mockResolvedValue({
+        id: 'card-own',
+        userId: mockUserId,
+        closingDay: 25,
+        dueDay: 5,
+        cycles: [],
+      });
+
+      let capturedData: Array<{ date: Date; amount: number }> = [];
+      prisma.transaction.createMany.mockImplementation(({ data }: { data: Array<{ date: Date; amount: number }> }) => {
+        capturedData = data;
+        return Promise.resolve({ count: data.length });
+      });
+      prisma.transaction.findFirst.mockImplementation(() =>
+        Promise.resolve(capturedData[0]),
+      );
+
+      await service.create(
+        {
+          amount: 300,
+          categoryId: 'cat-own',
+          creditCardId: 'card-own',
+          installments: 3,
+          date: '2026-01-26',
+        },
+        mockUserId,
+      );
+
+      expect(
+        capturedData.map((item) => item.date.toISOString().split('T')[0]),
+      ).toEqual(['2026-02-25', '2026-03-25', '2026-04-25']);
+    });
   });
 
   describe('findAllByUser - Pagination & Filters', () => {

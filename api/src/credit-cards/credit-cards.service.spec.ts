@@ -1,7 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { CreditCardsService } from './credit-cards.service';
 import { PrismaService } from '../prisma/prisma.service';
-import { NotFoundException } from '@nestjs/common';
+import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 
 describe('CreditCardsService', () => {
@@ -22,6 +22,7 @@ describe('CreditCardsService', () => {
     };
     transaction: {
       aggregate: jest.Mock;
+      count: jest.Mock;
     };
   };
 
@@ -56,6 +57,7 @@ describe('CreditCardsService', () => {
       },
       transaction: {
         aggregate: jest.fn().mockResolvedValue({ _sum: { amount: new Prisma.Decimal(15000) } }),
+        count: jest.fn().mockResolvedValue(0),
       },
     };
 
@@ -122,6 +124,20 @@ describe('CreditCardsService', () => {
       expect(res.closingDate.getMonth()).toBe(9); // Octubre
       expect(res.closingDate.getDate()).toBe(24);
     });
+
+    it('debe preservar el mismo día calendario en UTC y en America/Argentina/Buenos_Aires', () => {
+      const refDate = new Date(2026, 9, 10, 12);
+      const res = service.getCycleDatesForCard(
+        { ...mockCard, closingDay: 25, dueDay: 5 },
+        refDate,
+      );
+
+      expect(res.closingDate.toLocaleDateString('es-AR', { timeZone: 'UTC' })).toBe(
+        res.closingDate.toLocaleDateString('es-AR', {
+          timeZone: 'America/Argentina/Buenos_Aires',
+        }),
+      );
+    });
   });
 
   describe('upsertCycle', () => {
@@ -178,6 +194,35 @@ describe('CreditCardsService', () => {
           'user-1',
         ),
       ).rejects.toThrow(NotFoundException);
+    });
+
+    it('debe arrojar BadRequestException si la fecha de vencimiento es anterior al cierre', async () => {
+      prisma.creditCard.findUnique.mockResolvedValue(mockCard);
+
+      await expect(
+        service.upsertCycle(
+          'card-1',
+          {
+            month: 10,
+            year: 2026,
+            closingDate: '2026-10-25',
+            dueDate: '2026-10-10',
+          },
+          'user-1',
+        ),
+      ).rejects.toThrow(BadRequestException);
+    });
+  });
+
+  describe('remove', () => {
+    it('debe impedir eliminar una tarjeta con movimientos asociados', async () => {
+      prisma.creditCard.findUnique.mockResolvedValue(mockCard);
+      prisma.transaction.count.mockResolvedValue(3);
+
+      await expect(service.remove('card-1', 'user-1')).rejects.toThrow(
+        BadRequestException,
+      );
+      expect(prisma.creditCard.delete).not.toHaveBeenCalled();
     });
   });
 

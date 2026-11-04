@@ -112,13 +112,16 @@ export class BudgetsService {
     const items: BudgetProgressItem[] = budgets.map((budget) => {
       const budgetedAmount = Number(budget.amount);
       const spentAmount = spentByCategory.get(budget.categoryId) || 0;
-      const remainingAmount = Math.max(0, Math.round((budgetedAmount - spentAmount) * 100) / 100);
-      const percentageSpent = budgetedAmount > 0 ? Math.round((spentAmount / budgetedAmount) * 100) : 0;
+      const budgetCents = Math.round(budgetedAmount * 100);
+      const spentCents = Math.round(spentAmount * 100);
+      const remainingAmount = Math.max(0, (budgetCents - spentCents) / 100);
+      const percentageSpent =
+        budgetCents > 0 ? Math.round((spentCents / budgetCents) * 100) : 0;
 
       let status: BudgetStatus = 'ok';
-      if (percentageSpent > 100) {
+      if (budgetCents > 0 && spentCents > budgetCents) {
         status = 'exceeded';
-      } else if (percentageSpent >= 75) {
+      } else if (budgetCents > 0 && spentCents * 100 >= budgetCents * 75) {
         status = 'warning';
       }
 
@@ -130,7 +133,7 @@ export class BudgetsService {
         categoryId: budget.categoryId,
         category: budget.category,
         budgetedAmount,
-        spentAmount: Math.round(spentAmount * 100) / 100,
+        spentAmount: spentCents / 100,
         remainingAmount,
         percentageSpent,
         status,

@@ -33,6 +33,43 @@ describe('InstallmentCalculator', () => {
     });
   });
 
+  it('should never produce negative installment amounts even on small sub-installment totals (e.g. $0.07 / 12)', () => {
+    const result = InstallmentCalculator.calculate({
+      amount: 0.07,
+      installments: 12,
+      startDate: new Date(2026, 0, 26, 12),
+      userId: 'user-1',
+      categoryId: 'cat-1',
+    });
+
+    expect(result.transactionsData).toHaveLength(12);
+    for (const tx of result.transactionsData) {
+      expect(tx.amount).toBeGreaterThanOrEqual(0);
+    }
+    const sumCents = result.transactionsData.reduce(
+      (acc, tx) => acc + Math.round(tx.amount * 100),
+      0,
+    );
+    expect(sumCents).toBe(7);
+  });
+
+  it('should shift installments to the next billing cycle when purchase is after card closingDay', () => {
+    const result = InstallmentCalculator.calculate({
+      amount: 300,
+      installments: 3,
+      startDate: new Date(2026, 0, 26, 12), // 26 de Enero
+      closingDay: 25, // Cierra el 25
+      userId: 'user-1',
+      categoryId: 'cat-1',
+      creditCardId: 'card-1',
+    });
+
+    const dates = result.transactionsData.map(
+      (tx) => tx.date.toISOString().split('T')[0],
+    );
+    expect(dates).toEqual(['2026-02-25', '2026-03-25', '2026-04-25']);
+  });
+
   it('should prevent month-end overflow on 31-day months (e.g., Jan 31 -> Feb 28/29)', () => {
     const result = InstallmentCalculator.calculate({
       amount: 600,

@@ -1,14 +1,16 @@
-import { IsString, IsNotEmpty, IsOptional, IsEnum } from 'class-validator';
+import { IsString, IsNotEmpty, IsOptional, IsEnum, MaxLength, IsHexColor } from 'class-validator';
+import { Transform } from 'class-transformer';
 
-// Esto asegura que TypeScript y NestJS solo acepten estos dos valores
 export enum CategoryType {
   INCOME = 'income',
   EXPENSE = 'expense',
 }
 
 export class CreateCategoryDto {
+  @Transform(({ value }: { value: unknown }) => (typeof value === 'string' ? value.trim() : value))
   @IsNotEmpty({ message: 'El nombre de la categoría es obligatorio' })
-  @IsString()
+  @IsString({ message: 'El nombre debe ser un texto válido' })
+  @MaxLength(60, { message: 'El nombre no puede superar los 60 caracteres' })
   name!: string;
 
   @IsNotEmpty({ message: 'El tipo es obligatorio (income o expense)' })
@@ -16,10 +18,11 @@ export class CreateCategoryDto {
   type!: CategoryType;
 
   @IsOptional()
-  @IsString()
-  colorHex?: string; // Coincide con tu esquema
+  @IsHexColor({ message: 'El color debe ser un código hexadecimal válido' })
+  colorHex?: string;
 
   @IsOptional()
   @IsString()
+  @MaxLength(50, { message: 'El ícono no puede superar los 50 caracteres' })
   icon?: string;
 }

@@ -158,5 +158,69 @@ describe('AnalyticsService - Forecast', () => {
 
       expect(forecast.estimatedMonthlyIncome).toBe(180000);
     });
+
+    it('should not project one-off reminders into future months, and should project recurring reminders even after paying current month', async () => {
+      const now = new Date();
+      const currentYear = now.getFullYear();
+      const currentMonth = now.getMonth();
+
+      prisma.transaction.findMany
+        .mockResolvedValueOnce([{ amount: 100000, date: new Date(currentYear, currentMonth - 1, 5) }])
+        .mockResolvedValueOnce([])
+        .mockResolvedValueOnce([]);
+
+      prisma.reminder.findMany.mockResolvedValue([
+        {
+          id: 'rem-oneoff',
+          title: 'Patente anual',
+          amount: 10000,
+          dueDate: new Date(currentYear, currentMonth, 15),
+          isPaid: false,
+          isRecurring: false,
+        },
+        {
+          id: 'rem-recurring-paid',
+          title: 'Alquiler',
+          amount: 40000,
+          dueDate: new Date(currentYear, currentMonth, 5),
+          isPaid: true,
+          isRecurring: true,
+        },
+      ]);
+
+      const forecast = await service.getForecast(mockUserId, 3);
+
+      // Mes 0: solo el puntual impago (10,000); el recurrente ya fue pagado este mes
+      expect(forecast.forecastTimeline[0].fixedExpenses).toBe(10000);
+      // Meses 1 y 2: el puntual no se repite (0) y el recurrente sí se proyecta (40,000)
+      expect(forecast.forecastTimeline[1].fixedExpenses).toBe(40000);
+      expect(forecast.forecastTimeline[2].fixedExpenses).toBe(40000);
+    });
+
+    it('should report 100% commitment ratio when income is 0 and there are committed obligations', async () => {
+      const now = new Date();
+      const currentYear = now.getFullYear();
+      const currentMonth = now.getMonth();
+
+      prisma.transaction.findMany
+        .mockResolvedValueOnce([])
+        .mockResolvedValueOnce([])
+        .mockResolvedValueOnce([]);
+
+      prisma.reminder.findMany.mockResolvedValue([
+        {
+          id: 'rem-1',
+          title: 'Luz',
+          amount: 25000,
+          dueDate: new Date(currentYear, currentMonth, 15),
+          isPaid: false,
+          isRecurring: false,
+        },
+      ]);
+
+      const forecast = await service.getForecast(mockUserId, 3);
+      expect(forecast.estimatedMonthlyIncome).toBe(0);
+      expect(forecast.averageCommitmentRatio).toBe(100);
+    });
   });
 });
