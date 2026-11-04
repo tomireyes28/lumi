@@ -16,7 +16,9 @@ export function useAuth() {
     const clientState = crypto.randomUUID();
     sessionStorage.setItem('lumi_oauth_state', clientState);
     const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
-    window.location.href = `${apiUrl}/auth/google?client_state=${encodeURIComponent(clientState)}`;
+    const oauthUrl = new URL('/auth/google', apiUrl);
+    oauthUrl.searchParams.set('client_state', clientState);
+    window.location.assign(oauthUrl.href);
   };
 
   const authWithEmail = async (isLogin: boolean, data: EmailAuthData) => {

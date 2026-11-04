@@ -63,7 +63,7 @@ export default function CardsPage() {
           <p className="text-gray-600 mb-1">
             Vas a eliminar la tarjeta <strong className="text-gray-900">{deletingCard?.alias}</strong>.
           </p>
-          <p className="text-sm text-gray-500 mb-6">Los movimientos asociados quedarán huérfanos. Esta acción no se deshace.</p>
+          <p className="text-sm text-gray-500 mb-6">Los movimientos pasados conservarán su monto y su clasificación histórica como gasto con tarjeta. Esta acción no se deshace.</p>
         </div>
         <div className="flex gap-3">
           <button onClick={() => setDeletingCard(null)} className="flex-1 py-3 font-bold text-gray-600 bg-gray-100 rounded-xl hover:bg-gray-200">Cancelar</button>

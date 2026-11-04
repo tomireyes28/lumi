@@ -4,6 +4,8 @@ import { PrismaService } from '../prisma/prisma.service';
 import { JwtService } from '@nestjs/jwt';
 import { BadRequestException, UnauthorizedException } from '@nestjs/common';
 import * as bcrypt from 'bcrypt';
+import { OAuthStateStore } from './strategies/oauth-state.store';
+import type { Request } from 'express';
 
 jest.mock('bcrypt');
 
@@ -255,6 +257,71 @@ describe('AuthService', () => {
       expect(service.isTokenRevoked('jti-1')).toBe(false);
       service.revokeToken('jti-1', Math.floor(Date.now() / 1000) + 3600);
       expect(service.isTokenRevoked('jti-1')).toBe(true);
+    });
+  });
+
+  describe('OAuthStateStore (Anti-Login CSRF & PKCE)', () => {
+    it('should sign state, bind HttpOnly cookie, verify PKCE verifier, and block replay', () => {
+      const store = new OAuthStateStore('hmac_secret_test', false);
+      let setCookieHeader = '';
+
+      const mockReqStore = {
+        query: { client_state: 'browser-state-123' },
+        res: {
+          setHeader: (_name: string, val: string) => {
+            setCookieHeader = val;
+          },
+          getHeader: () => undefined,
+        },
+      } as unknown as Request;
+
+      let generatedState = '';
+      store.store(
+        mockReqStore,
+        'pkce-code-verifier-xyz',
+        undefined,
+        undefined,
+        (err, state) => {
+          expect(err).toBeNull();
+          generatedState = state || '';
+        },
+      );
+
+      expect(generatedState).toContain('.');
+      expect(setCookieHeader).toContain('lumi_oauth_state=');
+
+      const cookiePair = setCookieHeader.split(';')[0];
+      const mockReqVerify = {
+        headers: { cookie: cookiePair },
+        res: {
+          setHeader: jest.fn(),
+          getHeader: () => undefined,
+        },
+      } as unknown as Request & { oauthClientState?: string };
+
+      // 1ra verificación exitosa
+      store.verify(
+        mockReqVerify,
+        generatedState,
+        undefined,
+        (err, ok, stateOrVerifier) => {
+          expect(err).toBeNull();
+          expect(ok).toBe('pkce-code-verifier-xyz');
+          expect(stateOrVerifier).toBe('browser-state-123');
+        },
+      );
+      expect(mockReqVerify.oauthClientState).toBe('browser-state-123');
+
+      // 2da verificación del mismo state debe fallar (anti-replay)
+      store.verify(mockReqVerify, generatedState, undefined, (_err, ok) => {
+        expect(ok).toBe(false);
+      });
+
+      // Sin cookie de navegador (ataque Login CSRF) debe fallar
+      const csrfReq = { headers: {} } as unknown as Request;
+      store.verify(csrfReq, generatedState, undefined, (_err, ok) => {
+        expect(ok).toBe(false);
+      });
     });
   });
 });

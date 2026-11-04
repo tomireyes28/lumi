@@ -53,7 +53,7 @@ export function RecommendationBanner({ recommendation, itemVariants }: Recommend
         <Sparkles className="w-5 h-5" />
       </div>
       <div>
-        <h3 className="text-xs font-bold text-orange-900 uppercase tracking-wider mb-1">Tarjeta Ideal Hoy</h3>
+        <h3 className="text-xs font-bold text-orange-900 uppercase tracking-wider mb-1">Mayor Margen hasta el Cierre</h3>
         <p className="text-sm text-orange-900 leading-snug">
           Pagá con la <span className="font-bold">💳 {recommendation.card.alias}</span>. {recommendation.message}
         </p>

@@ -78,7 +78,7 @@ export function ActiveInstallmentsList({ plans, itemVariants }: ActiveInstallmen
 
               <div className="flex justify-between items-center text-[11px] text-gray-500">
                 <span>
-                  Cuota {plan.paidInstallments} de {plan.totalInstallments} ({plan.completionPercentage}% amortizado)
+                  Cuota {plan.paidInstallments} de {plan.totalInstallments} ({plan.completionPercentage}% transcurrido)
                 </span>
                 <span className="text-gray-400">
                   Termina en <strong className="text-gray-600 font-semibold">{plan.finishPeriod}</strong>

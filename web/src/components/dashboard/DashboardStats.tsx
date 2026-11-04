@@ -15,7 +15,7 @@ export function DashboardStats({ summary, itemVariants }: DashboardStatsProps) {
         <div className="absolute top-0 right-0 w-40 h-40 bg-white opacity-5 rounded-full -mr-10 -mt-10"></div>
         
         <div className="relative z-10 flex items-center justify-between mb-4">
-          <span className="text-sm font-medium text-gray-300 uppercase tracking-wider">Plata Disponible</span>
+          <span className="text-sm font-medium text-gray-300 uppercase tracking-wider">Disponible del Mes (Efectivo)</span>
           <Wallet className="w-6 h-6 text-sky-400" />
         </div>
         
@@ -24,7 +24,7 @@ export function DashboardStats({ summary, itemVariants }: DashboardStatsProps) {
             ${(summary?.availableCash ?? 0).toLocaleString('es-AR')}
           </span>
           <p className="text-xs text-gray-400 mt-2 font-medium">
-            (Ingresos menos gastos en efectivo/débito)
+            (Ingresos menos gastos en efectivo/débito del período)
           </p>
         </div>
       </motion.div>
@@ -65,7 +65,7 @@ export function DashboardStats({ summary, itemVariants }: DashboardStatsProps) {
           </div>
           <div>
             <h3 className="text-sm font-bold text-gray-800 uppercase tracking-wider">A pagar en tarjetas</h3>
-            <p className="text-xs text-gray-500 font-medium">Consumos del ciclo actual</p>
+            <p className="text-xs text-gray-500 font-medium">Cuotas y consumos imputados al mes</p>
           </div>
         </div>
         <span className="text-xl font-bold text-purple-700">

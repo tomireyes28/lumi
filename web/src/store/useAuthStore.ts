@@ -117,7 +117,7 @@ if (typeof window !== 'undefined') {
       const nextState = getInitialAuthState();
       useAuthStore.setState(nextState);
       if (!nextState.isAuthenticated && window.location.pathname.startsWith('/dashboard')) {
-        window.location.href = '/';
+        window.location.replace(window.location.origin);
       }
     }
   });

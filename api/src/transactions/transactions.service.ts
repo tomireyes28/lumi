@@ -54,6 +54,7 @@ export class TransactionsService {
     if (creditCardId) {
       creditCard = await this.prisma.creditCard.findUnique({
         where: { id: creditCardId },
+        include: { cycles: true },
       });
       if (!creditCard || creditCard.userId !== userId) {
         throw new BadRequestException(

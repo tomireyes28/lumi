@@ -1,11 +1,12 @@
 "use client";
 
 import { useEffect, useRef, Suspense } from "react";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useAuthStore } from "@/store/useAuthStore";
 import { Loader2 } from "lucide-react";
 
 function CallbackLogic() {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const { login } = useAuthStore();
   const hasExchangedRef = useRef(false);
@@ -26,7 +27,7 @@ function CallbackLogic() {
 
     // Verificamos que exista código y que el state coincida con el iniciado en este navegador (anti-Login CSRF)
     if (!code || !returnedState || !expectedState || returnedState !== expectedState) {
-      window.location.href = "/";
+      router.replace("/");
       return;
     }
 
@@ -51,18 +52,18 @@ function CallbackLogic() {
 
         if (authToken && authUser) {
           login(authToken, authUser);
-          window.location.href = "/dashboard";
+          router.replace("/dashboard");
         } else {
           throw new Error("No se pudo completar la autenticación");
         }
       } catch (error) {
         console.error(error);
-        window.location.href = "/";
+        router.replace("/");
       }
     };
 
     void processAuthCallback();
-  }, [searchParams, login]);
+  }, [searchParams, login, router]);
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50">

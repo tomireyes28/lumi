@@ -11,6 +11,7 @@ describe('TransactionsService', () => {
     transaction: {
       create: jest.Mock;
       createMany: jest.Mock;
+      findUnique: jest.Mock;
       findFirst: jest.Mock;
       findMany: jest.Mock;
       count: jest.Mock;
@@ -33,6 +34,7 @@ describe('TransactionsService', () => {
       transaction: {
         create: jest.fn(),
         createMany: jest.fn(),
+        findUnique: jest.fn(),
         findFirst: jest.fn(),
         findMany: jest.fn(),
         count: jest.fn(),
@@ -262,6 +264,97 @@ describe('TransactionsService', () => {
           take: 10,
         }),
       );
+    });
+  });
+
+  describe('update, remove & getMonthlySummary', () => {
+    it('should update transaction fields, allow clearing note with null, and disconnect creditCard', async () => {
+      prisma.transaction.findUnique = jest.fn().mockResolvedValue({
+        id: 'tx-1',
+        userId: mockUserId,
+        amount: 100,
+        note: 'Nota vieja',
+      });
+      prisma.category.findUnique.mockResolvedValue({
+        id: 'cat-2',
+        userId: mockUserId,
+        type: 'expense',
+      });
+      prisma.transaction.update.mockResolvedValue({
+        id: 'tx-1',
+        amount: 250,
+        note: null,
+        paymentMethod: 'cash',
+      });
+
+      const res = await service.update(
+        'tx-1',
+        {
+          amount: 250,
+          note: null,
+          date: '2026-10-15',
+          categoryId: 'cat-2',
+          creditCardId: null,
+        },
+        mockUserId,
+      );
+
+      expect(res.note).toBeNull();
+      expect(prisma.transaction.update).toHaveBeenCalledTimes(1);
+      const updateArg = prisma.transaction.update.mock.calls[0] as [
+        { where: { id: string }; data: Record<string, unknown> },
+      ];
+      expect(updateArg[0].where).toEqual({ id: 'tx-1' });
+      expect(updateArg[0].data.amount).toBe(250);
+      expect(updateArg[0].data.note).toBeNull();
+      expect(updateArg[0].data.paymentMethod).toBe('cash');
+      expect(updateArg[0].data.creditCard).toEqual({ disconnect: true });
+    });
+
+    it('should reject updating or deleting a transaction owned by another user (Anti-IDOR)', async () => {
+      prisma.transaction.findUnique = jest.fn().mockResolvedValue({
+        id: 'tx-foreign',
+        userId: 'other-user',
+      });
+
+      await expect(
+        service.update('tx-foreign', { amount: 999 }, mockUserId),
+      ).rejects.toThrow();
+
+      await expect(service.remove('tx-foreign', mockUserId)).rejects.toThrow();
+      expect(prisma.transaction.delete).not.toHaveBeenCalled();
+    });
+
+    it('should delete transaction when owned by the user', async () => {
+      prisma.transaction.findUnique = jest.fn().mockResolvedValue({
+        id: 'tx-own',
+        userId: mockUserId,
+      });
+      prisma.transaction.delete.mockResolvedValue({ id: 'tx-own' });
+
+      const removed = await service.remove('tx-own', mockUserId);
+      expect(removed).toEqual({ id: 'tx-own' });
+      expect(prisma.transaction.delete).toHaveBeenCalledWith({
+        where: { id: 'tx-own' },
+      });
+    });
+
+    it('should calculate getMonthlySummary preserving card expenses via paymentMethod', async () => {
+      prisma.transaction.aggregate
+        .mockResolvedValueOnce({ _sum: { amount: 150000 } }) // incomes
+        .mockResolvedValueOnce({ _sum: { amount: 45000 } }) // cashExpenses
+        .mockResolvedValueOnce({ _sum: { amount: 30000 } }); // cardExpenses
+
+      const summary = await service.getMonthlySummary(mockUserId, 10, 2026);
+
+      expect(summary).toEqual({
+        period: '10/2026',
+        totalIncome: 150000,
+        totalCashExpense: 45000,
+        totalCardExpense: 30000,
+        availableCash: 105000,
+      });
+      expect(prisma.transaction.aggregate).toHaveBeenCalledTimes(3);
     });
   });
 });
