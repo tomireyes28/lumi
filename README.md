@@ -1,26 +1,26 @@
 # Lumi — Plataforma de Finanzas Personales y Proyección de Tarjetas
 
-**Lumi** es una aplicación Full-Stack de finanzas personales diseñada para resolver las particularidades reales del manejo financiero cotidiano (como cierres dinámicos de tarjetas de crédito según calendario bancario, compras en cuotas con imputación diferida de flujo de caja, presupuestos con umbrales de alerta y simulación de reintegros con tope).
+**Lumi** es una aplicación Full-Stack de finanzas personales diseñada para resolver las particularidades reales del manejo financiero cotidiano (cierres dinámicos de tarjetas de crédito según calendario bancario, compras en cuotas con imputación diferida al ciclo correspondiente, presupuestos con alertas exactas en centavos y simulación de reintegros con tope).
 
 ---
 
 ## Arquitectura del Sistema
 
-El proyecto está organizado como un monorepo con separación estricta de responsabilidades entre el cliente web (**Next.js 16 App Router**) y la API REST (**NestJS 11 + Prisma 7 + PostgreSQL 16**).
+El proyecto está organizado como un monorepo con separación clara de responsabilidades entre el cliente web (**Next.js 16 App Router**) y la API REST (**NestJS 11 + Prisma 7 + PostgreSQL 16**).
 
 ```mermaid
 flowchart LR
   subgraph Client["Frontend (web/) — Next.js 16 + React 19"]
     UI["Componentes UI & Framer Motion"]
     Hooks["Custom Hooks (Estado & Mutaciones)"]
-    Store["Zustand Auth Store + Edge Middleware"]
+    Store["Zustand Auth Store + Edge Middleware (UX Guard)"]
   end
 
   subgraph Server["Backend (api/) — NestJS 11"]
-    Guards["ThrottlerGuard + Passport JWT/Google"]
+    Guards["ThrottlerGuard + Passport JWT/Google + PKCE"]
     Pipes["Global ValidationPipe (DTOs)"]
     Services["Servicios de Dominio (Transacciones, Tarjetas, Proyección)"]
-    Cron["Notifications Cron (@nestjs/schedule + Resend)"]
+    Cron["Notifications Cron (@nestjs/schedule + Resend HTTP)"]
     ORM["Prisma 7 ORM (Driver Adapter pg)"]
   end
 
@@ -31,10 +31,10 @@ flowchart LR
 
   UI --> Hooks
   Hooks --> Store
-  Hooks -->|"REST JSON + Bearer JWT"| Guards
+  Hooks -->|"REST JSON + Bearer JWT / Cookie HttpOnly"| Guards
   Guards --> Pipes --> Services --> ORM --> DB
   Cron --> ORM
-  Guards <-->|"OAuth 2.0 + Single-Use Code"| OAuth
+  Guards <-->|"OAuth 2.0 + State HMAC + PKCE + Single-Use Code"| OAuth
 ```
 
 ### Modelo de Datos Relacional (ERD)
@@ -54,14 +54,17 @@ erDiagram
   User {
     uuid id PK
     string email UK
+    string googleId UK "Nullable"
+    boolean emailVerified
     string name
-    string password "Nullable (OAuth)"
+    string password "Nullable (Hash bcrypt)"
   }
   Transaction {
     uuid id PK
     uuid userId FK
     uuid categoryId FK
-    uuid creditCardId FK
+    uuid creditCardId FK "Nullable"
+    string paymentMethod "cash | credit_card"
     decimal amount "Decimal(10,2)"
     datetime date
     string installmentGroupId "Agrupador de plan de cuotas"
@@ -89,22 +92,32 @@ erDiagram
     uuid categoryId FK
     decimal amount "Decimal(10,2)"
   }
+  Reminder {
+    uuid id PK
+    uuid userId FK
+    string title
+    decimal amount "Decimal(10,2) Nullable"
+    datetime dueDate
+    boolean isPaid
+    boolean isRecurring
+  }
 ```
 
 ---
 
 ## Decisiones de Ingeniería y Seguridad Destacadas
 
-1. **Intercambio OAuth 2.0 con Códigos Efímeros de Uso Único (Anti-Token Leakage)**:
-   - En lugar de redirigir desde el callback de Google con el JWT expuesto en la query string (`?token=...`), el backend genera un código UUID efímero en memoria con **TTL de 60 segundos** y **un único uso** (`POST /auth/exchange`). Una vez canjeado, el código se destruye inmediatamente para prevenir ataques de *replay* o filtración en historiales/logs.
-2. **Aislamiento Multi-Tenant y Prevención de IDOR**:
-   - Ningún endpoint confía en identificadores de usuario enviados por el cliente. El `userId` se extrae exclusivamente del payload verificado del JWT (`req.user.userId`) y cada operación `PATCH`/`DELETE`/`POST` verifica pertenencia de recursos (categorías, tarjetas, ciclos, presupuestos y recordatorios) antes de mutar datos.
-3. **Aritmética Financiera Exacta e Imputación de Cuotas**:
-   - Los montos monetarios se almacenan como `DECIMAL(10, 2)` en PostgreSQL.
-   - El motor de cuotas (`calculateInstallmentPlan`) determina dinámicamente en qué resumen ingresa la primera cuota comparando la fecha de compra contra la fecha de cierre personalizada (`CardCycle`) o habitual (`closingDay`) de la tarjeta, y asigna cualquier resto de centavos (ej. `\$1.000 / 3`) a la primera cuota (`\$333.34` + `\$333.33` + `\$333.33 = \$1.000,00`) dentro de una transacción atómica `prisma.$transaction`.
-4. **Defensa en Profundidad (Hardening)**:
-   - Cabeceras HTTP seguras mediante **Helmet**, rate limiting global con `@nestjs/throttler` y límites estrictos (`10 req/min`) en rutas de autenticación (`/auth/login`, `/auth/register`, `/auth/exchange`).
-   - Validación estricta de DTOs y query parameters con `ValidationPipe` (`whitelist: true`, `forbidNonWhitelisted: true`, `transform: true`) y tope de `72` caracteres en contraseñas para mitigar truncamiento y DoS de CPU en `bcrypt`.
+1. **Flujo OAuth 2.0 Endurecido (`state` HMAC + PKCE `S256` + Códigos Efímeros de Uso Único)**:
+   - El inicio de sesión con Google valida el parámetro `state` mediante firma HMAC-SHA256 vinculada a una cookie `HttpOnly` (`OAuthStateStore`), aplica **PKCE (`S256`)** y verifica `email_verified` antes de vincular cuentas por correo (invalidando contraseñas locales previas no verificadas para evitar *pre-account takeover*).
+   - En lugar de exponer el JWT en la URL de retorno, el backend emite un código efímero con **TTL de 60 segundos** y **un único uso** (`POST /auth/google/exchange`) y soporta revocación inmediata por `jti` en `POST /auth/logout`.
+2. **Aislamiento por Usuario y Prevención de IDOR**:
+   - El `userId` se obtiene exclusivamente del JWT verificado criptográficamente en la API (`JwtStrategy`). El middleware de Next.js actúa como guarda de navegación (UX), mientras que la autorización real se aplica en cada servicio del backend antes de leer o mutar categorías, tarjetas, ciclos, presupuestos, transacciones y recordatorios.
+3. **Cálculo de Cuotas en Centavos Enteros e Imputación según Cierre (`InstallmentCalculator.calculate`)**:
+   - Los importes se persisten como `DECIMAL(10, 2)` en PostgreSQL y las divisiones en cuotas se calculan en **centavos enteros** (`Math.floor(totalCents / installments)` más distribución del resto en la primera cuota) e insertan mediante `prisma.transaction.createMany`, exigiendo un mínimo de `\$0,01` por cuota.
+   - Si una compra con tarjeta ocurre después del día de cierre (`CardCycle` personalizado o `closingDay` habitual), `InstallmentCalculator.calculate` desplaza automáticamente la primera cuota al período de facturación siguiente.
+4. **Defensa en Profundidad y Validaciones de Frontera**:
+   - Cabeceras HTTP con **Helmet**, rate limiting global y por ruta con `@nestjs/throttler`, y `ValidationPipe` global (`whitelist`, `forbidNonWhitelisted`, `transform`).
+   - Validación de longitud máxima en **bytes UTF-8 (`@MaxUtf8Bytes(72)`)** para respetar el límite criptográfico real de `bcrypt` incluso con caracteres multibyte, y validadores de fechas calendario reales (`@IsValidCalendarDate()`).
 
 ---
 
@@ -112,18 +125,18 @@ erDiagram
 
 | Capa | Tecnologías |
 | :--- | :--- |
-| **Frontend (`web/`)** | Next.js 16.2 (App Router), React 19, TypeScript 5, Tailwind CSS v4, Zustand 5, Framer Motion 12, Recharts 3, Lucide Icons |
-| **Backend (`api/`)** | NestJS 11, TypeScript 5, Prisma 7 (`@prisma/adapter-pg`), Passport (JWT & Google OAuth 2.0), Swagger / OpenAPI, Nest Schedule (Cron), Resend |
+| **Frontend (`web/`)** | Next.js 16.4 (App Router), React 19, TypeScript 5, Tailwind CSS v4, Zustand 5, Framer Motion 12, Recharts 3, Lucide Icons |
+| **Backend (`api/`)** | NestJS 11, TypeScript 5 (`strict: true`), Prisma 7 (`@prisma/adapter-pg`), Passport (JWT & Google OAuth 2.0), Swagger / OpenAPI, Nest Schedule (Cron) |
 | **Base de Datos** | PostgreSQL 16 (Docker Compose local / Supabase compatible) |
-| **Testing & QA** | Jest 30 (Unit Tests de servicios y algoritmos financieros), ESLint 9 (Flat Config), GitHub Actions CI |
+| **Testing & QA** | Jest 30 (Tests unitarios y E2E con Supertest), ESLint 9 (Flat Config), GitHub Actions CI |
 
 ---
 
 ## Guía de Inicio Rápido (Desarrollo Local)
 
 ### 1. Requisitos previos
-- **Node.js** >= 20.x
-- **Docker** y **Docker Compose** (o una instancia PostgreSQL local/remota)
+- **Node.js** `^20.19.0 || ^22.12.0 || >=24.0.0`
+- **Docker** y **Docker Compose** (o una instancia PostgreSQL 16 local/remota)
 
 ### 2. Levantar la Base de Datos PostgreSQL
 Desde la raíz del repositorio:
@@ -135,7 +148,7 @@ docker compose up -d
 ```bash
 cd api
 cp .env.example .env
-# Ajustar DATABASE_URL y JWT_SECRET en api/.env
+# Ajustar DATABASE_URL, DIRECT_URL y JWT_SECRET en api/.env
 npm install
 npx prisma migrate deploy
 npx prisma generate
@@ -157,18 +170,21 @@ npm run dev -- -p 3001
 
 ---
 
-## Ejecución de Tests y Linters
+## Ejecución de Tests, Typecheck y Linters
 
 ```bash
-# Backend: Tests unitarios (Jest), Linter y Build
+# Backend: Linter (sin autofix), Typecheck estricto, Tests unitarios, E2E y Build
 cd api
+npm run lint:check
+npm run typecheck
 npm test
-npm run lint
+npm run test:e2e
 npm run build
 
-# Frontend: Linter (ESLint + React Compiler) y Build de producción
+# Frontend: Linter, Typecheck y Build de producción
 cd web
 npm run lint
+npm run typecheck
 npm run build
 ```
 
@@ -178,23 +194,23 @@ npm run build
 
 ```text
 lumi-workspace/
-├── .github/workflows/ci.yml  # Pipeline de Integración Continua (Lint, Test & Build)
-├── docker-compose.yml        # Contenedor PostgreSQL 16 con healthcheck
+├── .github/workflows/ci.yml  # Pipeline CI (Lint, Typecheck, Unit, E2E & Build)
+├── docker-compose.yml        # Contenedor PostgreSQL 16 vinculado a 127.0.0.1:5432
 ├── api/                      # Backend NestJS 11 + Prisma 7
 │   ├── prisma/               # Esquema relacional y migraciones SQL
 │   └── src/
-│       ├── auth/             # JWT, Google OAuth 2.0 y canje de códigos efímeros
-│       ├── transactions/     # CRUD, paginación y motor de cálculo de cuotas
-│       ├── credit-cards/     # Gestión de plásticos, recomendación de uso y ciclos mensuales
-│       ├── budgets/          # Topes mensuales por categoría y alertas de ejecución
-│       ├── analytics/        # Comparativa intermensual y proyección de cashflow (Forecast)
-│       ├── reminders/        # Vencimientos y pagos recurrentes
-│       └── notifications/    # Cron job diario de alertas por email (Resend)
+│       ├── auth/             # JWT, Google OAuth 2.0 (state HMAC + PKCE) y canje efímero
+│       ├── transactions/     # CRUD, paginación, resumen y motor InstallmentCalculator
+│       ├── credit-cards/     # Gestión de plásticos, recomendación y ciclos mensuales
+│       ├── budgets/          # Plantillas de tope mensual por categoría y alertas en centavos
+│       ├── analytics/        # Comparativa mensual y proyección de cashflow (Forecast)
+│       ├── reminders/        # Vencimientos puntuales y recurrentes (isRecurring)
+│       └── notifications/    # Cron diario (America/Argentina/Buenos_Aires) vía Resend HTTP
 └── web/                      # Frontend Next.js 16 (App Router) + React 19
     └── src/
         ├── app/              # Rutas, layouts y páginas del Dashboard
-        ├── components/       # Componentes modulares por dominio y UI accesible
-        ├── hooks/            # Custom hooks con manejo de estado y cancelación segura
-        ├── store/            # Estado global de sesión con Zustand + sincronización de Cookie
-        └── lib/              # Cliente HTTP con interceptor 401 y timeout
+        ├── components/       # Componentes modulares por dominio y Modal con trampa de foco
+        ├── hooks/            # Custom hooks tipados con control de desmontaje y estados de error
+        ├── store/            # Estado de sesión con Zustand + sincronización multi-pestaña
+        └── lib/              # Cliente HTTP genérico apiFetch<T> con interceptor 401 y timeout
 ```
