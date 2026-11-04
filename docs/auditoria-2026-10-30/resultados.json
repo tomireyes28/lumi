@@ -1,0 +1,98 @@
+{
+  "installments": {
+    "inputAccepted": true,
+    "amounts": [
+      -0.04,
+      0.01,
+      0.01,
+      0.01,
+      0.01,
+      0.01,
+      0.01,
+      0.01,
+      0.01,
+      0.01,
+      0.01,
+      0.01
+    ]
+  },
+  "validation": {
+    "invalidTransactionDateAccepted": true,
+    "excessiveScaleAndAmountAccepted": true,
+    "nullUpdateDateAccepted": true,
+    "ignoredInstallmentsUpdateAccepted": true,
+    "decimalCardDaysAndLettersAccepted": true,
+    "inconsistentCycleAccepted": true,
+    "outOfRangeMonthAccepted": true,
+    "blankNameAccepted": true,
+    "normalizedInvalidDay": "2026-03-03",
+    "nullDateError": "Cannot read properties of null (reading 'trim')"
+  },
+  "cardDate": {
+    "intendedClosingDay": 25,
+    "iso": "2026-10-26T02:59:59.999Z",
+    "uiUsingUTC": "26/10/2026",
+    "uiUsingBusinessTimezone": "25/10/2026"
+  },
+  "oauth": {
+    "configuredStateStore": "NullStore",
+    "localPasswordPreservedAfterGoogleLink": true
+  },
+  "bcrypt": {
+    "bothAccepted": true,
+    "bytes": 73,
+    "differentSuffixMatches": true
+  },
+  "installmentDates": {
+    "cardClosesOn": 25,
+    "purchaseDay": "2026-01-26",
+    "generatedDates": [
+      "2026-01-26",
+      "2026-02-26",
+      "2026-03-26"
+    ]
+  },
+  "forecast": {
+    "oneOffReminderProjectedEveryMonth": [
+      100,
+      100,
+      100
+    ],
+    "recurringProjectionAfterPaying": [
+      0,
+      0,
+      0
+    ],
+    "noIncomeWithDebtRatio": 0
+  },
+  "budgetThreshold": {
+    "budget": 100,
+    "spent": 100.01,
+    "status": "warning",
+    "percentage": 100
+  },
+  "database": {
+    "engine": "PostgreSQL 17.5 on wasm32-unknown-linux-gnu, compiled by emcc (Emscripten gcc/clang-like replacement + linker emulating GNU ld) 3.1.74 (1092ec30a3fb1d46b1782ff1b4db5094d3d06ae5), 32-bit",
+    "migrationsApplied": 5,
+    "deleteCard": {
+      "beforeDeletion": {
+        "cash": "0",
+        "card": "100.00"
+      },
+      "afterDeletion": {
+        "cash": "100.00",
+        "card": "0"
+      }
+    },
+    "storedAmounts": [
+      {
+        "id": "negative",
+        "amount": "-0.04"
+      },
+      {
+        "id": "subcent",
+        "amount": "0.00"
+      }
+    ]
+  }
+}

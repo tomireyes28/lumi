@@ -1,0 +1,590 @@
+{
+  "consultedOn": "2026-10-30",
+  "note": "Paquetes reportados por npm, no cantidad de ataques ni CVE únicos. La explotabilidad depende de configuración y uso.",
+  "projects": {
+    "api": {
+      "all": {
+        "info": 0,
+        "low": 9,
+        "moderate": 6,
+        "high": 13,
+        "critical": 2,
+        "total": 30
+      },
+      "omitDev": {
+        "info": 0,
+        "low": 0,
+        "moderate": 6,
+        "high": 9,
+        "critical": 1,
+        "total": 16
+      },
+      "packages": [
+        {
+          "name": "@babel/core",
+          "severity": "low",
+          "direct": false,
+          "presentWithOmitDev": false,
+          "fixSuggestedByNpm": true,
+          "advisoryUrls": [
+            "https://github.com/advisories/GHSA-4x5r-pxfx-6jf8"
+          ]
+        },
+        {
+          "name": "@hono/node-server",
+          "severity": "moderate",
+          "direct": false,
+          "presentWithOmitDev": true,
+          "fixSuggestedByNpm": true,
+          "advisoryUrls": [
+            "https://github.com/advisories/GHSA-92pp-h63x-v22m",
+            "https://github.com/advisories/GHSA-frvp-7c67-39w9",
+            "https://github.com/advisories/GHSA-rmxm-3fg6-px4f"
+          ]
+        },
+        {
+          "name": "@jest/core",
+          "severity": "low",
+          "direct": false,
+          "presentWithOmitDev": false,
+          "fixSuggestedByNpm": {
+            "name": "jest",
+            "version": "25.1.0",
+            "isSemVerMajor": true
+          },
+          "advisoryUrls": []
+        },
+        {
+          "name": "@nestjs/cli",
+          "severity": "low",
+          "direct": true,
+          "presentWithOmitDev": false,
+          "fixSuggestedByNpm": {
+            "name": "@nestjs/cli",
+            "version": "7.2.0",
+            "isSemVerMajor": true
+          },
+          "advisoryUrls": []
+        },
+        {
+          "name": "@nestjs/platform-express",
+          "severity": "high",
+          "direct": true,
+          "presentWithOmitDev": true,
+          "fixSuggestedByNpm": true,
+          "advisoryUrls": []
+        },
+        {
+          "name": "@nestjs/swagger",
+          "severity": "moderate",
+          "direct": true,
+          "presentWithOmitDev": true,
+          "fixSuggestedByNpm": {
+            "name": "@nestjs/swagger",
+            "version": "12.0.5",
+            "isSemVerMajor": true
+          },
+          "advisoryUrls": []
+        },
+        {
+          "name": "@prisma/config",
+          "severity": "high",
+          "direct": false,
+          "presentWithOmitDev": true,
+          "fixSuggestedByNpm": true,
+          "advisoryUrls": []
+        },
+        {
+          "name": "@prisma/dev",
+          "severity": "moderate",
+          "direct": false,
+          "presentWithOmitDev": true,
+          "fixSuggestedByNpm": true,
+          "advisoryUrls": []
+        },
+        {
+          "name": "baseline-browser-mapping",
+          "severity": "moderate",
+          "direct": false,
+          "presentWithOmitDev": false,
+          "fixSuggestedByNpm": true,
+          "advisoryUrls": [
+            "https://github.com/advisories/GHSA-w5vr-8v7q-w6rv"
+          ]
+        },
+        {
+          "name": "body-parser",
+          "severity": "high",
+          "direct": false,
+          "presentWithOmitDev": true,
+          "fixSuggestedByNpm": true,
+          "advisoryUrls": [
+            "https://github.com/advisories/GHSA-v422-hmwv-36x6",
+            "https://github.com/advisories/GHSA-27r3-jxmh-p828"
+          ]
+        },
+        {
+          "name": "brace-expansion",
+          "severity": "high",
+          "direct": false,
+          "presentWithOmitDev": false,
+          "fixSuggestedByNpm": true,
+          "advisoryUrls": [
+            "https://github.com/advisories/GHSA-jxxr-4gwj-5jf2",
+            "https://github.com/advisories/GHSA-3jxr-9vmj-r5cp",
+            "https://github.com/advisories/GHSA-mh99-v99m-4gvg",
+            "https://github.com/advisories/GHSA-rgw5-rvv9-x895",
+            "https://github.com/advisories/GHSA-q2hr-2g5m-vwhr",
+            "https://github.com/advisories/GHSA-qhr7-859c-m2p7",
+            "https://github.com/advisories/GHSA-6j4f-fj2g-mc7p"
+          ]
+        },
+        {
+          "name": "browserslist",
+          "severity": "high",
+          "direct": false,
+          "presentWithOmitDev": false,
+          "fixSuggestedByNpm": true,
+          "advisoryUrls": [
+            "https://github.com/advisories/GHSA-c83g-rgw3-j3cx",
+            "https://github.com/advisories/GHSA-73wf-gq98-2v4g"
+          ]
+        },
+        {
+          "name": "deepmerge",
+          "severity": "low",
+          "direct": false,
+          "presentWithOmitDev": false,
+          "fixSuggestedByNpm": {
+            "name": "@nestjs/cli",
+            "version": "7.2.0",
+            "isSemVerMajor": true
+          },
+          "advisoryUrls": [
+            "https://github.com/advisories/GHSA-gcqx-w48m-w2h4"
+          ]
+        },
+        {
+          "name": "deepmerge-ts",
+          "severity": "high",
+          "direct": false,
+          "presentWithOmitDev": true,
+          "fixSuggestedByNpm": true,
+          "advisoryUrls": [
+            "https://github.com/advisories/GHSA-ggr8-5vv4-36mx"
+          ]
+        },
+        {
+          "name": "fast-uri",
+          "severity": "high",
+          "direct": false,
+          "presentWithOmitDev": true,
+          "fixSuggestedByNpm": true,
+          "advisoryUrls": [
+            "https://github.com/advisories/GHSA-v2hh-gcrm-f6hx",
+            "https://github.com/advisories/GHSA-7p8r-x3mc-p8w7",
+            "https://github.com/advisories/GHSA-q3j6-qgpj-74h6",
+            "https://github.com/advisories/GHSA-v39h-62p7-jpjc",
+            "https://github.com/advisories/GHSA-f65p-4m7j-42xc",
+            "https://github.com/advisories/GHSA-jqff-g426-hqxp",
+            "https://github.com/advisories/GHSA-4c8g-83qw-93j6",
+            "https://github.com/advisories/GHSA-qw65-cvwx-89v3",
+            "https://github.com/advisories/GHSA-hrr3-gc8f-f4qj",
+            "https://github.com/advisories/GHSA-w74x-v6f9-j3xg",
+            "https://github.com/advisories/GHSA-xhq7-xmqj-769h",
+            "https://github.com/advisories/GHSA-333x-w4r6-6crp"
+          ]
+        },
+        {
+          "name": "fork-ts-checker-webpack-plugin",
+          "severity": "low",
+          "direct": false,
+          "presentWithOmitDev": false,
+          "fixSuggestedByNpm": {
+            "name": "@nestjs/cli",
+            "version": "7.2.0",
+            "isSemVerMajor": true
+          },
+          "advisoryUrls": []
+        },
+        {
+          "name": "form-data",
+          "severity": "high",
+          "direct": false,
+          "presentWithOmitDev": false,
+          "fixSuggestedByNpm": true,
+          "advisoryUrls": [
+            "https://github.com/advisories/GHSA-hmw2-7cc7-3qxx"
+          ]
+        },
+        {
+          "name": "handlebars",
+          "severity": "critical",
+          "direct": false,
+          "presentWithOmitDev": false,
+          "fixSuggestedByNpm": true,
+          "advisoryUrls": [
+            "https://github.com/advisories/GHSA-xw65-4hp5-5hc7",
+            "https://github.com/advisories/GHSA-8r5x-fm3f-whwj",
+            "https://github.com/advisories/GHSA-p8wg-vrv2-v86f"
+          ]
+        },
+        {
+          "name": "hono",
+          "severity": "high",
+          "direct": false,
+          "presentWithOmitDev": true,
+          "fixSuggestedByNpm": true,
+          "advisoryUrls": [
+            "https://github.com/advisories/GHSA-qp7p-654g-cw7p",
+            "https://github.com/advisories/GHSA-hm8q-7f3q-5f36",
+            "https://github.com/advisories/GHSA-p77w-8qqv-26rm",
+            "https://github.com/advisories/GHSA-9vqf-7f2p-gf9v",
+            "https://github.com/advisories/GHSA-69xw-7hcm-h432",
+            "https://github.com/advisories/GHSA-xrhx-7g5j-rcj5",
+            "https://github.com/advisories/GHSA-3hrh-pfw6-9m5x",
+            "https://github.com/advisories/GHSA-f577-qrjj-4474",
+            "https://github.com/advisories/GHSA-2gcr-mfcq-wcc3",
+            "https://github.com/advisories/GHSA-rv63-4mwf-qqc2",
+            "https://github.com/advisories/GHSA-wgpf-jwqj-8h8p",
+            "https://github.com/advisories/GHSA-88fw-hqm2-52qc",
+            "https://github.com/advisories/GHSA-wwfh-h76j-fc44",
+            "https://github.com/advisories/GHSA-j6c9-x7qj-28xf",
+            "https://github.com/advisories/GHSA-xgm2-5f3f-mvvc",
+            "https://github.com/advisories/GHSA-hvrm-45r6-mjfj",
+            "https://github.com/advisories/GHSA-w62v-xxxg-mg59",
+            "https://github.com/advisories/GHSA-8j4g-w8fx-2239",
+            "https://github.com/advisories/GHSA-f23p-vx2j-j53r",
+            "https://github.com/advisories/GHSA-79qm-7rj5-m7r9",
+            "https://github.com/advisories/GHSA-54fx-42gc-7vw4",
+            "https://github.com/advisories/GHSA-gqvv-2mrq-wpjv",
+            "https://github.com/advisories/GHSA-g6gw-c38x-mqfc",
+            "https://github.com/advisories/GHSA-crvj-82cr-hjcx",
+            "https://github.com/advisories/GHSA-hxh3-vqpv-xpqv",
+            "https://github.com/advisories/GHSA-5r4p-p66f-jhc7"
+          ]
+        },
+        {
+          "name": "jest",
+          "severity": "low",
+          "direct": true,
+          "presentWithOmitDev": false,
+          "fixSuggestedByNpm": {
+            "name": "jest",
+            "version": "25.1.0",
+            "isSemVerMajor": true
+          },
+          "advisoryUrls": []
+        },
+        {
+          "name": "jest-cli",
+          "severity": "low",
+          "direct": false,
+          "presentWithOmitDev": false,
+          "fixSuggestedByNpm": true,
+          "advisoryUrls": []
+        },
+        {
+          "name": "jest-config",
+          "severity": "low",
+          "direct": false,
+          "presentWithOmitDev": false,
+          "fixSuggestedByNpm": {
+            "name": "jest",
+            "version": "25.1.0",
+            "isSemVerMajor": true
+          },
+          "advisoryUrls": []
+        },
+        {
+          "name": "js-yaml",
+          "severity": "high",
+          "direct": false,
+          "presentWithOmitDev": true,
+          "fixSuggestedByNpm": {
+            "name": "@nestjs/swagger",
+            "version": "12.0.5",
+            "isSemVerMajor": true
+          },
+          "advisoryUrls": [
+            "https://github.com/advisories/GHSA-h67p-54hq-rp68",
+            "https://github.com/advisories/GHSA-52cp-r559-cp3m",
+            "https://github.com/advisories/GHSA-5p4m-2wfm-xmqj",
+            "https://github.com/advisories/GHSA-2883-xcg3-v3hh",
+            "https://github.com/advisories/GHSA-r3ph-w7gj-g6xm"
+          ]
+        },
+        {
+          "name": "multer",
+          "severity": "high",
+          "direct": false,
+          "presentWithOmitDev": true,
+          "fixSuggestedByNpm": true,
+          "advisoryUrls": [
+            "https://github.com/advisories/GHSA-72gw-mp4g-v24j",
+            "https://github.com/advisories/GHSA-3p4h-7m6x-2hcm",
+            "https://github.com/advisories/GHSA-wc9g-mqfw-jrwm",
+            "https://github.com/advisories/GHSA-qvfw-j98x-7q72",
+            "https://github.com/advisories/GHSA-535w-7cp7-47q4",
+            "https://github.com/advisories/GHSA-q7qp-rjg7-q26m"
+          ]
+        },
+        {
+          "name": "mysql2",
+          "severity": "high",
+          "direct": false,
+          "presentWithOmitDev": true,
+          "fixSuggestedByNpm": true,
+          "advisoryUrls": [
+            "https://github.com/advisories/GHSA-3f6p-5ww8-9rcr",
+            "https://github.com/advisories/GHSA-rgwj-5xj2-c3m3"
+          ]
+        },
+        {
+          "name": "prisma",
+          "severity": "high",
+          "direct": true,
+          "presentWithOmitDev": true,
+          "fixSuggestedByNpm": true,
+          "advisoryUrls": []
+        },
+        {
+          "name": "proxy-addr",
+          "severity": "critical",
+          "direct": false,
+          "presentWithOmitDev": true,
+          "fixSuggestedByNpm": true,
+          "advisoryUrls": [
+            "https://github.com/advisories/GHSA-jqcg-44mw-7w3h"
+          ]
+        },
+        {
+          "name": "qs",
+          "severity": "moderate",
+          "direct": false,
+          "presentWithOmitDev": true,
+          "fixSuggestedByNpm": true,
+          "advisoryUrls": [
+            "https://github.com/advisories/GHSA-q8mj-m7cp-5q26",
+            "https://github.com/advisories/GHSA-x5fp-wj9c-mxmx",
+            "https://github.com/advisories/GHSA-4mjr-xmp4-gh2g",
+            "https://github.com/advisories/GHSA-6pq8-jhm2-2vcw"
+          ]
+        },
+        {
+          "name": "ts-jest",
+          "severity": "low",
+          "direct": true,
+          "presentWithOmitDev": false,
+          "fixSuggestedByNpm": {
+            "name": "ts-jest",
+            "version": "25.5.1",
+            "isSemVerMajor": true
+          },
+          "advisoryUrls": []
+        },
+        {
+          "name": "valibot",
+          "severity": "moderate",
+          "direct": false,
+          "presentWithOmitDev": true,
+          "fixSuggestedByNpm": true,
+          "advisoryUrls": [
+            "https://github.com/advisories/GHSA-5qjj-4xww-7phc"
+          ]
+        }
+      ]
+    },
+    "web": {
+      "all": {
+        "info": 0,
+        "low": 1,
+        "moderate": 1,
+        "high": 8,
+        "critical": 1,
+        "total": 11
+      },
+      "omitDev": {
+        "info": 0,
+        "low": 0,
+        "moderate": 1,
+        "high": 4,
+        "critical": 1,
+        "total": 6
+      },
+      "packages": [
+        {
+          "name": "@babel/core",
+          "severity": "low",
+          "direct": false,
+          "presentWithOmitDev": false,
+          "fixSuggestedByNpm": true,
+          "advisoryUrls": [
+            "https://github.com/advisories/GHSA-4x5r-pxfx-6jf8"
+          ]
+        },
+        {
+          "name": "baseline-browser-mapping",
+          "severity": "moderate",
+          "direct": false,
+          "presentWithOmitDev": true,
+          "fixSuggestedByNpm": true,
+          "advisoryUrls": [
+            "https://github.com/advisories/GHSA-w5vr-8v7q-w6rv"
+          ]
+        },
+        {
+          "name": "brace-expansion",
+          "severity": "high",
+          "direct": false,
+          "presentWithOmitDev": false,
+          "fixSuggestedByNpm": true,
+          "advisoryUrls": [
+            "https://github.com/advisories/GHSA-jxxr-4gwj-5jf2",
+            "https://github.com/advisories/GHSA-3jxr-9vmj-r5cp",
+            "https://github.com/advisories/GHSA-mh99-v99m-4gvg",
+            "https://github.com/advisories/GHSA-rgw5-rvv9-x895",
+            "https://github.com/advisories/GHSA-q2hr-2g5m-vwhr",
+            "https://github.com/advisories/GHSA-qhr7-859c-m2p7",
+            "https://github.com/advisories/GHSA-6j4f-fj2g-mc7p"
+          ]
+        },
+        {
+          "name": "browserslist",
+          "severity": "high",
+          "direct": false,
+          "presentWithOmitDev": false,
+          "fixSuggestedByNpm": true,
+          "advisoryUrls": [
+            "https://github.com/advisories/GHSA-c83g-rgw3-j3cx",
+            "https://github.com/advisories/GHSA-73wf-gq98-2v4g"
+          ]
+        },
+        {
+          "name": "js-yaml",
+          "severity": "high",
+          "direct": false,
+          "presentWithOmitDev": false,
+          "fixSuggestedByNpm": true,
+          "advisoryUrls": [
+            "https://github.com/advisories/GHSA-h67p-54hq-rp68",
+            "https://github.com/advisories/GHSA-52cp-r559-cp3m",
+            "https://github.com/advisories/GHSA-5p4m-2wfm-xmqj",
+            "https://github.com/advisories/GHSA-2883-xcg3-v3hh"
+          ]
+        },
+        {
+          "name": "nanoid",
+          "severity": "high",
+          "direct": false,
+          "presentWithOmitDev": true,
+          "fixSuggestedByNpm": true,
+          "advisoryUrls": [
+            "https://github.com/advisories/GHSA-28wg-ghj8-5hjv",
+            "https://github.com/advisories/GHSA-2v37-7h3g-55p8",
+            "https://github.com/advisories/GHSA-xwg4-73v4-xw9w"
+          ]
+        },
+        {
+          "name": "next",
+          "severity": "critical",
+          "direct": true,
+          "presentWithOmitDev": true,
+          "fixSuggestedByNpm": {
+            "name": "next",
+            "version": "16.4.3",
+            "isSemVerMajor": false
+          },
+          "advisoryUrls": [
+            "https://github.com/advisories/GHSA-8h8q-6873-q5fj",
+            "https://github.com/advisories/GHSA-26hh-7cqf-hhc6",
+            "https://github.com/advisories/GHSA-3g8h-86w9-wvmq",
+            "https://github.com/advisories/GHSA-ffhc-5mcf-pf4q",
+            "https://github.com/advisories/GHSA-vfv6-92ff-j949",
+            "https://github.com/advisories/GHSA-gx5p-jg67-6x7h",
+            "https://github.com/advisories/GHSA-mg66-mrh9-m8jx",
+            "https://github.com/advisories/GHSA-h64f-5h5j-jqjh",
+            "https://github.com/advisories/GHSA-c4j6-fc7j-m34r",
+            "https://github.com/advisories/GHSA-492v-c6pp-mqqv",
+            "https://github.com/advisories/GHSA-wfc6-r584-vfw7",
+            "https://github.com/advisories/GHSA-267c-6grr-h53f",
+            "https://github.com/advisories/GHSA-36qx-fr4f-26g5",
+            "https://github.com/advisories/GHSA-6gpp-xcg3-4w24",
+            "https://github.com/advisories/GHSA-m99w-x7hq-7vfj",
+            "https://github.com/advisories/GHSA-89xv-2m56-2m9x",
+            "https://github.com/advisories/GHSA-68g3-v927-f742",
+            "https://github.com/advisories/GHSA-4633-3j49-mh5q",
+            "https://github.com/advisories/GHSA-4c39-4ccg-62r3",
+            "https://github.com/advisories/GHSA-p9j2-gv94-2wf4",
+            "https://github.com/advisories/GHSA-q8wf-6r8g-63ch",
+            "https://github.com/advisories/GHSA-955p-x3mx-jcvp",
+            "https://github.com/advisories/GHSA-p293-qw3h-jr36",
+            "https://github.com/advisories/GHSA-2xp9-vwfh-vxw4",
+            "https://github.com/advisories/GHSA-vcvr-r3jv-pc5j",
+            "https://github.com/advisories/GHSA-4jqv-mc3x-m676",
+            "https://github.com/advisories/GHSA-39w2-rjm5-chcv",
+            "https://github.com/advisories/GHSA-f87g-xv8r-7p7x",
+            "https://github.com/advisories/GHSA-mcj8-r9mp-w47p",
+            "https://github.com/advisories/GHSA-cjq9-62q9-8jv4",
+            "https://github.com/advisories/GHSA-2464-fhr4-w9xw",
+            "https://github.com/advisories/GHSA-p3m5-59mp-jv5r",
+            "https://github.com/advisories/GHSA-673q-mjm6-r5xr"
+          ]
+        },
+        {
+          "name": "postcss",
+          "severity": "high",
+          "direct": false,
+          "presentWithOmitDev": true,
+          "fixSuggestedByNpm": {
+            "name": "next",
+            "version": "16.4.3",
+            "isSemVerMajor": false
+          },
+          "advisoryUrls": [
+            "https://github.com/advisories/GHSA-qx2v-qp2m-jg93",
+            "https://github.com/advisories/GHSA-6g55-p6wh-862q",
+            "https://github.com/advisories/GHSA-fxqj-rqcc-2cmp",
+            "https://github.com/advisories/GHSA-r28c-9q8g-f849"
+          ]
+        },
+        {
+          "name": "sharp",
+          "severity": "high",
+          "direct": false,
+          "presentWithOmitDev": true,
+          "fixSuggestedByNpm": {
+            "name": "next",
+            "version": "16.4.3",
+            "isSemVerMajor": false
+          },
+          "advisoryUrls": [
+            "https://github.com/advisories/GHSA-f88m-g3jw-g9cj",
+            "https://github.com/advisories/GHSA-rgj7-g3m4-5g8c",
+            "https://github.com/advisories/GHSA-wq5f-xc86-pv6w"
+          ]
+        },
+        {
+          "name": "source-map-js",
+          "severity": "high",
+          "direct": false,
+          "presentWithOmitDev": true,
+          "fixSuggestedByNpm": true,
+          "advisoryUrls": [
+            "https://github.com/advisories/GHSA-68fv-2mgg-jv7q"
+          ]
+        },
+        {
+          "name": "zod",
+          "severity": "high",
+          "direct": false,
+          "presentWithOmitDev": false,
+          "fixSuggestedByNpm": true,
+          "advisoryUrls": [
+            "https://github.com/advisories/GHSA-mrhx-c7xc-m3w5"
+          ]
+        }
+      ]
+    }
+  }
+}

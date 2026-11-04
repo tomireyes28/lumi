@@ -8,11 +8,15 @@ on:
 
 jobs:
   backend-ci:
-    name: API (Lint, Test & Build)
+    name: API (Lint, Typecheck, Test & Build)
     runs-on: ubuntu-latest
     defaults:
       run:
         working-directory: ./api
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/lumi_db?schema=public
+      DIRECT_URL: postgresql://postgres:postgres@localhost:5432/lumi_db?schema=public
+      JWT_SECRET: ci-test-jwt-secret-key-minimum-32-characters
 
     steps:
       - name: Checkout repository
@@ -30,20 +34,24 @@ jobs:
 
       - name: Generate Prisma Client
         run: npx prisma generate
-        env:
-          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/lumi_db?schema=public
 
-      - name: Run ESLint
-        run: npm run lint
+      - name: Run ESLint (strict check without --fix)
+        run: npm run lint:check
+
+      - name: Run TypeScript Typecheck (strict, including tests)
+        run: npm run typecheck
 
       - name: Run Unit Tests (Jest)
         run: npm test
+
+      - name: Run E2E Tests
+        run: npm run test:e2e
 
       - name: Build NestJS API
         run: npm run build
 
   frontend-ci:
-    name: Web (Lint & Production Build)
+    name: Web (Lint, Typecheck & Production Build)
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -65,6 +73,9 @@ jobs:
 
       - name: Run ESLint
         run: npm run lint
+
+      - name: Run TypeScript Typecheck
+        run: npm run typecheck
 
       - name: Build Next.js App
         run: npm run build

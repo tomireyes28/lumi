@@ -11,9 +11,15 @@ export interface InstallmentParams {
   groupId?: string;
 }
 
+export type CalculatedInstallmentItem = Prisma.TransactionCreateManyInput & {
+  amount: number;
+  date: Date;
+  note: string;
+};
+
 export interface CalculatedInstallments {
   groupId: string;
-  transactionsData: Prisma.TransactionCreateManyInput[];
+  transactionsData: CalculatedInstallmentItem[];
   installmentAmount: number;
 }
 
@@ -32,7 +38,7 @@ export class InstallmentCalculator {
     const installmentAmount = Math.round((amount / installments) * 100) / 100;
     const remainder = Math.round((amount - installmentAmount * installments) * 100) / 100;
     const groupId = params.groupId || crypto.randomUUID();
-    const transactionsData: Prisma.TransactionCreateManyInput[] = [];
+    const transactionsData: CalculatedInstallmentItem[] = [];
     const startDay = startDate.getDate();
     const baseNote = note ? note.trim() : 'Compra';
 
