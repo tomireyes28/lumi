@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { motion, Variants } from 'framer-motion';
-import { Plus, ChevronLeft, ChevronRight, Target, ArrowLeft, AlertTriangle, Trash2 } from 'lucide-react';
+import { Plus, ChevronLeft, ChevronRight, Target, ArrowLeft, AlertTriangle, Trash2, RefreshCw } from 'lucide-react';
 import Link from 'next/link';
 import { useBudgets } from '@/hooks/useBudgets';
 import { BudgetOverviewCard } from '@/components/budgets/BudgetOverviewCard';
@@ -20,6 +20,7 @@ export default function BudgetsPage() {
   const {
     data,
     loading,
+    error,
     isSubmitting,
     month,
     year,
@@ -28,6 +29,7 @@ export default function BudgetsPage() {
     expenseCategories,
     upsertBudget,
     deleteBudget,
+    reload,
   } = useBudgets();
 
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -146,8 +148,32 @@ export default function BudgetsPage() {
       </motion.div>
 
       {/* Overview general */}
-      {data && data.items.length > 0 ? (
-        <>
+      {error ? (
+        <motion.div
+          variants={itemVariants}
+          role="alert"
+          className="bg-red-50 border border-red-200 rounded-3xl p-6 text-center flex flex-col items-center gap-3 mt-2"
+        >
+          <div className="w-12 h-12 rounded-2xl bg-red-100 text-red-600 flex items-center justify-center">
+            <AlertTriangle className="w-6 h-6" />
+          </div>
+          <div>
+            <h3 className="text-base font-bold text-gray-900">
+              No pudimos cargar los presupuestos
+            </h3>
+            <p className="text-xs text-gray-600 mt-1">{error}</p>
+          </div>
+          <button
+            type="button"
+            onClick={reload}
+            className="mt-1 px-4 py-2.5 bg-gray-900 hover:bg-gray-800 text-white text-xs font-bold rounded-xl inline-flex items-center gap-2 transition-colors"
+          >
+            <RefreshCw className="w-3.5 h-3.5" />
+            Reintentar
+          </button>
+        </motion.div>
+      ) : data && data.items.length > 0 ? (
+        <div className={`flex flex-col gap-6 transition-opacity ${loading ? 'opacity-60 pointer-events-none' : ''}`}>
           <BudgetOverviewCard data={data} itemVariants={itemVariants} />
 
           <motion.div variants={itemVariants} className="flex flex-col gap-3">
@@ -166,7 +192,7 @@ export default function BudgetsPage() {
               ))}
             </div>
           </motion.div>
-        </>
+        </div>
       ) : (
         /* Estado vacío */
         <motion.div

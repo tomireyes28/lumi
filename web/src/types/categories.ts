@@ -6,6 +6,13 @@ export interface Category {
   icon: string | null;
 }
 
+export interface UpdateCategoryInput {
+  name?: string;
+  type?: 'income' | 'expense';
+  colorHex?: string | null;
+  icon?: string | null;
+}
+
 export interface CategoryFormState {
   name: string;
   setName: (value: string) => void;

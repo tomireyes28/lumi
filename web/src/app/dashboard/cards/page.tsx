@@ -2,7 +2,7 @@
 
 import { motion, Variants } from "framer-motion";
 import { useCards } from "@/hooks/useCards";
-import { CardCarousel } from "@/components/cards/CardCarrousel";
+import { CardCarousel } from "@/components/cards/CardCarousel";
 import { CardForm, EditCardForm } from "@/components/cards/CardForm";
 import { AdjustCycleModal } from "@/components/cards/AdjustCycleModal";
 import { Modal } from "@/components/ui/Modal";

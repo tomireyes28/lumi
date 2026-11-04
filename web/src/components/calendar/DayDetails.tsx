@@ -1,5 +1,5 @@
-import { motion, AnimatePresence, Variants } from "framer-motion";
-import { CalendarTransaction, CalendarReminder } from "@/types/calendar";
+import { motion, AnimatePresence, Variants } from 'framer-motion';
+import { CalendarTransaction, CalendarReminder } from '@/types/calendar';
 
 interface DayDetailsProps {
   date: Date;
@@ -8,11 +8,20 @@ interface DayDetailsProps {
   itemVariants: Variants;
 }
 
-export function DayDetails({ date, selectedTransactions, selectedReminders, itemVariants }: DayDetailsProps) {
+export function DayDetails({
+  date,
+  selectedTransactions,
+  selectedReminders,
+  itemVariants,
+}: DayDetailsProps) {
   return (
     <motion.div variants={itemVariants} className="flex flex-col gap-4 mt-2">
       <h3 className="text-sm font-bold text-gray-800 uppercase tracking-wider">
-        {date.toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long' })}
+        {date.toLocaleDateString('es-AR', {
+          weekday: 'long',
+          day: 'numeric',
+          month: 'long',
+        })}
       </h3>
 
       {selectedTransactions.length === 0 && selectedReminders.length === 0 && (
@@ -23,26 +32,51 @@ export function DayDetails({ date, selectedTransactions, selectedReminders, item
 
       <div className="flex flex-col gap-3">
         <AnimatePresence mode="popLayout">
-          {selectedReminders.map(r => (
-            <motion.div 
+          {selectedReminders.map((r) => (
+            <motion.div
               key={r.id}
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
               transition={{ duration: 0.2 }}
-              className="p-3 bg-pink-50 rounded-xl border border-pink-200 flex justify-between items-center"
+              className={`p-3 rounded-xl border flex justify-between items-center ${
+                r.isPaid
+                  ? 'bg-emerald-50/70 border-emerald-200 opacity-80'
+                  : 'bg-pink-50 border-pink-200'
+              }`}
             >
-              <span className="font-bold text-gray-900 text-sm">🔔 {r.title}</span>
-              <span className="font-bold text-pink-600 text-sm">
-                {r.amount ? `$${Number(r.amount).toLocaleString('es-AR')}` : 'Pendiente'}
+              <div className="flex items-center gap-2">
+                <span
+                  className={`font-bold text-sm ${
+                    r.isPaid ? 'line-through text-gray-600' : 'text-gray-900'
+                  }`}
+                >
+                  {r.isPaid ? '✅' : '🔔'} {r.title}
+                </span>
+                {r.isPaid && (
+                  <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700">
+                    Pagado
+                  </span>
+                )}
+              </div>
+              <span
+                className={`font-bold text-sm ${
+                  r.isPaid ? 'text-emerald-700' : 'text-pink-600'
+                }`}
+              >
+                {r.amount
+                  ? `$${Number(r.amount).toLocaleString('es-AR')}`
+                  : r.isPaid
+                    ? 'Pagado'
+                    : 'Pendiente'}
               </span>
             </motion.div>
           ))}
 
-          {selectedTransactions.map(t => {
+          {selectedTransactions.map((t) => {
             const isIncome = t.category?.type === 'income';
             return (
-              <motion.div 
+              <motion.div
                 key={t.id}
                 initial={{ opacity: 0, scale: 0.95 }}
                 animate={{ opacity: 1, scale: 1 }}
@@ -51,18 +85,33 @@ export function DayDetails({ date, selectedTransactions, selectedReminders, item
                 className="p-3 bg-white shadow-sm border border-gray-100 rounded-xl flex justify-between items-center"
               >
                 <div className="flex items-center gap-2.5">
-                  <div 
+                  <div
                     className="w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold shrink-0"
-                    style={{ backgroundColor: t.category?.colorHex ? `${t.category.colorHex}25` : '#f3f4f6', color: t.category?.colorHex || '#374151' }}
+                    style={{
+                      backgroundColor: t.category?.colorHex
+                        ? `${t.category.colorHex}25`
+                        : '#f3f4f6',
+                      color: t.category?.colorHex || '#374151',
+                    }}
                   >
-                    {t.category?.name ? t.category.name.charAt(0).toUpperCase() : (isIncome ? '↑' : '↓')}
+                    {t.category?.name
+                      ? t.category.name.charAt(0).toUpperCase()
+                      : isIncome
+                        ? '↑'
+                        : '↓'}
                   </div>
                   <div>
-                    <p className="font-semibold text-gray-800 text-sm">{t.category?.name || (isIncome ? 'Ingreso' : 'Gasto')}</p>
+                    <p className="font-semibold text-gray-800 text-sm">
+                      {t.category?.name || (isIncome ? 'Ingreso' : 'Gasto')}
+                    </p>
                     {t.note && <p className="text-xs text-gray-400">{t.note}</p>}
                   </div>
                 </div>
-                <span className={`font-bold text-sm ${isIncome ? 'text-sky-600' : 'text-gray-900'}`}>
+                <span
+                  className={`font-bold text-sm ${
+                    isIncome ? 'text-sky-600' : 'text-gray-900'
+                  }`}
+                >
                   {isIncome ? '+' : '-'}${Number(t.amount).toLocaleString('es-AR')}
                 </span>
               </motion.div>

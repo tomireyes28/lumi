@@ -1,20 +1,24 @@
 import { useAuthStore } from '@/store/useAuthStore';
 
-export async function apiFetch(path: string, options: RequestInit = {}) {
-  // 1. Agarramos el token
-  const token = typeof window !== 'undefined' ? localStorage.getItem('lumi_token') : null;
+export async function apiFetch<T = unknown>(
+  path: string,
+  options: RequestInit = {},
+): Promise<T> {
+  const token =
+    typeof window !== 'undefined' ? localStorage.getItem('lumi_token') : null;
 
-  // 2. Configuramos las cabeceras
   const headers = new Headers(options.headers);
-  headers.set('Content-Type', 'application/json');
+  if (!headers.has('Content-Type') && options.body !== undefined) {
+    headers.set('Content-Type', 'application/json');
+  }
   if (token) {
     headers.set('Authorization', `Bearer ${token}`);
   }
 
-  // 3. URL Dinámica (Leemos el .env, y si no está, usamos localhost de respaldo)
   const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
 
   const response = await fetch(`${apiUrl}${path}`, {
+    credentials: options.credentials ?? 'include',
     signal:
       options.signal ||
       (typeof AbortSignal !== 'undefined' && 'timeout' in AbortSignal
@@ -24,18 +28,18 @@ export async function apiFetch(path: string, options: RequestInit = {}) {
     headers,
   });
 
-  // 4. Interceptor de Token Expirado (401 Unauthorized)
   if (response.status === 401) {
     if (typeof window !== 'undefined') {
       useAuthStore.getState().logout();
-      window.location.href = '/';
+      window.location.replace('/');
     }
     throw new Error('Sesión expirada');
   }
 
-  // 5. Manejo de errores genérico
   if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}));
+    const errorData = (await response.json().catch(() => ({}))) as {
+      message?: string | string[];
+    };
     const rawMessage = errorData.message;
     const formattedMessage = Array.isArray(rawMessage)
       ? rawMessage[0]
@@ -43,7 +47,7 @@ export async function apiFetch(path: string, options: RequestInit = {}) {
     throw new Error(formattedMessage);
   }
 
-  if (response.status === 204) return null;
+  if (response.status === 204) return null as T;
 
-  return response.json();
+  return (await response.json()) as T;
 }

@@ -41,9 +41,14 @@ export function useAuth() {
         throw new Error(message);
       }
 
-      login(result.token, result.user);
+      const accessToken = result.access_token || result.token;
+      if (!accessToken || !result.user) {
+        throw new Error('Respuesta de autenticación inválida');
+      }
+
+      login(accessToken, result.user);
       toast.success(isLogin ? '¡Hola de nuevo!' : '¡Cuenta creada con éxito!');
-      window.location.href = '/dashboard';
+      window.location.replace('/dashboard');
     } catch (error: unknown) {
       if (error instanceof Error) {
         toast.error(error.message);

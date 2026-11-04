@@ -245,11 +245,59 @@ export class CreditCardsService {
     if (cards.length === 0) return [];
 
     const today = new Date();
+    const cardCycles = cards.map((card) => ({
+      card,
+      cycleInfo: this.getCycleDatesForCard(card, today),
+    }));
+
+    if (typeof this.prisma.transaction?.findMany === 'function') {
+      const minStart = new Date(
+        Math.min(...cardCycles.map((c) => c.cycleInfo.cycleStart.getTime())),
+      );
+      const maxEnd = new Date(
+        Math.max(...cardCycles.map((c) => c.cycleInfo.cycleEnd.getTime())),
+      );
+
+      const cycleTransactions = await this.prisma.transaction.findMany({
+        where: {
+          userId,
+          creditCardId: { in: cards.map((c) => c.id) },
+          date: { gt: minStart, lte: maxEnd },
+        },
+        select: {
+          creditCardId: true,
+          amount: true,
+          date: true,
+        },
+      });
+
+      return cardCycles.map(({ card, cycleInfo }) => {
+        const consumedCents = cycleTransactions
+          .filter(
+            (tx) =>
+              tx.creditCardId === card.id &&
+              tx.date > cycleInfo.cycleStart &&
+              tx.date <= cycleInfo.cycleEnd,
+          )
+          .reduce((sum, tx) => sum + Math.round(Number(tx.amount) * 100), 0);
+
+        return {
+          ...card,
+          consumed: consumedCents / 100,
+          currentCycle: {
+            month: cycleInfo.month,
+            year: cycleInfo.year,
+            closingDate: cycleInfo.closingDate.toISOString(),
+            dueDate: cycleInfo.dueDate ? cycleInfo.dueDate.toISOString() : null,
+            isCustom: cycleInfo.isCustom,
+            daysToClose: cycleInfo.daysToClose,
+          },
+        };
+      });
+    }
 
     const cardsWithConsumption = await Promise.all(
-      cards.map(async (card) => {
-        const cycleInfo = this.getCycleDatesForCard(card, today);
-
+      cardCycles.map(async ({ card, cycleInfo }) => {
         const expenses = await this.prisma.transaction.aggregate({
           where: {
             creditCardId: card.id,

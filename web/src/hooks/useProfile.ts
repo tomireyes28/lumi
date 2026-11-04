@@ -6,7 +6,9 @@ import { toast } from 'sonner';
 
 export function useProfile() {
   const { token, logout, user: storeUser } = useAuthStore();
-  const [user, setUser] = useState<UserProfile | null>(storeUser as UserProfile | null);
+  const [user, setUser] = useState<UserProfile | null>(
+    storeUser as UserProfile | null,
+  );
   const [loading, setLoading] = useState(!!token);
 
   useEffect(() => {
@@ -14,7 +16,7 @@ export function useProfile() {
 
     const fetchProfile = async () => {
       try {
-        const data = await apiFetch('/auth/me');
+        const data = await apiFetch<UserProfile>('/auth/me');
         setUser(data);
       } catch {
         toast.error('Error al cargar la información del perfil');
@@ -23,13 +25,13 @@ export function useProfile() {
       }
     };
 
-    fetchProfile();
+    void fetchProfile();
   }, [token]);
 
   const handleLogout = () => {
     logout();
     toast.success('¡Hasta pronto!');
-    window.location.href = '/';
+    window.location.replace('/');
   };
 
   return { user, loading, handleLogout };

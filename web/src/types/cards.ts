@@ -31,6 +31,15 @@ export interface CreditCard {
   cycles?: CardCycle[];
 }
 
+export interface UpdateCreditCardInput {
+  alias?: string;
+  lastFour?: string;
+  limit?: number;
+  closingDay?: number;
+  dueDay?: number;
+  colorHex?: string | null;
+}
+
 export interface CardFormState {
   alias: string;
   setAlias: (value: string) => void;

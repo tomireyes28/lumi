@@ -1,31 +1,42 @@
-"use client";
+'use client';
 
-import { motion, Variants } from "framer-motion";
-import { useCalendar } from "@/hooks/useCalendar";
-import { CalendarWidget } from "@/components/calendar/CalendarWidget";
-import { DayDetails } from "@/components/calendar/DayDetails";
+import { motion, Variants } from 'framer-motion';
+import { useCalendar } from '@/hooks/useCalendar';
+import { CalendarWidget } from '@/components/calendar/CalendarWidget';
+import { DayDetails } from '@/components/calendar/DayDetails';
 
 export default function CalendarPage() {
-  const { 
-    date, setDate, transactions, reminders, loading, selectedTransactions, selectedReminders 
+  const {
+    date,
+    setDate,
+    setActiveMonthDate,
+    transactions,
+    reminders,
+    loading,
+    selectedTransactions,
+    selectedReminders,
   } = useCalendar();
 
   const containerVariants: Variants = {
     hidden: { opacity: 0 },
-    visible: { opacity: 1, transition: { staggerChildren: 0.1 } }
+    visible: { opacity: 1, transition: { staggerChildren: 0.1 } },
   };
 
   const itemVariants: Variants = {
     hidden: { opacity: 0, y: 15 },
-    visible: { opacity: 1, y: 0, transition: { duration: 0.4, ease: "easeOut" } }
+    visible: { opacity: 1, y: 0, transition: { duration: 0.4, ease: 'easeOut' } },
   };
 
-  if (loading) {
-    return <div className="p-8 text-center text-gray-500 animate-pulse">Cargando calendario...</div>;
+  if (loading && transactions.length === 0 && reminders.length === 0) {
+    return (
+      <div className="p-8 text-center text-gray-500 animate-pulse">
+        Cargando calendario...
+      </div>
+    );
   }
 
   return (
-    <motion.div 
+    <motion.div
       className="p-6 pb-24 flex flex-col gap-6"
       initial="hidden"
       animate="visible"
@@ -36,15 +47,16 @@ export default function CalendarPage() {
         <p className="text-sm text-gray-500 mt-1">Tus finanzas mes a mes.</p>
       </motion.header>
 
-      <CalendarWidget 
+      <CalendarWidget
         date={date}
         setDate={setDate}
+        onActiveMonthChange={setActiveMonthDate}
         transactions={transactions}
         reminders={reminders}
         itemVariants={itemVariants}
       />
 
-      <DayDetails 
+      <DayDetails
         date={date}
         selectedTransactions={selectedTransactions}
         selectedReminders={selectedReminders}

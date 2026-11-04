@@ -1,10 +1,11 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, Req, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, Req, Query, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { RemindersService } from './reminders.service';
 import { CreateReminderDto } from './dto/create-reminder.dto';
 import { UpdateReminderDto } from './dto/update-reminder.dto';
 import { AuthGuard } from '@nestjs/passport';
 import type { AuthenticatedRequest } from '../auth/interfaces/auth.interfaces';
+import { PeriodQueryDto } from '../common/dto/period-query.dto';
 
 @ApiTags('Reminders')
 @ApiBearerAuth()
@@ -19,8 +20,8 @@ export class RemindersController {
   }
 
   @Get()
-  findAll(@Req() req: AuthenticatedRequest) {
-    return this.remindersService.findAllByUser(req.user.userId);
+  findAll(@Req() req: AuthenticatedRequest, @Query() query?: PeriodQueryDto) {
+    return this.remindersService.findAllByUser(req.user.userId, query?.month, query?.year);
   }
 
   @Patch(':id')

@@ -85,17 +85,18 @@ export function ProfileActions({ handleLogout, itemVariants }: ProfileActionsPro
       >
         <div className="flex flex-col gap-4 text-sm text-gray-600">
           <div className="p-4 bg-sky-50/70 border border-sky-100 rounded-2xl">
-            <h4 className="font-bold text-sky-900 mb-1">Aislamiento estricto por usuario</h4>
+            <h4 className="font-bold text-sky-900 mb-1">Aislamiento por cuenta</h4>
             <p className="text-xs text-sky-800 leading-relaxed">
-              Todas tus transacciones, tarjetas, recordatorios y presupuestos están vinculados a tu
-              identificador único y protegidos contra accesos de terceros (controles Anti-IDOR).
+              Tus transacciones, tarjetas, recordatorios y presupuestos están asociados únicamente a
+              tu usuario: cada consulta y modificación verifica que seas el titular del registro.
             </p>
           </div>
           <div className="p-4 bg-gray-50 border border-gray-100 rounded-2xl">
             <h4 className="font-bold text-gray-900 mb-1">Autenticación segura</h4>
             <p className="text-xs text-gray-600 leading-relaxed">
-              Las contraseñas locales se almacenan encriptadas mediante <strong>bcrypt</strong> y el
-              inicio de sesión con Google utiliza códigos OAuth efímeros de un solo uso.
+              Las contraseñas locales se almacenan como un hash irreversible con{' '}
+              <strong>bcrypt</strong>, y el inicio de sesión con Google utiliza verificación de
+              estado, PKCE y códigos efímeros de un solo uso.
             </p>
           </div>
           <div className="p-4 bg-gray-50 border border-gray-100 rounded-2xl">

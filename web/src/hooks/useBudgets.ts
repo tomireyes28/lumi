@@ -8,6 +8,7 @@ export const useBudgets = () => {
   const [data, setData] = useState<BudgetsSummaryResponse | null>(null);
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const now = new Date();
@@ -17,52 +18,61 @@ export const useBudgets = () => {
 
   const setMonth = (newMonth: number) => {
     setLoading(true);
+    setError(null);
     setMonthState(newMonth);
   };
 
   const setYear = (newYear: number) => {
     setLoading(true);
+    setError(null);
     setYearState(newYear);
   };
 
   const reload = () => {
     setLoading(true);
+    setError(null);
     setRefreshIndex((prev) => prev + 1);
   };
 
-  // Carga categorías para el formulario
   useEffect(() => {
     let isMounted = true;
     const fetchCategories = async () => {
       try {
-        const catData = await apiFetch('/categories');
+        const catData = await apiFetch<Category[]>('/categories');
         if (isMounted) setCategories(catData);
       } catch (err) {
         console.error('Error cargando categorías:', err);
       }
     };
-    fetchCategories();
+    void fetchCategories();
     return () => {
       isMounted = false;
     };
   }, []);
 
-  // Carga presupuestos del período seleccionado evitando condiciones de carrera
   useEffect(() => {
     let isMounted = true;
     const loadBudgets = async () => {
       try {
-        const res: BudgetsSummaryResponse = await apiFetch(`/budgets?month=${month}&year=${year}`);
-        if (isMounted) setData(res);
+        const res = await apiFetch<BudgetsSummaryResponse>(
+          `/budgets?month=${month}&year=${year}`,
+        );
+        if (isMounted) {
+          setData(res);
+          setError(null);
+        }
       } catch (err) {
         console.error('Error cargando presupuestos:', err);
-        if (isMounted) toast.error('No se pudieron cargar los presupuestos');
+        if (isMounted) {
+          setError('No se pudieron cargar los presupuestos del período seleccionado.');
+          toast.error('No se pudieron cargar los presupuestos');
+        }
       } finally {
         if (isMounted) setLoading(false);
       }
     };
 
-    loadBudgets();
+    void loadBudgets();
 
     return () => {
       isMounted = false;
@@ -81,7 +91,9 @@ export const useBudgets = () => {
       return true;
     } catch (err) {
       console.error('Error guardando presupuesto:', err);
-      toast.error('No se pudo guardar el presupuesto');
+      toast.error(
+        err instanceof Error ? err.message : 'No se pudo guardar el presupuesto',
+      );
       return false;
     } finally {
       setIsSubmitting(false);
@@ -108,6 +120,7 @@ export const useBudgets = () => {
   return {
     data,
     loading,
+    error,
     isSubmitting,
     month,
     year,

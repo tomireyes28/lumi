@@ -1,51 +1,48 @@
-import { useEffect, useState, useMemo } from "react";
-import { apiFetch } from "@/lib/api";
-import { Reminder } from "@/types/reminders";
-import { toast } from "sonner";
+import { useEffect, useState, useMemo } from 'react';
+import { apiFetch } from '@/lib/api';
+import { Reminder, UpdateReminderInput } from '@/types/reminders';
+import { toast } from 'sonner';
 
 export const useReminders = () => {
   const [reminders, setReminders] = useState<Reminder[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Estados del formulario
-  const [title, setTitle] = useState("");
-  const [amount, setAmount] = useState("");
-  const [dueDate, setDueDate] = useState("");
+  const [title, setTitle] = useState('');
+  const [amount, setAmount] = useState('');
+  const [dueDate, setDueDate] = useState('');
+  const [isRecurring, setIsRecurring] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Estados de los Modales
   const [editingReminder, setEditingReminder] = useState<Reminder | null>(null);
   const [deletingReminder, setDeletingReminder] = useState<Reminder | null>(null);
 
-  // 1. Carga Inicial segura
   useEffect(() => {
     let isMounted = true;
     const initialLoad = async () => {
       try {
-        const data = await apiFetch('/reminders');
+        const data = await apiFetch<Reminder[]>('/reminders');
         if (isMounted) setReminders(data);
       } catch (error) {
-        console.error("Error cargando recordatorios:", error);
-        toast.error("Hubo un error al cargar los recordatorios.");
+        console.error('Error cargando recordatorios:', error);
+        toast.error('Hubo un error al cargar los recordatorios.');
       } finally {
         if (isMounted) setLoading(false);
       }
     };
-    initialLoad();
-    return () => { isMounted = false; };
+    void initialLoad();
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
-  // 2. Recarga post-mutaciones
   const reloadReminders = async () => {
     try {
-      const data = await apiFetch('/reminders');
+      const data = await apiFetch<Reminder[]>('/reminders');
       setReminders(data);
     } catch (error) {
-      console.error("Error recargando recordatorios:", error);
+      console.error('Error recargando recordatorios:', error);
     }
   };
-
-  // --- ACCIONES CRUD ---
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -54,24 +51,30 @@ export const useReminders = () => {
       await apiFetch('/reminders', {
         method: 'POST',
         body: JSON.stringify({
-          title,
+          title: title.trim(),
           amount: amount ? Number(amount) : undefined,
-          dueDate, 
+          dueDate,
+          isRecurring,
         }),
       });
-      
-      setTitle(""); setAmount(""); setDueDate("");
+
+      setTitle('');
+      setAmount('');
+      setDueDate('');
+      setIsRecurring(false);
       await reloadReminders();
-      toast.success("Vencimiento agendado");
+      toast.success('Vencimiento agendado');
     } catch (error) {
-      console.error("Error creando recordatorio:", error);
-      toast.error("Error al guardar el recordatorio.");
+      console.error('Error creando recordatorio:', error);
+      toast.error(
+        error instanceof Error ? error.message : 'Error al guardar el recordatorio.',
+      );
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  const handleUpdate = async (id: string, updatedData: Partial<{ title: string; amount: number | null; dueDate: string }>) => {
+  const handleUpdate = async (id: string, updatedData: UpdateReminderInput) => {
     try {
       await apiFetch(`/reminders/${id}`, {
         method: 'PATCH',
@@ -82,43 +85,67 @@ export const useReminders = () => {
       await reloadReminders();
     } catch (error) {
       console.error(error);
-      toast.error('No se pudo actualizar el recordatorio');
+      toast.error(
+        error instanceof Error ? error.message : 'No se pudo actualizar el recordatorio',
+      );
     }
   };
 
   const handleMarkAsPaid = async (id: string) => {
     try {
       await apiFetch(`/reminders/${id}/pay`, { method: 'PATCH' });
-      toast.success("¡Pago registrado!");
+      toast.success('¡Pago registrado!');
       await reloadReminders();
     } catch (error) {
-      console.error("Error al actualizar:", error);
-      toast.error("Hubo un error al registrar el pago.");
+      console.error('Error al actualizar:', error);
+      toast.error('Hubo un error al registrar el pago.');
     }
   };
 
   const handleDelete = async (id: string) => {
     try {
       await apiFetch(`/reminders/${id}`, { method: 'DELETE' });
-      toast.success("Vencimiento eliminado");
+      toast.success('Vencimiento eliminado');
       setDeletingReminder(null);
       await reloadReminders();
     } catch (error) {
-      console.error("Error al borrar:", error);
-      toast.error("Hubo un error al borrar el recordatorio.");
+      console.error('Error al borrar:', error);
+      toast.error('Hubo un error al borrar el recordatorio.');
       setDeletingReminder(null);
     }
   };
 
-  // Optimizamos los filtros
-  const pendingReminders = useMemo(() => reminders.filter(r => !r.isPaid), [reminders]);
-  const paidReminders = useMemo(() => reminders.filter(r => r.isPaid), [reminders]);
+  const pendingReminders = useMemo(
+    () => reminders.filter((r) => !r.isPaid),
+    [reminders],
+  );
+  const paidReminders = useMemo(
+    () => reminders.filter((r) => r.isPaid),
+    [reminders],
+  );
 
   return {
-    loading, pendingReminders, paidReminders,
-    form: { title, setTitle, amount, setAmount, dueDate, setDueDate, isSubmitting },
-    editingReminder, setEditingReminder,
-    deletingReminder, setDeletingReminder,
-    handleSubmit, handleUpdate, handleMarkAsPaid, handleDelete
+    loading,
+    pendingReminders,
+    paidReminders,
+    form: {
+      title,
+      setTitle,
+      amount,
+      setAmount,
+      dueDate,
+      setDueDate,
+      isRecurring,
+      setIsRecurring,
+      isSubmitting,
+    },
+    editingReminder,
+    setEditingReminder,
+    deletingReminder,
+    setDeletingReminder,
+    handleSubmit,
+    handleUpdate,
+    handleMarkAsPaid,
+    handleDelete,
   };
 };

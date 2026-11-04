@@ -6,7 +6,7 @@ import { AuthGuard } from '@nestjs/passport';
 import { GetTransactionsFilterDto } from './dto/get-transactions-filter.dto';
 import type { AuthenticatedRequest } from '../auth/interfaces/auth.interfaces';
 import { UpdateTransactionDto } from './dto/update-transaction.dto';
-import { GetBudgetsQueryDto } from '../budgets/dto/get-budgets-query.dto';
+import { PeriodQueryDto } from '../common/dto/period-query.dto';
 
 @ApiTags('Transactions')
 @ApiBearerAuth()
@@ -40,7 +40,7 @@ export class TransactionsController {
   }
 
   @Get('summary')
-  getSummary(@Req() req: AuthenticatedRequest, @Query() query: GetBudgetsQueryDto) {
+  getSummary(@Req() req: AuthenticatedRequest, @Query() query: PeriodQueryDto) {
     return this.transactionsService.getMonthlySummary(req.user.userId, query.month, query.year);
   }
 }

@@ -137,7 +137,7 @@ export class TransactionsService {
     }
 
     if (page !== undefined || limit !== undefined) {
-      const currentPage = Math.max(1, page || 1);
+      const currentPage = Math.min(10000, Math.max(1, page || 1));
       const take = Math.max(1, Math.min(100, limit || 20));
       const skip = (currentPage - 1) * take;
 

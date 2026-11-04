@@ -3,7 +3,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { CreateReminderDto } from './dto/create-reminder.dto';
 import { UpdateReminderDto } from './dto/update-reminder.dto';
 import { Prisma } from '@prisma/client';
-import { parseLocalDate } from '../utils/date.util';
+import { getMonthDateRange, parseLocalDate } from '../utils/date.util';
 
 @Injectable()
 export class RemindersService {
@@ -29,9 +29,14 @@ export class RemindersService {
     });
   }
 
-  async findAllByUser(userId: string) {
+  async findAllByUser(userId: string, month?: number, year?: number) {
+    const where: Prisma.ReminderWhereInput = { userId };
+    if (month && year) {
+      const { startDate, endDate } = getMonthDateRange(year, month);
+      where.dueDate = { gte: startDate, lt: endDate };
+    }
     return this.prisma.reminder.findMany({
-      where: { userId },
+      where,
       orderBy: { dueDate: 'asc' },
     });
   }
