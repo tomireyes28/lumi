@@ -13,7 +13,10 @@ export function useAuth() {
   const [loading, setLoading] = useState(false);
 
   const loginWithGoogle = () => {
-    window.location.href = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000'}/auth/google`;
+    const clientState = crypto.randomUUID();
+    sessionStorage.setItem('lumi_oauth_state', clientState);
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
+    window.location.href = `${apiUrl}/auth/google?client_state=${encodeURIComponent(clientState)}`;
   };
 
   const authWithEmail = async (isLogin: boolean, data: EmailAuthData) => {
@@ -21,10 +24,11 @@ export function useAuth() {
     try {
       const endpoint = isLogin ? '/auth/login' : '/auth/register';
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
-      
+
       const response = await fetch(`${apiUrl}${endpoint}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify(data),
       });
 
@@ -37,12 +41,8 @@ export function useAuth() {
         throw new Error(message);
       }
 
-      // Guardamos en Zustand y en la Cookie
       login(result.token, result.user);
-      
       toast.success(isLogin ? '¡Hola de nuevo!' : '¡Cuenta creada con éxito!');
-      
-      // Redirigimos al Dashboard
       window.location.href = '/dashboard';
     } catch (error: unknown) {
       if (error instanceof Error) {

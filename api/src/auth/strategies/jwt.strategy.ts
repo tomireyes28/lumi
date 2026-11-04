@@ -2,13 +2,31 @@ import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
+import type { Request } from 'express';
 import { JwtPayload } from '../interfaces/auth.interfaces';
 import { PrismaService } from '../../prisma/prisma.service';
+import { AuthService } from '../auth.service';
+
+function extractCookieToken(req: Request | undefined): string | null {
+  const cookieHeader = req?.headers?.cookie;
+  if (!cookieHeader) return null;
+  for (const part of cookieHeader.split(';')) {
+    const idx = part.indexOf('=');
+    if (idx === -1) continue;
+    const key = part.slice(0, idx).trim();
+    if (key === 'lumi_session' || key === 'lumi_token') {
+      const val = decodeURIComponent(part.slice(idx + 1).trim());
+      if (val) return val;
+    }
+  }
+  return null;
+}
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
   constructor(
     private readonly prisma: PrismaService,
+    private readonly authService: AuthService,
     configService: ConfigService,
   ) {
     const secret = configService.get<string>('JWT_SECRET') || process.env.JWT_SECRET;
@@ -19,7 +37,10 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
     }
 
     super({
-      jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
+      jwtFromRequest: ExtractJwt.fromExtractors([
+        ExtractJwt.fromAuthHeaderAsBearerToken(),
+        extractCookieToken,
+      ]),
       ignoreExpiration: false,
       secretOrKey: secret,
     });
@@ -30,7 +51,10 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
       throw new UnauthorizedException('Token inválido');
     }
 
-    // Buscamos el perfil completo en la base de datos usando el ID del token
+    if (payload.jti && this.authService.isTokenRevoked(payload.jti)) {
+      throw new UnauthorizedException('La sesión fue cerrada o revocada.');
+    }
+
     const user = await this.prisma.user.findUnique({
       where: { id: payload.sub },
     });
@@ -44,6 +68,8 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
     return {
       ...result,
       userId: result.id,
+      jti: payload.jti,
+      tokenExp: payload.exp,
     };
   }
 }

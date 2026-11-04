@@ -7,11 +7,13 @@ datasource db {
 }
 
 model User {
-  id        String   @id @default(uuid())
-  name      String
-  email     String   @unique 
-  password  String?  // <-- OPCIONAL: Porque si entra con Google, no le pedimos contraseña
-  picture   String?
+  id            String   @id @default(uuid())
+  name          String
+  email         String   @unique
+  password      String?  // Opcional si inicia sesión exclusivamente con proveedor OAuth
+  picture       String?
+  googleId      String?  @unique
+  emailVerified Boolean  @default(false)
   
   transactions Transaction[]
   categories   Category[]

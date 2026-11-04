@@ -1,11 +1,18 @@
 import { NestFactory } from '@nestjs/core';
+import { NestExpressApplication } from '@nestjs/platform-express';
 import { AppModule } from './app.module';
 import { ValidationPipe } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import helmet from 'helmet';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create<NestExpressApplication>(AppModule);
+
+  // Solo confiar en cabeceras X-Forwarded-For cuando se declare explícitamente el salto de proxy
+  if (process.env.TRUST_PROXY) {
+    const hops = Number(process.env.TRUST_PROXY);
+    app.set('trust proxy', Number.isInteger(hops) && hops > 0 ? hops : 1);
+  }
 
   // Habilitamos hooks de apagado limpio (SIGTERM / SIGINT) para cerrar el pool de PostgreSQL
   app.enableShutdownHooks();

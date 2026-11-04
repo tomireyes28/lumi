@@ -1,14 +1,13 @@
 import { create } from 'zustand';
 
-// Definimos qué datos queremos guardar del usuario
+// Datos públicos del usuario autenticado
 export interface User {
   id: string;
   email: string;
   name: string;
-  picture?: string;
+  picture?: string | null;
 }
 
-// Definimos la estructura de nuestra bóveda
 interface AuthState {
   token: string | null;
   user: User | null;
@@ -25,11 +24,12 @@ function isJwtNotExpired(token: string | null): boolean {
     const parts = token.split('.');
     if (parts.length !== 3) return false;
     const base64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
-    const payload = JSON.parse(atob(base64));
+    const padded = base64.padEnd(base64.length + ((4 - (base64.length % 4)) % 4), '=');
+    const payload = JSON.parse(atob(padded));
     if (typeof payload.exp === 'number') {
       return payload.exp * 1000 > Date.now();
     }
-    return true;
+    return Boolean(payload.sub);
   } catch {
     return false;
   }
@@ -68,7 +68,6 @@ function getInitialAuthState(): { token: string | null; user: User | null; isAut
     parsedUser = null;
   }
 
-  // Aseguramos que la cookie esté sincronizada con localStorage para evitar bucles con el Middleware
   setAuthCookie(storedToken);
 
   return {
@@ -80,13 +79,11 @@ function getInitialAuthState(): { token: string | null; user: User | null; isAut
 
 const initialState = getInitialAuthState();
 
-// Creamos la bóveda
-export const useAuthStore = create<AuthState>((set) => ({
+export const useAuthStore = create<AuthState>((set, get) => ({
   token: initialState.token,
   user: initialState.user,
   isAuthenticated: initialState.isAuthenticated,
 
-  // Acción para Iniciar Sesión
   login: (token, user) => {
     if (typeof window !== 'undefined') {
       localStorage.setItem('lumi_token', token);
@@ -96,9 +93,32 @@ export const useAuthStore = create<AuthState>((set) => ({
     set({ token, user, isAuthenticated: true });
   },
 
-  // Acción para Cerrar Sesión
   logout: () => {
+    const currentToken = get().token;
     clearAuthStorage();
     set({ token: null, user: null, isAuthenticated: false });
+
+    // Revocación best-effort del token en el servidor (invalida jti y limpia cookie HttpOnly)
+    if (typeof window !== 'undefined' && currentToken) {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
+      fetch(`${apiUrl}/auth/logout`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${currentToken}` },
+        credentials: 'include',
+      }).catch(() => undefined);
+    }
   },
 }));
+
+// Sincronización multi-pestaña: si otra pestaña cierra o inicia sesión, actualizamos el estado local
+if (typeof window !== 'undefined') {
+  window.addEventListener('storage', (event) => {
+    if (event.key === 'lumi_token' || event.key === null) {
+      const nextState = getInitialAuthState();
+      useAuthStore.setState(nextState);
+      if (!nextState.isAuthenticated && window.location.pathname.startsWith('/dashboard')) {
+        window.location.href = '/';
+      }
+    }
+  });
+}

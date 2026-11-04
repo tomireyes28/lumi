@@ -6,15 +6,65 @@ import { RegisterDto, LoginDto } from './dto/auth.dto';
 import * as bcrypt from 'bcrypt';
 import { randomUUID } from 'crypto';
 
+const MAX_EXCHANGE_CODES = 1000;
+const MAX_REVOKED_TOKENS = 5000;
+const BCRYPT_MAX_UTF8_BYTES = 72;
+
 @Injectable()
 export class AuthService {
-  // Almacén temporal en memoria para códigos de intercambio OAuth de un solo uso (TTL 60s)
-  private readonly oauthExchangeCodes = new Map<string, { token: string; expiresAt: number }>();
+  // Almacén temporal acotado para códigos OAuth de un solo uso (TTL 60s).
+  // Nota operativa: en despliegues multi-réplica debe respaldarse en Redis/DB compartida.
+  private readonly oauthExchangeCodes = new Map<
+    string,
+    { token: string; clientState?: string; expiresAt: number }
+  >();
+
+  // Lista de revocación en memoria de tokens cerrados explícitamente antes de su expiración
+  private readonly revokedTokens = new Map<string, number>();
 
   constructor(
     private prisma: PrismaService,
     private jwtService: JwtService,
   ) {}
+
+  private signAccessToken(user: { id: string; email: string }): string {
+    const payload: JwtPayload = {
+      sub: user.id,
+      email: user.email,
+      jti: randomUUID(),
+    };
+    return this.jwtService.sign(payload, {
+      secret: process.env.JWT_SECRET,
+      expiresIn: '7d',
+    });
+  }
+
+  revokeToken(jti?: string, expSeconds?: number): void {
+    if (!jti) return;
+    const now = Date.now();
+    for (const [id, expiresAt] of this.revokedTokens.entries()) {
+      if (expiresAt <= now) {
+        this.revokedTokens.delete(id);
+      }
+    }
+    while (this.revokedTokens.size >= MAX_REVOKED_TOKENS) {
+      const oldest = this.revokedTokens.keys().next().value;
+      if (!oldest) break;
+      this.revokedTokens.delete(oldest);
+    }
+    const expiresAt = expSeconds ? expSeconds * 1000 : now + 7 * 24 * 60 * 60 * 1000;
+    this.revokedTokens.set(jti, expiresAt);
+  }
+
+  isTokenRevoked(jti: string): boolean {
+    const expiresAt = this.revokedTokens.get(jti);
+    if (!expiresAt) return false;
+    if (expiresAt <= Date.now()) {
+      this.revokedTokens.delete(jti);
+      return false;
+    }
+    return true;
+  }
 
   // ==========================================
   // AUTENTICACIÓN CON GOOGLE
@@ -24,54 +74,90 @@ export class AuthService {
       throw new BadRequestException('No user from Google');
     }
 
+    if (reqUser.emailVerified === false) {
+      throw new UnauthorizedException('El email de Google no está verificado.');
+    }
+
     const normalizedEmail = reqUser.email.trim().toLowerCase();
 
-    // Acá está la magia: guardamos y actualizamos la foto
+    const existingUser =
+      typeof this.prisma.user.findUnique === 'function'
+        ? await this.prisma.user.findUnique({ where: { email: normalizedEmail } })
+        : null;
+
+    if (existingUser?.googleId && reqUser.googleId && existingUser.googleId !== reqUser.googleId) {
+      throw new UnauthorizedException(
+        'El correo electrónico ya está vinculado a otra identidad de proveedor.',
+      );
+    }
+
+    // Seguridad contra apropiación previa de cuenta (Pre-Account Takeover):
+    // Si existía un registro local cuyo email nunca fue verificado, invalidamos la contraseña
+    // local previa al vincular la cuenta verificada de Google.
+    const preserveVerifiedPassword = Boolean(
+      existingUser?.emailVerified && existingUser?.password,
+    );
+
     const user = await this.prisma.user.upsert({
       where: { email: normalizedEmail },
       update: {
         name: reqUser.name,
         picture: reqUser.picture,
+        ...(reqUser.googleId ? { googleId: reqUser.googleId } : {}),
+        emailVerified: true,
+        ...(preserveVerifiedPassword ? {} : { password: null }),
       },
       create: {
         email: normalizedEmail,
         name: reqUser.name,
         picture: reqUser.picture,
+        ...(reqUser.googleId ? { googleId: reqUser.googleId } : {}),
+        emailVerified: true,
       },
     });
 
-    const payload: JwtPayload = { sub: user.id, email: user.email };
-    return this.jwtService.sign(payload, { secret: process.env.JWT_SECRET, expiresIn: '7d' });
+    return this.signAccessToken(user);
   }
 
-  // Genera un código temporal de un solo uso para no exponer el JWT en la URL
-  createOAuthExchangeCode(token: string): string {
+  // Genera un código temporal de un solo uso vinculado al estado del navegador
+  createOAuthExchangeCode(token: string, clientState?: string): string {
     const now = Date.now();
-    // Limpieza de códigos viejos expirados
     for (const [code, entry] of this.oauthExchangeCodes.entries()) {
       if (entry.expiresAt < now) {
         this.oauthExchangeCodes.delete(code);
       }
     }
+    while (this.oauthExchangeCodes.size >= MAX_EXCHANGE_CODES) {
+      const oldest = this.oauthExchangeCodes.keys().next().value;
+      if (!oldest) break;
+      this.oauthExchangeCodes.delete(oldest);
+    }
 
     const code = randomUUID();
     this.oauthExchangeCodes.set(code, {
       token,
+      clientState: clientState?.trim() || undefined,
       expiresAt: now + 60 * 1000, // Válido por 60 segundos
     });
     return code;
   }
 
-  // Canjea el código temporal por el token JWT y datos de usuario
-  async exchangeOAuthCode(code: string) {
+  // Canjea el código temporal por el token JWT y datos de usuario verificando vínculo con el navegador
+  async exchangeOAuthCode(code: string, clientState?: string) {
     const entry = this.oauthExchangeCodes.get(code);
     if (!entry || entry.expiresAt < Date.now()) {
       if (entry) this.oauthExchangeCodes.delete(code);
       throw new UnauthorizedException('El código de autorización ha expirado o es inválido.');
     }
 
-    // Quemamos el código inmediatamente (uso único)
+    // Quemamos el código inmediatamente (uso único estricto)
     this.oauthExchangeCodes.delete(code);
+
+    if (entry.clientState && entry.clientState !== clientState?.trim()) {
+      throw new UnauthorizedException(
+        'El estado de autorización no coincide con la sesión del navegador.',
+      );
+    }
 
     const payload = this.jwtService.verify<JwtPayload>(entry.token, {
       secret: process.env.JWT_SECRET,
@@ -96,6 +182,20 @@ export class AuthService {
   // ==========================================
   async register(body: RegisterDto) {
     const { name, email, password } = body;
+    const trimmedName = typeof name === 'string' ? name.trim() : '';
+    if (!trimmedName) {
+      throw new BadRequestException('El nombre no puede estar vacío.');
+    }
+
+    if (
+      typeof password !== 'string' ||
+      Buffer.byteLength(password, 'utf8') > BCRYPT_MAX_UTF8_BYTES
+    ) {
+      throw new BadRequestException(
+        'La contraseña no puede superar los 72 bytes UTF-8 (límite de seguridad bcrypt).',
+      );
+    }
+
     const normalizedEmail = email.trim().toLowerCase();
 
     const userExists = await this.prisma.user.findUnique({ where: { email: normalizedEmail } });
@@ -105,29 +205,55 @@ export class AuthService {
 
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    const newUser = await this.prisma.user.create({
-      data: {
-        name: name.trim(),
-        email: normalizedEmail,
-        password: hashedPassword,
-      },
-    });
+    try {
+      const newUser = await this.prisma.user.create({
+        data: {
+          name: trimmedName,
+          email: normalizedEmail,
+          password: hashedPassword,
+          emailVerified: false,
+        },
+      });
 
-    const payload: JwtPayload = { sub: newUser.id, email: newUser.email };
-    return {
-      token: this.jwtService.sign(payload, { secret: process.env.JWT_SECRET, expiresIn: '7d' }),
-      user: { id: newUser.id, name: newUser.name, email: newUser.email, picture: newUser.picture },
-    };
+      return {
+        token: this.signAccessToken(newUser),
+        user: {
+          id: newUser.id,
+          name: newUser.name,
+          email: newUser.email,
+          picture: newUser.picture,
+        },
+      };
+    } catch (error: unknown) {
+      if (
+        typeof error === 'object' &&
+        error !== null &&
+        'code' in error &&
+        (error as { code?: string }).code === 'P2002'
+      ) {
+        throw new BadRequestException('El email ya está registrado.');
+      }
+      throw error;
+    }
   }
 
   async login(body: LoginDto) {
     const { email, password } = body;
     const normalizedEmail = email.trim().toLowerCase();
 
+    if (
+      typeof password !== 'string' ||
+      Buffer.byteLength(password, 'utf8') > BCRYPT_MAX_UTF8_BYTES
+    ) {
+      throw new UnauthorizedException('Credenciales inválidas.');
+    }
+
     const user = await this.prisma.user.findUnique({ where: { email: normalizedEmail } });
 
     if (!user || !user.password) {
-      throw new UnauthorizedException('Credenciales inválidas. Si usaste Google, iniciá sesión por ahí.');
+      throw new UnauthorizedException(
+        'Credenciales inválidas. Si usaste Google, iniciá sesión por ahí.',
+      );
     }
 
     const isPasswordValid = await bcrypt.compare(String(password), user.password);
@@ -135,9 +261,8 @@ export class AuthService {
       throw new UnauthorizedException('Credenciales inválidas.');
     }
 
-    const payload: JwtPayload = { sub: user.id, email: user.email };
     return {
-      token: this.jwtService.sign(payload, { secret: process.env.JWT_SECRET, expiresIn: '7d' }),
+      token: this.signAccessToken(user),
       user: { id: user.id, name: user.name, email: user.email, picture: user.picture },
     };
   }

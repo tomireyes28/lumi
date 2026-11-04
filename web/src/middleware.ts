@@ -1,7 +1,14 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
-function isValidAndUnexpiredJwt(token: string | undefined): boolean {
+/**
+ * Gate de navegación en el cliente/edge de Next.js.
+ * Nota de arquitectura: Este middleware actúa como barrera de redirección UX comprobando
+ * formato estructural, vigencia temporal (exp) y presencia de sujeto (sub).
+ * La autorización real y verificación criptográfica de firma + revocación (jti) la aplica
+ * obligatoriamente la API de NestJS (JwtStrategy) en cada operación de datos.
+ */
+function hasUnexpiredTokenStructure(token: string | undefined): boolean {
   if (!token) return false;
   try {
     const parts = token.split('.');
@@ -9,10 +16,13 @@ function isValidAndUnexpiredJwt(token: string | undefined): boolean {
     const base64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
     const padded = base64.padEnd(base64.length + ((4 - (base64.length % 4)) % 4), '=');
     const payload = JSON.parse(atob(padded));
+    if (!payload || typeof payload.sub !== 'string' || !payload.sub) {
+      return false;
+    }
     if (typeof payload.exp === 'number') {
       return payload.exp * 1000 > Date.now();
     }
-    return Boolean(payload.sub);
+    return false;
   } catch {
     return false;
   }
@@ -20,10 +30,10 @@ function isValidAndUnexpiredJwt(token: string | undefined): boolean {
 
 export function middleware(request: NextRequest) {
   const token = request.cookies.get('lumi_token')?.value;
-  const hasValidToken = isValidAndUnexpiredJwt(token);
+  const hasValidToken = hasUnexpiredTokenStructure(token);
   const { pathname } = request.nextUrl;
 
-  // 1. Proteger todas las rutas del dashboard
+  // 1. Redirigir a login si intenta navegar a /dashboard sin sesión activa en el navegador
   if (pathname.startsWith('/dashboard')) {
     if (!hasValidToken) {
       const loginUrl = new URL('/', request.url);
@@ -35,7 +45,7 @@ export function middleware(request: NextRequest) {
     }
   }
 
-  // 2. Si ya está autenticado con un token vigente, redirigir desde la pantalla de login ('/') al dashboard
+  // 2. Si ya posee token vigente, redirigir desde la portada ('/') al dashboard
   if (pathname === '/') {
     if (hasValidToken) {
       const dashboardUrl = new URL('/dashboard', request.url);
@@ -52,8 +62,5 @@ export function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: [
-    '/',
-    '/dashboard/:path*',
-  ],
+  matcher: ['/', '/dashboard/:path*'],
 };
