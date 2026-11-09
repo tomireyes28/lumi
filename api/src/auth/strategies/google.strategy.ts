@@ -37,9 +37,9 @@ export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
     const { id, name, emails, photos } = profile;
     const primaryEmail = emails?.[0];
     const email = primaryEmail?.value?.trim().toLowerCase() || '';
-    const emailVerified = primaryEmail?.verified !== false;
+    const emailVerified = primaryEmail?.verified === true;
 
-    if (!email || !emailVerified) {
+    if (!id || !email || !emailVerified) {
       throw new UnauthorizedException(
         'La cuenta de Google debe tener un correo electrónico verificado.',
       );
@@ -49,7 +49,9 @@ export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
       googleId: id,
       email,
       emailVerified,
-      name: `${name?.givenName || ''} ${name?.familyName || ''}`.trim() || email.split('@')[0],
+      name:
+        `${name?.givenName || ''} ${name?.familyName || ''}`.trim() ||
+        email.split('@')[0],
       picture: photos?.[0]?.value || '',
     };
   }

@@ -81,7 +81,11 @@ describe('Lumi API (e2e)', () => {
           },
         ),
         findUnique: jest.fn(({ where }: { where: { id: string } }) =>
-          Promise.resolve(sessions.get(where.id) || null),
+          Promise.resolve(
+            sessions.has(where.id)
+              ? { ...sessions.get(where.id), user: { authVersion: 0 } }
+              : null,
+          ),
         ),
         updateMany: jest.fn(
           ({

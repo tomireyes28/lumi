@@ -31,6 +31,7 @@ export class AuthService {
   private async signAccessToken(user: {
     id: string;
     email: string;
+    authVersion?: number;
   }): Promise<string> {
     const payload: JwtPayload = {
       sub: user.id,
@@ -41,6 +42,7 @@ export class AuthService {
       data: {
         id: payload.jti!,
         userId: user.id,
+        authVersion: user.authVersion ?? 0,
         expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
       },
     });
@@ -72,10 +74,12 @@ export class AuthService {
       throw new UnauthorizedException('Iniciá sesión nuevamente.');
     const session = await this.prisma.authSession.findUnique({
       where: { id: payload.jti },
+      include: { user: { select: { authVersion: true } } },
     });
     if (
       !session ||
       session.userId !== payload.sub ||
+      session.authVersion !== session.user.authVersion ||
       session.revokedAt ||
       session.expiresAt <= new Date()
     ) {
@@ -87,59 +91,76 @@ export class AuthService {
   // AUTENTICACIÓN CON GOOGLE
   // ==========================================
   async googleLogin(reqUser: GoogleUser) {
-    if (!reqUser || !reqUser.email) {
-      throw new BadRequestException('No user from Google');
-    }
-
-    if (reqUser.emailVerified === false) {
-      throw new UnauthorizedException('El email de Google no está verificado.');
-    }
-
-    const normalizedEmail = reqUser.email.trim().toLowerCase();
-
-    const existingUser =
-      typeof this.prisma.user.findUnique === 'function'
-        ? await this.prisma.user.findUnique({
-            where: { email: normalizedEmail },
-          })
-        : null;
-
     if (
-      existingUser?.googleId &&
-      reqUser.googleId &&
-      existingUser.googleId !== reqUser.googleId
+      !reqUser?.email ||
+      !reqUser.googleId?.trim() ||
+      reqUser.emailVerified !== true
     ) {
       throw new UnauthorizedException(
-        'El correo electrónico ya está vinculado a otra identidad de proveedor.',
+        'Google debe verificar email e identidad.',
       );
     }
-
-    // Seguridad contra apropiación previa de cuenta (Pre-Account Takeover):
-    // Si existía un registro local cuyo email nunca fue verificado, invalidamos la contraseña
-    // local previa al vincular la cuenta verificada de Google.
-    const preserveVerifiedPassword = Boolean(
-      existingUser?.emailVerified && existingUser?.password,
-    );
-
-    const user = await this.prisma.user.upsert({
-      where: { email: normalizedEmail },
-      update: {
-        name: reqUser.name,
-        picture: reqUser.picture,
-        ...(reqUser.googleId ? { googleId: reqUser.googleId } : {}),
-        emailVerified: true,
-        ...(preserveVerifiedPassword ? {} : { password: null }),
-      },
-      create: {
-        email: normalizedEmail,
-        name: reqUser.name,
-        picture: reqUser.picture,
-        ...(reqUser.googleId ? { googleId: reqUser.googleId } : {}),
-        emailVerified: true,
-      },
-    });
-
-    return this.signAccessToken(user);
+    const email = reqUser.email.trim().toLowerCase();
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        const user = await this.prisma.$transaction(
+          async (tx) => {
+            const existing = await tx.user.findUnique({ where: { email } });
+            const identity = await tx.user.findUnique({
+              where: { googleId: reqUser.googleId },
+            });
+            if (
+              (existing?.googleId && existing.googleId !== reqUser.googleId) ||
+              (identity && identity.id !== existing?.id)
+            ) {
+              throw new UnauthorizedException(
+                'La identidad de Google ya está vinculada a otra cuenta.',
+              );
+            }
+            const linking = existing && existing.googleId !== reqUser.googleId;
+            const result = await tx.user.upsert({
+              where: { email },
+              update: {
+                name: reqUser.name,
+                picture: reqUser.picture,
+                googleId: reqUser.googleId,
+                emailVerified: true,
+                ...(existing?.emailVerified && existing.password
+                  ? {}
+                  : { password: null }),
+                ...(linking ? { authVersion: { increment: 1 } } : {}),
+              },
+              create: {
+                email,
+                name: reqUser.name,
+                picture: reqUser.picture,
+                googleId: reqUser.googleId,
+                emailVerified: true,
+              },
+            });
+            if (linking)
+              await tx.authSession.updateMany({
+                where: { userId: result.id, revokedAt: null },
+                data: { revokedAt: new Date() },
+              });
+            return result;
+          },
+          { isolationLevel: 'Serializable' },
+        );
+        return await this.signAccessToken(user);
+      } catch (error: unknown) {
+        if (
+          error &&
+          typeof error === 'object' &&
+          'code' in error &&
+          error.code === 'P2034' &&
+          attempt < 2
+        )
+          continue;
+        throw error;
+      }
+    }
+    throw new UnauthorizedException('No se pudo vincular la cuenta.');
   }
 
   // Genera un código temporal de un solo uso vinculado al estado del navegador

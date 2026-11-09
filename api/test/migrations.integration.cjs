@@ -564,19 +564,101 @@ test('Supabase API roles lose direct access while Prisma retains CRUD and future
   }
 });
 
-test('sessions survive service reconstruction and logout revokes access across instances',async()=>{
- const url=await database(); await deploy(url);
- const prisma=new PrismaClient({adapter:new PrismaPg({connectionString:url})});
- const jwt=new JwtService(); process.env.JWT_SECRET='synthetic-integration-secret-at-least-32-characters';
- try {
- const password=await require('bcrypt').hash('Synthetic-password-123',10);
- await prisma.user.create({data:{name:'Session test',email:'session@example.invalid',password}});
- const a=new AuthService(prisma,jwt);const signed=await a.login({email:'session@example.invalid',password:'Synthetic-password-123'});
- const payload=jwt.verify(signed.token,{secret:process.env.JWT_SECRET});
- const b=new AuthService(prisma,jwt); await b.validateSession(payload);
- await a.revokeToken(payload.jti);
- await assert.rejects(new AuthService(prisma,jwt).validateSession(payload),{status:401});
- await assert.rejects(b.validateSession(payload),{status:401});
- await assert.rejects(b.validateSession({sub:payload.sub,email:payload.email}),{status:401});
- }finally{await prisma.$disconnect();}
+test('sessions survive service reconstruction and logout revokes access across instances', async () => {
+  const url = await database();
+  await deploy(url);
+  const prisma = new PrismaClient({
+    adapter: new PrismaPg({ connectionString: url }),
+  });
+  const jwt = new JwtService();
+  process.env.JWT_SECRET =
+    'synthetic-integration-secret-at-least-32-characters';
+  try {
+    const password = await require('bcrypt').hash('Synthetic-password-123', 10);
+    await prisma.user.create({
+      data: {
+        name: 'Session test',
+        email: 'session@example.invalid',
+        password,
+      },
+    });
+    const a = new AuthService(prisma, jwt);
+    const signed = await a.login({
+      email: 'session@example.invalid',
+      password: 'Synthetic-password-123',
+    });
+    const payload = jwt.verify(signed.token, {
+      secret: process.env.JWT_SECRET,
+    });
+    const b = new AuthService(prisma, jwt);
+    await b.validateSession(payload);
+    await a.revokeToken(payload.jti);
+    await assert.rejects(
+      new AuthService(prisma, jwt).validateSession(payload),
+      { status: 401 },
+    );
+    await assert.rejects(b.validateSession(payload), { status: 401 });
+    await assert.rejects(
+      b.validateSession({ sub: payload.sub, email: payload.email }),
+      { status: 401 },
+    );
+    const old = await a.login({
+      email: 'session@example.invalid',
+      password: 'Synthetic-password-123',
+    });
+    const linked = await b.googleLogin({
+      googleId: 'synthetic-google-owner',
+      email: 'session@example.invalid',
+      name: 'Owner',
+      emailVerified: true,
+    });
+    await assert.rejects(
+      a.validateSession(
+        jwt.verify(old.token, { secret: process.env.JWT_SECRET }),
+      ),
+      { status: 401 },
+    );
+    await a.validateSession(
+      jwt.verify(linked, { secret: process.env.JWT_SECRET }),
+    );
+    await prisma.authSession.create({
+      data: {
+        id: 'late-old-login',
+        userId: payload.sub,
+        expiresAt: new Date(Date.now() + 60000),
+        authVersion: 0,
+      },
+    });
+    await assert.rejects(
+      a.validateSession({ ...payload, jti: 'late-old-login' }),
+      { status: 401 },
+    );
+    await assert.rejects(
+      a.googleLogin({
+        googleId: 'synthetic-google-owner',
+        email: 'session@example.invalid',
+        name: 'Owner',
+      }),
+      { status: 401 },
+    );
+    await assert.rejects(
+      a.googleLogin({
+        email: 'session@example.invalid',
+        name: 'Owner',
+        emailVerified: true,
+      }),
+      { status: 401 },
+    );
+    await assert.rejects(
+      a.googleLogin({
+        googleId: 'different-subject',
+        email: 'session@example.invalid',
+        name: 'Owner',
+        emailVerified: true,
+      }),
+      { status: 401 },
+    );
+  } finally {
+    await prisma.$disconnect();
+  }
 });

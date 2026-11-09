@@ -12,6 +12,7 @@ jest.mock('bcrypt');
 describe('AuthService', () => {
   let service: AuthService;
   let prisma: {
+    $transaction: jest.Mock;
     authSession: {
       create: jest.Mock;
       updateMany: jest.Mock;
@@ -32,6 +33,7 @@ describe('AuthService', () => {
     process.env.JWT_SECRET = 'test_secret_key';
 
     prisma = {
+      $transaction: jest.fn((fn: (tx: unknown) => unknown) => fn(prisma)),
       authSession: {
         create: jest.fn().mockResolvedValue({}),
         updateMany: jest.fn().mockResolvedValue({ count: 1 }),
