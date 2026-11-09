@@ -45,3 +45,7 @@ Pasaron tipos, lint, ambos builds, 77 unitarios, tres pruebas HTTP rápidas, 15 
 El 09/11 se aplicaron las dos migraciones nuevas mediante Prisma migrate deploy. Las huellas de todas las columnas originales de las siete tablas de dominio coincidieron antes/después. Cero migraciones pendientes, cero divergencias activas, cero permisos CRUD públicos. Se conservaron 103 movimientos (102 de tarjeta) como heredados sin inventar compra/ciclo; los dos recordatorios quedaron con fecha calendario explícita. No se reinició la base.
 
 Publicación: ambos proveedores siguen main y se verifican sus SHA después del push. Los campos y el formulario son compatibles con una API anterior durante el despliegue. Ante fallos, conservar el esquema aditivo y los datos; no hacer reset ni una reclasificación masiva. Una corrección de fechas históricas requiere revisar por separado un diagnóstico concreto y su reversión.
+
+## Corrección del control remoto
+
+El primer CI remoto detectó un fixture de upsertCycle que construía su expectativa con mediodía del host. Se reemplazó por mediodía explícito de Buenos Aires y se amplió test:dates a toda la suite unitaria en UTC y Buenos Aires. Es una corrección adicional de pruebas; no cambia el código de producción ni los datos. Se conserva el historial público y se publica en un commit nuevo.

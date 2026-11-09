@@ -97,8 +97,8 @@ describe('CreditCardsService', () => {
             creditCardId: 'card-1',
             month: 9,
             year: 2026,
-            closingDate: new Date(2026, 8, 25, 12, 0, 0), // Cierra el 25 en vez del 24
-            dueDate: new Date(2026, 9, 7, 12, 0, 0),
+            closingDate: businessDate(2026, 8, 25, 12, 0, 0), // Cierra el 25 en vez del 24
+            dueDate: businessDate(2026, 9, 7, 12, 0, 0),
             createdAt: new Date(),
             updatedAt: new Date(),
           },
@@ -171,8 +171,8 @@ describe('CreditCardsService', () => {
       expect(prisma.creditCard.findUnique).toHaveBeenCalledWith({
         where: { id: 'card-1' },
       });
-      const expectedClosing = new Date(2026, 9, 25, 12, 0, 0, 0);
-      const expectedDue = new Date(2026, 10, 6, 12, 0, 0, 0);
+      const expectedClosing = businessDate(2026, 9, 25, 12, 0, 0, 0);
+      const expectedDue = businessDate(2026, 10, 6, 12, 0, 0, 0);
       expect(prisma.cardCycle.upsert).toHaveBeenCalledWith({
         where: {
           creditCardId_year_month: {
