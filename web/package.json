@@ -10,7 +10,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "typecheck": "tsc --noEmit --incremental false"
+    "typecheck": "tsc --noEmit --incremental false",
+    "test:bff": "node --test test/bff.test.cjs"
   },
   "dependencies": {
     "date-fns": "^4.1.0",

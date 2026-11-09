@@ -15,3 +15,7 @@ Se exige subject y email positivamente verificado. La vinculación y revocación
 ## C05 · OAuth compartido
 
 Códigos y nonces aleatorios se guardan por hash en OAuthGrant, con TTL y consumo DELETE RETURNING atómico. PKCE queda en PostgreSQL privado; la URL lleva un identificador opaco. La cookie HttpOnly de Railway mantiene la vinculación del navegador. La regresión real prueba canje entre instancias, dos consumos concurrentes con un ganador, replay, estado ajeno y expiración. Un job horario elimina únicamente sesiones y grants vencidos.
+
+## C06 · Sesión HttpOnly del mismo origen
+
+Next actúa como frontera de sesión. El navegador recibe únicamente perfil público y cookie HttpOnly, Secure en producción y SameSite=Lax. Next envía Bearer a Railway; la API deja de aceptar cookies como credencial. Login, registro, canje Google, perfil y negocio usan la nueva frontera. Se elimina el almacenamiento legado y se sincroniza el perfil entre pestañas sin transmitir JWT. Logout espera revocación confirmada; un fallo permite reintentar. Las mutaciones exigen Origin del mismo origen y no se reenvían cabeceras/cookies arbitrarias del cliente. Tres regresiones HTTP de Next prueban cookie, reload, expiración, logout y CSRF; API y web pasan tipos, lint y build.

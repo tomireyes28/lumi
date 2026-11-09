@@ -2,25 +2,9 @@ import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
-import type { Request } from 'express';
 import { JwtPayload } from '../interfaces/auth.interfaces';
 import { PrismaService } from '../../prisma/prisma.service';
 import { AuthService } from '../auth.service';
-
-function extractCookieToken(req: Request | undefined): string | null {
-  const cookieHeader = req?.headers?.cookie;
-  if (!cookieHeader) return null;
-  for (const part of cookieHeader.split(';')) {
-    const idx = part.indexOf('=');
-    if (idx === -1) continue;
-    const key = part.slice(0, idx).trim();
-    if (key === 'lumi_session' || key === 'lumi_token') {
-      const val = decodeURIComponent(part.slice(idx + 1).trim());
-      if (val) return val;
-    }
-  }
-  return null;
-}
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
@@ -38,10 +22,7 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
     }
 
     super({
-      jwtFromRequest: ExtractJwt.fromExtractors([
-        ExtractJwt.fromAuthHeaderAsBearerToken(),
-        extractCookieToken,
-      ]),
+      jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       ignoreExpiration: false,
       secretOrKey: secret,
     });

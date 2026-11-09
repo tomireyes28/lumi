@@ -1,27 +1,18 @@
-import { useAuthStore } from '@/store/useAuthStore';
+import { useAuthStore } from "@/store/useAuthStore";
 
 export async function apiFetch<T = unknown>(
   path: string,
   options: RequestInit = {},
 ): Promise<T> {
-  const token =
-    typeof window !== 'undefined' ? localStorage.getItem('lumi_token') : null;
-
   const headers = new Headers(options.headers);
-  if (!headers.has('Content-Type') && options.body !== undefined) {
-    headers.set('Content-Type', 'application/json');
+  if (!headers.has("Content-Type") && options.body !== undefined) {
+    headers.set("Content-Type", "application/json");
   }
-  if (token) {
-    headers.set('Authorization', `Bearer ${token}`);
-  }
-
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
-
-  const response = await fetch(`${apiUrl}${path}`, {
-    credentials: options.credentials ?? 'include',
+  const response = await fetch(`/api/backend${path}`, {
+    credentials: options.credentials ?? "include",
     signal:
       options.signal ||
-      (typeof AbortSignal !== 'undefined' && 'timeout' in AbortSignal
+      (typeof AbortSignal !== "undefined" && "timeout" in AbortSignal
         ? AbortSignal.timeout(10000)
         : undefined),
     ...options,
@@ -29,11 +20,11 @@ export async function apiFetch<T = unknown>(
   });
 
   if (response.status === 401) {
-    if (typeof window !== 'undefined') {
-      useAuthStore.getState().logout();
-      window.location.replace('/');
+    if (typeof window !== "undefined") {
+      useAuthStore.getState().clear();
+      window.location.replace("/");
     }
-    throw new Error('Sesión expirada');
+    throw new Error("Sesión expirada");
   }
 
   if (!response.ok) {
@@ -43,7 +34,7 @@ export async function apiFetch<T = unknown>(
     const rawMessage = errorData.message;
     const formattedMessage = Array.isArray(rawMessage)
       ? rawMessage[0]
-      : rawMessage || 'Error en la petición a la API';
+      : rawMessage || "Error en la petición a la API";
     throw new Error(formattedMessage);
   }
 

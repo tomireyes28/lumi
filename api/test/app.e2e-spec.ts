@@ -479,6 +479,14 @@ describe('Lumi API (e2e)', () => {
 
     const tokenA = (regA.body as { token: string }).token;
     expect(tokenA).toBeDefined();
+    await request(server)
+      .get('/auth/me')
+      .set('Cookie', 'lumi_session=' + tokenA)
+      .expect(401);
+    await request(server)
+      .get('/auth/me')
+      .set('Authorization', 'Bearer ' + tokenA)
+      .expect(200);
 
     const regB = await request(server)
       .post('/auth/register')

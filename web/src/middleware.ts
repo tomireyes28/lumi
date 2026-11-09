@@ -29,7 +29,7 @@ function hasUnexpiredTokenStructure(token: string | undefined): boolean {
 }
 
 export function middleware(request: NextRequest) {
-  const token = request.cookies.get('lumi_token')?.value;
+  const token = request.cookies.get('lumi_session')?.value;
   const hasValidToken = hasUnexpiredTokenStructure(token);
   const { pathname } = request.nextUrl;
 
@@ -39,7 +39,7 @@ export function middleware(request: NextRequest) {
       const loginUrl = new URL('/', request.url);
       const response = NextResponse.redirect(loginUrl);
       if (token) {
-        response.cookies.delete('lumi_token');
+        response.cookies.delete('lumi_session');
       }
       return response;
     }
@@ -53,7 +53,7 @@ export function middleware(request: NextRequest) {
     }
     if (token && !hasValidToken) {
       const response = NextResponse.next();
-      response.cookies.delete('lumi_token');
+      response.cookies.delete('lumi_session');
       return response;
     }
   }

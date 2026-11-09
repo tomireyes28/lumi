@@ -26,16 +26,19 @@ function CallbackLogic() {
     }
 
     // Verificamos que exista código y que el state coincida con el iniciado en este navegador (anti-Login CSRF)
-    if (!code || !returnedState || !expectedState || returnedState !== expectedState) {
+    if (
+      !code ||
+      !returnedState ||
+      !expectedState ||
+      returnedState !== expectedState
+    ) {
       router.replace("/");
       return;
     }
 
     const processAuthCallback = async () => {
       try {
-        const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000";
-
-        const exchangeResponse = await fetch(`${apiUrl}/auth/exchange`, {
+        const exchangeResponse = await fetch("/api/backend/auth/exchange", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           credentials: "include",
@@ -47,11 +50,11 @@ function CallbackLogic() {
         }
 
         const exchangeData = await exchangeResponse.json();
-        const authToken = exchangeData.token;
+
         const authUser = exchangeData.user;
 
-        if (authToken && authUser) {
-          login(authToken, authUser);
+        if (authUser) {
+          login(authUser);
           router.replace("/dashboard");
         } else {
           throw new Error("No se pudo completar la autenticación");
