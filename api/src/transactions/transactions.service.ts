@@ -83,26 +83,30 @@ export class TransactionsService {
 
     // 1. SI ES UN MOVIMIENTO NORMAL (Sin cuotas o 1 sola cuota)
     if (!installments || installments <= 1) {
-      const effectiveDate =
-        creditCard && typeof creditCard.closingDay === 'number'
-          ? InstallmentCalculator.calculate({
-              amount,
-              installments: 1,
-              startDate,
-              userId,
-              categoryId,
-              creditCardId,
-              closingDay: creditCard.closingDay,
-              customCycles: creditCard.cycles,
-              note,
-            }).transactionsData[0].date
-          : startDate;
-
+      const temporal = InstallmentCalculator.calculate({
+        amount,
+        installments: 1,
+        startDate,
+        userId,
+        categoryId,
+        creditCardId,
+        closingDay: creditCard?.closingDay,
+        dueDay: creditCard?.dueDay,
+        customCycles: creditCard?.cycles,
+        note,
+      }).transactionsData[0];
       return this.prisma.transaction.create({
         data: {
           amount,
           note,
-          date: effectiveDate,
+          date: temporal.date,
+          purchaseDate: startDate,
+          statementYear: temporal.statementYear,
+          statementMonth: temporal.statementMonth,
+          statementClosingDate: temporal.statementClosingDate,
+          paymentDueDate: temporal.paymentDueDate,
+          installmentNumber: 1,
+          installmentCount: 1,
           paymentMethod,
           user: { connect: { id: userId } },
           category: { connect: { id: categoryId } },
@@ -123,6 +127,7 @@ export class TransactionsService {
       categoryId,
       creditCardId,
       closingDay: creditCard?.closingDay,
+      dueDay: creditCard?.dueDay,
       customCycles: creditCard?.cycles,
       note,
     });

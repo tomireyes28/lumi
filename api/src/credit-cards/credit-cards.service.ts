@@ -8,7 +8,12 @@ import { CreateCreditCardDto } from './dto/create-credit-card.dto';
 import { UpdateCreditCardDto } from './dto/update-credit-card.dto';
 import { UpsertCardCycleDto } from './dto/upsert-card-cycle.dto';
 import { CreditCard, CardCycle } from '@prisma/client';
-import { getCalendarDayParts, parseLocalDate } from '../utils/date.util';
+import {
+  getCalendarDayParts,
+  parseLocalDate,
+  BUSINESS_TIMEZONE,
+} from '../utils/date.util';
+import { activeCardCycle } from './card-calendar';
 
 export type CreditCardWithCycles = CreditCard & {
   cycles?: CardCycle[];
@@ -60,178 +65,10 @@ export class CreditCardsService {
     card: CreditCardWithCycles,
     referenceDate: Date = new Date(),
   ): CardCycleCalculation {
-    const refYear = referenceDate.getFullYear();
-    const refMonth = referenceDate.getMonth() + 1; // 1 a 12
-
-    const getClampedDay = (year: number, monthIndex: number, day: number) => {
-      const firstOfMonth = new Date(year, monthIndex, 1);
-      const daysInMonth = new Date(
-        firstOfMonth.getFullYear(),
-        firstOfMonth.getMonth() + 1,
-        0,
-      ).getDate();
-      return Math.min(day, daysInMonth);
-    };
-
-    const getCycleDataFor = (targetYear: number, targetMonth: number) => {
-      const custom = card.cycles?.find(
-        (c) => c.year === targetYear && c.month === targetMonth,
-      );
-
-      if (custom) {
-        const cParts = getCalendarDayParts(new Date(custom.closingDate));
-        // Anclamos la fecha calendario al mediodía local (12:00) para evitar desplazamientos de día al serializar a ISO/UTC,
-        // y mantenemos el límite operativo del ciclo al final del día (23:59:59.999).
-        const closingDate = new Date(
-          cParts.year,
-          cParts.monthIndex,
-          cParts.day,
-          12,
-          0,
-          0,
-          0,
-        );
-        const closingBoundary = new Date(
-          cParts.year,
-          cParts.monthIndex,
-          cParts.day,
-          23,
-          59,
-          59,
-          999,
-        );
-        let dueDate: Date | null = null;
-        if (custom.dueDate) {
-          const dParts = getCalendarDayParts(new Date(custom.dueDate));
-          dueDate = new Date(
-            dParts.year,
-            dParts.monthIndex,
-            dParts.day,
-            12,
-            0,
-            0,
-            0,
-          );
-        }
-        return { closingDate, closingBoundary, dueDate, isCustom: true };
-      }
-
-      // Fallback: día habitual
-      const clampedClosingDay = getClampedDay(
-        targetYear,
-        targetMonth - 1,
-        card.closingDay,
-      );
-      const closingDate = new Date(
-        targetYear,
-        targetMonth - 1,
-        clampedClosingDay,
-        12,
-        0,
-        0,
-        0,
-      );
-      const closingBoundary = new Date(
-        targetYear,
-        targetMonth - 1,
-        clampedClosingDay,
-        23,
-        59,
-        59,
-        999,
-      );
-      const dueMonthYear =
-        card.dueDay <= card.closingDay
-          ? targetMonth === 12
-            ? targetYear + 1
-            : targetYear
-          : targetYear;
-      const dueMonthIndex =
-        card.dueDay <= card.closingDay
-          ? targetMonth === 12
-            ? 0
-            : targetMonth
-          : targetMonth - 1;
-      const clampedDueDay = getClampedDay(
-        dueMonthYear,
-        dueMonthIndex,
-        card.dueDay,
-      );
-      const dueDate = new Date(
-        dueMonthYear,
-        dueMonthIndex,
-        clampedDueDay,
-        12,
-        0,
-        0,
-        0,
-      );
-
-      return { closingDate, closingBoundary, dueDate, isCustom: false };
-    };
-
-    // 1. Verificamos el cierre del mes actual de referencia
-    const currentMonthCycle = getCycleDataFor(refYear, refMonth);
-
-    let activeCycleMonth = refMonth;
-    let activeCycleYear = refYear;
-    let cycleEnd = currentMonthCycle.closingBoundary;
-    let cycleClosingDate = currentMonthCycle.closingDate;
-    let cycleDueDate = currentMonthCycle.dueDate;
-    let isCustom = currentMonthCycle.isCustom;
-    let cycleStart: Date;
-
-    if (referenceDate.getTime() <= currentMonthCycle.closingBoundary.getTime()) {
-      // Estamos dentro del ciclo que cierra este mes
-      const prevMonth = refMonth === 1 ? 12 : refMonth - 1;
-      const prevYear = refMonth === 1 ? refYear - 1 : refYear;
-      const prevMonthCycle = getCycleDataFor(prevYear, prevMonth);
-      cycleStart = prevMonthCycle.closingBoundary;
-    } else {
-      // El cierre de este mes ya pasó; estamos en el ciclo del mes siguiente
-      cycleStart = currentMonthCycle.closingBoundary;
-      const nextMonth = refMonth === 12 ? 1 : refMonth + 1;
-      const nextYear = refMonth === 12 ? refYear + 1 : refYear;
-      const nextMonthCycle = getCycleDataFor(nextYear, nextMonth);
-      activeCycleMonth = nextMonth;
-      activeCycleYear = nextYear;
-      cycleEnd = nextMonthCycle.closingBoundary;
-      cycleClosingDate = nextMonthCycle.closingDate;
-      cycleDueDate = nextMonthCycle.dueDate;
-      isCustom = nextMonthCycle.isCustom;
-    }
-
-    const refMidnight = new Date(
-      referenceDate.getFullYear(),
-      referenceDate.getMonth(),
-      referenceDate.getDate(),
-    );
-    const closingMidnight = new Date(
-      cycleClosingDate.getFullYear(),
-      cycleClosingDate.getMonth(),
-      cycleClosingDate.getDate(),
-    );
-    const daysToClose = Math.max(
-      0,
-      Math.round(
-        (closingMidnight.getTime() - refMidnight.getTime()) /
-          (1000 * 60 * 60 * 24),
-      ),
-    );
-
-    return {
-      cycleStart,
-      cycleEnd,
-      month: activeCycleMonth,
-      year: activeCycleYear,
-      closingDate: cycleClosingDate,
-      dueDate: cycleDueDate,
-      isCustom,
-      daysToClose,
-    };
+    return activeCardCycle(card, referenceDate);
   }
 
-  async findAllByUser(userId: string) {
+  async findAllByUser(userId: string, referenceDate: Date = new Date()) {
     const cards = await this.prisma.creditCard.findMany({
       where: { userId },
       include: {
@@ -244,13 +81,13 @@ export class CreditCardsService {
 
     if (cards.length === 0) return [];
 
-    const today = new Date();
+    const today = referenceDate;
     const cardCycles = cards.map((card) => ({
       card,
       cycleInfo: this.getCycleDatesForCard(card, today),
     }));
 
-    if (typeof this.prisma.transaction?.findMany === 'function') {
+    {
       const minStart = new Date(
         Math.min(...cardCycles.map((c) => c.cycleInfo.cycleStart.getTime())),
       );
@@ -262,12 +99,21 @@ export class CreditCardsService {
         where: {
           userId,
           creditCardId: { in: cards.map((c) => c.id) },
-          date: { gt: minStart, lte: maxEnd },
+          OR: [
+            { statementYear: null, date: { gte: minStart, lte: maxEnd } },
+            ...cardCycles.map((c) => ({
+              creditCardId: c.card.id,
+              statementYear: c.cycleInfo.year,
+              statementMonth: c.cycleInfo.month,
+            })),
+          ],
         },
         select: {
           creditCardId: true,
           amount: true,
           date: true,
+          statementYear: true,
+          statementMonth: true,
         },
       });
 
@@ -276,8 +122,11 @@ export class CreditCardsService {
           .filter(
             (tx) =>
               tx.creditCardId === card.id &&
-              tx.date > cycleInfo.cycleStart &&
-              tx.date <= cycleInfo.cycleEnd,
+              (tx.statementYear != null
+                ? tx.statementYear === cycleInfo.year &&
+                  tx.statementMonth === cycleInfo.month
+                : tx.date >= cycleInfo.cycleStart &&
+                  tx.date <= cycleInfo.cycleEnd),
           )
           .reduce((sum, tx) => sum + Math.round(Number(tx.amount) * 100), 0);
 
@@ -295,39 +144,13 @@ export class CreditCardsService {
         };
       });
     }
-
-    const cardsWithConsumption = await Promise.all(
-      cardCycles.map(async ({ card, cycleInfo }) => {
-        const expenses = await this.prisma.transaction.aggregate({
-          where: {
-            creditCardId: card.id,
-            date: {
-              gt: cycleInfo.cycleStart,
-              lte: cycleInfo.cycleEnd,
-            },
-          },
-          _sum: { amount: true },
-        });
-
-        return {
-          ...card,
-          consumed: Number(expenses._sum.amount || 0),
-          currentCycle: {
-            month: cycleInfo.month,
-            year: cycleInfo.year,
-            closingDate: cycleInfo.closingDate.toISOString(),
-            dueDate: cycleInfo.dueDate ? cycleInfo.dueDate.toISOString() : null,
-            isCustom: cycleInfo.isCustom,
-            daysToClose: cycleInfo.daysToClose,
-          },
-        };
-      }),
-    );
-
-    return cardsWithConsumption;
   }
 
-  async update(id: string, updateCreditCardDto: UpdateCreditCardDto, userId: string) {
+  async update(
+    id: string,
+    updateCreditCardDto: UpdateCreditCardDto,
+    userId: string,
+  ) {
     await this.getCardOrThrow(id, userId);
 
     return this.prisma.creditCard.update({
@@ -381,6 +204,7 @@ export class CreditCardsService {
 
     const formattedClosing = bestClosingDate
       ? bestClosingDate.toLocaleDateString('es-AR', {
+          timeZone: BUSINESS_TIMEZONE,
           day: '2-digit',
           month: 'short',
         })
@@ -403,8 +227,8 @@ export class CreditCardsService {
 
     const closingDate = parseLocalDate(dto.closingDate);
     if (
-      closingDate.getFullYear() !== dto.year ||
-      closingDate.getMonth() + 1 !== dto.month
+      getCalendarDayParts(closingDate).year !== dto.year ||
+      getCalendarDayParts(closingDate).monthIndex + 1 !== dto.month
     ) {
       throw new BadRequestException(
         'La fecha de cierre debe corresponder al mes y año del período indicado.',

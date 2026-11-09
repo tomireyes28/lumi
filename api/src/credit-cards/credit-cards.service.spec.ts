@@ -1,3 +1,4 @@
+import { businessDate } from '../utils/date.util';
 import { Test, TestingModule } from '@nestjs/testing';
 import { CreditCardsService } from './credit-cards.service';
 import { PrismaService } from '../prisma/prisma.service';
@@ -56,7 +57,9 @@ describe('CreditCardsService', () => {
         delete: jest.fn(),
       },
       transaction: {
-        aggregate: jest.fn().mockResolvedValue({ _sum: { amount: new Prisma.Decimal(15000) } }),
+        aggregate: jest
+          .fn()
+          .mockResolvedValue({ _sum: { amount: new Prisma.Decimal(15000) } }),
         count: jest.fn().mockResolvedValue(0),
       },
     };
@@ -74,7 +77,7 @@ describe('CreditCardsService', () => {
   describe('getCycleDatesForCard', () => {
     it('debe usar closingDay por defecto si no hay ciclo personalizado cargado', () => {
       // 15 de Septiembre 2026: está antes del 24 de Septiembre
-      const refDate = new Date(2026, 8, 15); // Month 8 is Sept
+      const refDate = businessDate(2026, 8, 15); // Month 8 is Sept
       const res = service.getCycleDatesForCard(mockCard, refDate);
 
       expect(res.month).toBe(9);
@@ -103,7 +106,7 @@ describe('CreditCardsService', () => {
       };
 
       // 15 de Septiembre 2026
-      const refDate = new Date(2026, 8, 15);
+      const refDate = businessDate(2026, 8, 15);
       const res = service.getCycleDatesForCard(cardWithCustomCycle, refDate);
 
       expect(res.month).toBe(9);
@@ -116,7 +119,7 @@ describe('CreditCardsService', () => {
 
     it('debe avanzar al ciclo del mes siguiente si la fecha de cierre ya pasó', () => {
       // 26 de Septiembre 2026 (ya cerró Septiembre)
-      const refDate = new Date(2026, 8, 26);
+      const refDate = businessDate(2026, 8, 26);
       const res = service.getCycleDatesForCard(mockCard, refDate);
 
       expect(res.month).toBe(10);
@@ -126,13 +129,15 @@ describe('CreditCardsService', () => {
     });
 
     it('debe preservar el mismo día calendario en UTC y en America/Argentina/Buenos_Aires', () => {
-      const refDate = new Date(2026, 9, 10, 12);
+      const refDate = businessDate(2026, 9, 10, 12);
       const res = service.getCycleDatesForCard(
         { ...mockCard, closingDay: 25, dueDay: 5 },
         refDate,
       );
 
-      expect(res.closingDate.toLocaleDateString('es-AR', { timeZone: 'UTC' })).toBe(
+      expect(
+        res.closingDate.toLocaleDateString('es-AR', { timeZone: 'UTC' }),
+      ).toBe(
         res.closingDate.toLocaleDateString('es-AR', {
           timeZone: 'America/Argentina/Buenos_Aires',
         }),
@@ -154,11 +159,18 @@ describe('CreditCardsService', () => {
 
       const res = await service.upsertCycle(
         'card-1',
-        { month: 10, year: 2026, closingDate: '2026-10-25', dueDate: '2026-11-06' },
+        {
+          month: 10,
+          year: 2026,
+          closingDate: '2026-10-25',
+          dueDate: '2026-11-06',
+        },
         'user-1',
       );
 
-      expect(prisma.creditCard.findUnique).toHaveBeenCalledWith({ where: { id: 'card-1' } });
+      expect(prisma.creditCard.findUnique).toHaveBeenCalledWith({
+        where: { id: 'card-1' },
+      });
       const expectedClosing = new Date(2026, 9, 25, 12, 0, 0, 0);
       const expectedDue = new Date(2026, 10, 6, 12, 0, 0, 0);
       expect(prisma.cardCycle.upsert).toHaveBeenCalledWith({
@@ -185,7 +197,10 @@ describe('CreditCardsService', () => {
     });
 
     it('debe arrojar NotFoundException si la tarjeta no pertenece al usuario (Anti-IDOR)', async () => {
-      prisma.creditCard.findUnique.mockResolvedValue({ ...mockCard, userId: 'other-user' });
+      prisma.creditCard.findUnique.mockResolvedValue({
+        ...mockCard,
+        userId: 'other-user',
+      });
 
       await expect(
         service.upsertCycle(
@@ -228,13 +243,23 @@ describe('CreditCardsService', () => {
 
   describe('getBestCardToUse', () => {
     it('debe recomendar la tarjeta con más días restantes hasta su cierre', async () => {
-      const cardA = { ...mockCard, id: 'card-a', alias: 'Visa', closingDay: 20 };
-      const cardB = { ...mockCard, id: 'card-b', alias: 'Mastercard', closingDay: 28 };
+      const cardA = {
+        ...mockCard,
+        id: 'card-a',
+        alias: 'Visa',
+        closingDay: 20,
+      };
+      const cardB = {
+        ...mockCard,
+        id: 'card-b',
+        alias: 'Mastercard',
+        closingDay: 28,
+      };
 
       prisma.creditCard.findMany.mockResolvedValue([cardA, cardB]);
 
       // Supongamos hoy es 15 de Septiembre
-      const refDate = new Date(2026, 8, 15);
+      const refDate = businessDate(2026, 8, 15);
       const recommendation = await service.getBestCardToUse('user-1', refDate);
       expect(recommendation).not.toBeNull();
       // cardB cierra el 28 (13 días), cardA cierra el 20 (5 días)

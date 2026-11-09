@@ -936,3 +936,30 @@ test('real HTTP API verifies proxy signatures and shares the credentials limit',
     }
   }
 });
+
+test('explicit statement and payment dates agree across cards, installments and forecast',async()=>{
+ const url=await database();await deploy(url);const prisma=new PrismaClient({adapter:new PrismaPg({connectionString:url})});
+ const {TransactionsService}=require('../dist/src/transactions/transactions.service.js');const {CreditCardsService}=require('../dist/src/credit-cards/credit-cards.service.js');const {AnalyticsService}=require('../dist/src/analytics/analytics.service.js');
+ const {parseLocalDate}=require('../dist/src/utils/date.util.js');
+ try{
+ const user=await prisma.user.create({data:{name:'Financial fixture',email:'finance@example.invalid'}});
+ const category=await prisma.category.create({data:{userId:user.id,name:'Expense',type:'expense'}});
+ const card=await prisma.creditCard.create({data:{userId:user.id,alias:'Synthetic card',lastFour:'1234',limit:10000,closingDay:25,dueDay:5}});
+ await prisma.cardCycle.create({data:{creditCardId:card.id,year:2026,month:2,closingDate:parseLocalDate('2026-02-10'),dueDate:parseLocalDate('2026-03-07')}});
+ const service=new TransactionsService(prisma);const cards=new CreditCardsService(prisma);
+ const first=await service.create({amount:100,installments:3,date:'2026-01-20',categoryId:category.id,creditCardId:card.id},user.id);
+ const rows=await prisma.transaction.findMany({where:{installmentGroupId:first.installmentGroupId},orderBy:{installmentNumber:'asc'}});
+ assert.deepEqual(rows.map(t=>[t.statementYear,t.statementMonth,t.paymentDueDate.toISOString().slice(0,10)]),[[2026,1,'2026-02-05'],[2026,2,'2026-03-07'],[2026,3,'2026-04-05']]);
+ assert.ok(rows.every(t=>t.purchaseDate.toISOString()==='2026-01-20T15:00:00.000Z'));
+ const wallet=await cards.findAllByUser(user.id,parseLocalDate('2026-02-03'));assert.equal(wallet[0].consumed,33.33);assert.equal(wallet[0].currentCycle.month,2);
+ const forecast=await new AnalyticsService(prisma).getForecast(user.id,4,parseLocalDate('2026-01-01'));
+ assert.deepEqual(forecast.forecastTimeline.map(t=>t.installmentExpenses),[0,33.34,33.33,33.33]);
+ const snapshot=JSON.stringify(rows.map(t=>[t.id,t.amount.toFixed(2),t.purchaseDate,t.statementClosingDate,t.paymentDueDate]));
+ await cards.update(card.id,{closingDay:15,dueDay:10},user.id);
+ await cards.upsertCycle(card.id,{year:2026,month:2,closingDate:'2026-02-08',dueDate:'2026-02-22'},user.id);
+ const unchanged=await prisma.transaction.findMany({where:{installmentGroupId:first.installmentGroupId},orderBy:{installmentNumber:'asc'}});
+ assert.equal(JSON.stringify(unchanged.map(t=>[t.id,t.amount.toFixed(2),t.purchaseDate,t.statementClosingDate,t.paymentDueDate])),snapshot);
+ const next=await service.create({amount:1,date:'2026-02-03',categoryId:category.id,creditCardId:card.id},user.id);
+ assert.equal(next.statementClosingDate.toISOString().slice(0,10),'2026-02-08');assert.equal(next.paymentDueDate.toISOString().slice(0,10),'2026-02-22');
+ }finally{await prisma.$disconnect();}
+});

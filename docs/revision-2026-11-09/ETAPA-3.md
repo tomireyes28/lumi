@@ -17,3 +17,9 @@ Transaction incorpora purchaseDate, statementYear/Month, statementClosingDate, p
 Reminder incorpora dueOn de tipo PostgreSQL DATE. La migración conserva la etiqueta calendario de la codificación antigua UTC a medianoche y el día de Buenos Aires para otros instantes; no cambia dueDate. Las consultas mensuales y el cron usan esa columna calendario, con fallback para escrituras de una API anterior durante el despliegue. El preflight informa cuántos movimientos siguen siendo heredados; es un diagnóstico en lectura, no una reclasificación automática.
 
 Instalación, upgrade con fixtures anteriores y dump/restore pasaron en PostgreSQL 16. Se verificó que compras/ciclos antiguos permanecen desconocidos y que el recordatorio a medianoche conserva su día y timestamp original.
+
+## C10 · Resumen y vencimiento por cuota
+
+Un único calendario calcula cierre, límite de día, período y vencimiento. La primera cuota usa el ciclo de compra y las siguientes usan períodos consecutivos, consultando cada cierre personalizado. Se preserva purchaseDate; date mantiene la imputación compatible al cierre. Billetera agrupa por resumen explícito y forecast por paymentDueDate. Para registros heredados, el forecast conserva el fallback de date y muestra su carácter estimado.
+
+La regresión R03 (20/01, cierre habitual 25, febrero con cierre 10) produce resúmenes enero/febrero/marzo sin colisiones y pagos febrero/marzo/abril. Se verificaron con Prisma real billetera, forecast, conservación de centavos y que cambiar cierres/vencimientos no reescribe cuotas existentes. Los escenarios de calendario y cuotas pasan en UTC y Buenos Aires.

@@ -1,12 +1,12 @@
-'use client';
+"use client";
 
-import { motion, Variants } from 'framer-motion';
-import { ArrowLeft, AlertTriangle, RefreshCw } from 'lucide-react';
-import Link from 'next/link';
-import { useForecast } from '@/hooks/useForecast';
-import { ForecastSummaryCard } from '@/components/forecast/ForecastSummaryCard';
-import { ForecastChart } from '@/components/forecast/ForecastChart';
-import { ActiveInstallmentsList } from '@/components/forecast/ActiveInstallmentsList';
+import { motion, Variants } from "framer-motion";
+import { ArrowLeft, AlertTriangle, RefreshCw } from "lucide-react";
+import Link from "next/link";
+import { useForecast } from "@/hooks/useForecast";
+import { ForecastSummaryCard } from "@/components/forecast/ForecastSummaryCard";
+import { ForecastChart } from "@/components/forecast/ForecastChart";
+import { ActiveInstallmentsList } from "@/components/forecast/ActiveInstallmentsList";
 
 export default function ForecastPage() {
   const { data, loading, error, monthsCount, setMonthsCount, reload } =
@@ -19,7 +19,11 @@ export default function ForecastPage() {
 
   const itemVariants: Variants = {
     hidden: { opacity: 0, y: 15 },
-    visible: { opacity: 1, y: 0, transition: { duration: 0.45, ease: 'easeOut' } },
+    visible: {
+      opacity: 1,
+      y: 0,
+      transition: { duration: 0.45, ease: "easeOut" },
+    },
   };
 
   if (loading && !data) {
@@ -37,7 +41,10 @@ export default function ForecastPage() {
       animate="visible"
       variants={containerVariants}
     >
-      <motion.header variants={itemVariants} className="flex items-center justify-between">
+      <motion.header
+        variants={itemVariants}
+        className="flex items-center justify-between"
+      >
         <div className="flex items-center gap-3">
           <Link
             href="/dashboard"
@@ -67,8 +74,8 @@ export default function ForecastPage() {
               onClick={() => setMonthsCount(m)}
               className={`px-2.5 py-1 text-xs font-bold rounded-xl transition-all ${
                 monthsCount === m
-                  ? 'bg-white text-gray-900 shadow-xs'
-                  : 'text-gray-400 hover:text-gray-600'
+                  ? "bg-white text-gray-900 shadow-xs"
+                  : "text-gray-400 hover:text-gray-600"
               }`}
             >
               {m}m
@@ -77,6 +84,12 @@ export default function ForecastPage() {
         </div>
       </motion.header>
 
+      {data?.hasLegacySchedule && (
+        <p className="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-xl p-3">
+          Hay movimientos anteriores sin vencimiento registrado. Sus compromisos
+          se estiman con la fecha de imputación guardada.
+        </p>
+      )}
       {error ? (
         <motion.div
           variants={itemVariants}
@@ -105,7 +118,7 @@ export default function ForecastPage() {
         data && (
           <div
             className={`flex flex-col gap-6 transition-opacity ${
-              loading ? 'opacity-60 pointer-events-none' : ''
+              loading ? "opacity-60 pointer-events-none" : ""
             }`}
           >
             <ForecastSummaryCard data={data} itemVariants={itemVariants} />

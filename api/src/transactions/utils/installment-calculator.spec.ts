@@ -1,3 +1,4 @@
+import { businessDate } from '../../utils/date.util';
 import { InstallmentCalculator } from './installment-calculator.util';
 
 describe('InstallmentCalculator', () => {
@@ -21,7 +22,10 @@ describe('InstallmentCalculator', () => {
 
     const totalSum =
       Math.round(
-        result.transactionsData.reduce((acc, tx) => acc + Number(tx.amount), 0) * 100,
+        result.transactionsData.reduce(
+          (acc, tx) => acc + Number(tx.amount),
+          0,
+        ) * 100,
       ) / 100;
     expect(totalSum).toBe(1000);
 
@@ -37,7 +41,7 @@ describe('InstallmentCalculator', () => {
     const result = InstallmentCalculator.calculate({
       amount: 0.07,
       installments: 12,
-      startDate: new Date(2026, 0, 26, 12),
+      startDate: businessDate(2026, 0, 26, 12),
       userId: 'user-1',
       categoryId: 'cat-1',
     });
@@ -57,7 +61,7 @@ describe('InstallmentCalculator', () => {
     const result = InstallmentCalculator.calculate({
       amount: 300,
       installments: 3,
-      startDate: new Date(2026, 0, 26, 12), // 26 de Enero
+      startDate: businessDate(2026, 0, 26, 12), // 26 de Enero
       closingDay: 25, // Cierra el 25
       userId: 'user-1',
       categoryId: 'cat-1',

@@ -150,8 +150,12 @@ export class AnalyticsService {
     };
   }
 
-  async getForecast(userId: string, monthsCount = 6) {
-    const now = new Date();
+  async getForecast(
+    userId: string,
+    monthsCount = 6,
+    referenceDate: Date = new Date(),
+  ) {
+    const now = referenceDate;
     const currentMonthStart = getMonthDateRange(
       getCalendarDayParts(now).year,
       getCalendarDayParts(now).monthIndex + 1,
@@ -191,7 +195,13 @@ export class AnalyticsService {
       this.prisma.transaction.findMany({
         where: {
           userId,
-          date: { gte: currentMonthStart, lt: forecastEnd },
+          OR: [
+            { paymentDueDate: { gte: currentMonthStart, lt: forecastEnd } },
+            {
+              paymentDueDate: null,
+              date: { gte: currentMonthStart, lt: forecastEnd },
+            },
+          ],
         },
         include: { category: true, creditCard: true },
         orderBy: { date: 'asc' },
@@ -266,10 +276,12 @@ export class AnalyticsService {
       // Transacciones de gasto en cuotas o con tarjeta del mes
       const monthInstallmentTx = futureTransactions.filter(
         (tx) =>
-          tx.date >= startDate &&
-          tx.date < endDate &&
+          (tx.paymentDueDate ?? tx.date) >= startDate &&
+          (tx.paymentDueDate ?? tx.date) < endDate &&
           (tx.category?.type ?? 'expense') === 'expense' &&
-          (tx.installmentGroupId !== null || tx.creditCardId !== null),
+          (tx.installmentGroupId !== null ||
+            tx.creditCardId !== null ||
+            tx.paymentMethod === 'credit_card'),
       );
 
       const installmentExpenses =
@@ -358,10 +370,18 @@ export class AnalyticsService {
     let latestFinishDate: Date | null = null;
 
     for (const [groupId, txs] of groupsMap.entries()) {
-      txs.sort((a, b) => a.date.getTime() - b.date.getTime());
+      txs.sort(
+        (a, b) =>
+          (a.paymentDueDate ?? a.date).getTime() -
+          (b.paymentDueDate ?? b.date).getTime(),
+      );
       const totalInstallments = txs.length;
-      const paidTxs = txs.filter((tx) => tx.date < currentMonthStart);
-      const remainingTxs = txs.filter((tx) => tx.date >= currentMonthStart);
+      const paidTxs = txs.filter(
+        (tx) => (tx.paymentDueDate ?? tx.date) < currentMonthStart,
+      );
+      const remainingTxs = txs.filter(
+        (tx) => (tx.paymentDueDate ?? tx.date) >= currentMonthStart,
+      );
 
       if (remainingTxs.length > 0) {
         const firstTx = txs[0];
@@ -376,15 +396,20 @@ export class AnalyticsService {
           100;
 
         totalFutureDebt += remainingAmount;
-        if (!latestFinishDate || lastTx.date > latestFinishDate) {
-          latestFinishDate = lastTx.date;
+        if (
+          !latestFinishDate ||
+          (lastTx.paymentDueDate ?? lastTx.date) > latestFinishDate
+        ) {
+          latestFinishDate = lastTx.paymentDueDate ?? lastTx.date;
         }
 
         const cleanConcept = (firstTx.note || 'Compra')
           .replace(/\s*\(Cuota\s*\d+\/\d+\)\s*/gi, '')
           .trim();
 
-        const finishMonth = getCalendarDayParts(lastTx.date).monthIndex + 1;
+        const finishMonth =
+          getCalendarDayParts(lastTx.paymentDueDate ?? lastTx.date).monthIndex +
+          1;
         const finishYear = getCalendarDayParts(lastTx.date).year;
 
         activePlans.push({
@@ -399,7 +424,7 @@ export class AnalyticsService {
           completionPercentage: Math.round(
             (paidTxs.length / totalInstallments) * 100,
           ),
-          finishDate: lastTx.date.toISOString(),
+          finishDate: (lastTx.paymentDueDate ?? lastTx.date).toISOString(),
           finishPeriod: `${MONTH_NAMES[finishMonth - 1]} ${finishYear}`,
           creditCard: firstTx.creditCard
             ? {
@@ -431,6 +456,13 @@ export class AnalyticsService {
 
     return {
       monthsCount,
+      hasLegacySchedule: futureTransactions.some(
+        (tx) =>
+          !tx.paymentDueDate &&
+          (tx.paymentMethod === 'credit_card' ||
+            tx.creditCardId !== null ||
+            tx.installmentGroupId !== null),
+      ),
       estimatedMonthlyIncome,
       totalFutureDebt: Math.round(totalFutureDebt * 100) / 100,
       debtFreePeriod,

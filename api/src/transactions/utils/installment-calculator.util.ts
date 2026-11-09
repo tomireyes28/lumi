@@ -1,10 +1,18 @@
 import { Prisma } from '@prisma/client';
-import { getCalendarDayParts } from '../../utils/date.util';
+import {
+  getCalendarDayParts,
+  clampedBusinessDate,
+} from '../../utils/date.util';
+import {
+  cycleForPurchase,
+  cycleForPeriod,
+} from '../../credit-cards/card-calendar';
 
 export interface CustomCycleDateRef {
   year: number;
   month: number;
   closingDate: Date | string;
+  dueDate?: Date | string | null;
 }
 
 export interface InstallmentParams {
@@ -15,6 +23,7 @@ export interface InstallmentParams {
   categoryId: string;
   creditCardId?: string | null;
   closingDay?: number | null;
+  dueDay?: number | null;
   customCycles?: CustomCycleDateRef[];
   note?: string;
   groupId?: string;
@@ -67,62 +76,36 @@ export class InstallmentCalculator {
 
     const groupId = params.groupId || crypto.randomUUID();
     const transactionsData: CalculatedInstallmentItem[] = [];
-    const startDay = startDate.getDate();
+    const purchase = getCalendarDayParts(startDate);
+    const startDay = purchase.day;
     const baseNote = note ? note.trim() : 'Compra';
     const paymentMethod = creditCardId ? 'credit_card' : 'cash';
 
-    const getDaysInMonth = (year: number, monthIndex: number): number =>
-      new Date(year, monthIndex + 1, 0).getDate();
-
-    const getEffectiveClosingDay = (year: number, monthIndex: number): number | null => {
-      const targetMonth = monthIndex + 1;
-      const custom = customCycles?.find((c) => c.year === year && c.month === targetMonth);
-      if (custom) {
-        const parts = getCalendarDayParts(new Date(custom.closingDate));
-        return Math.min(parts.day, getDaysInMonth(year, monthIndex));
-      }
-      if (typeof closingDay === 'number' && closingDay >= 1 && closingDay <= 31) {
-        return Math.min(closingDay, getDaysInMonth(year, monthIndex));
-      }
-      return null;
-    };
-
-    const purchaseMonthClosingDay = getEffectiveClosingDay(
-      startDate.getFullYear(),
-      startDate.getMonth(),
-    );
-    const isAfterClosing =
-      purchaseMonthClosingDay !== null && startDay > purchaseMonthClosingDay;
-    const cycleMonthOffset = isAfterClosing ? 1 : 0;
-
+    const calendar =
+      creditCardId && closingDay
+        ? {
+            closingDay,
+            dueDay: params.dueDay ?? undefined,
+            cycles: customCycles,
+          }
+        : null;
+    const first = calendar ? cycleForPurchase(calendar, startDate) : null;
     for (let i = 1; i <= installments; i++) {
-      const targetMonthDate = new Date(
-        startDate.getFullYear(),
-        startDate.getMonth() + cycleMonthOffset + (i - 1),
-        1,
-      );
-      const targetYear = targetMonthDate.getFullYear();
-      const targetMonthIndex = targetMonthDate.getMonth();
-      const daysInMonth = getDaysInMonth(targetYear, targetMonthIndex);
-
-      const targetClosingDay = getEffectiveClosingDay(targetYear, targetMonthIndex);
-      const maxDayInCycle =
-        isAfterClosing && targetClosingDay !== null
-          ? Math.min(targetClosingDay, daysInMonth)
-          : daysInMonth;
-
-      const installmentDate = new Date(
-        targetYear,
-        targetMonthIndex,
-        Math.min(startDay, maxDayInCycle),
-        startDate.getHours(),
-        startDate.getMinutes(),
-        startDate.getSeconds(),
-        startDate.getMilliseconds(),
-      );
-
+      const cycle =
+        calendar && first
+          ? cycleForPeriod(calendar, first.year, first.month + i - 1)
+          : null;
+      const installmentDate =
+        cycle?.closingDate ??
+        clampedBusinessDate(
+          purchase.year,
+          purchase.monthIndex + i - 1,
+          startDay,
+        );
       const installmentNote =
-        installments > 1 ? `${baseNote} (Cuota ${i}/${installments})` : baseNote;
+        installments > 1
+          ? `${baseNote} (Cuota ${i}/${installments})`
+          : baseNote;
 
       const currentCents =
         baseCents > 0
@@ -141,6 +124,13 @@ export class InstallmentCalculator {
         paymentMethod,
         amount: currentAmount,
         date: installmentDate,
+        purchaseDate: startDate,
+        statementYear: cycle?.year ?? null,
+        statementMonth: cycle?.month ?? null,
+        statementClosingDate: cycle?.closingDate ?? null,
+        paymentDueDate: cycle?.dueDate ?? null,
+        installmentNumber: i,
+        installmentCount: installments,
         note: installmentNote,
         installmentGroupId: groupId,
       });

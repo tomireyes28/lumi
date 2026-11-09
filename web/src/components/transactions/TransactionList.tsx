@@ -67,14 +67,13 @@ export function TransactionList({
             <AnimatePresence mode="popLayout">
               {transactions.map((t) => {
                 const isIncome = t.category?.type === "income";
-                const formattedDate = new Date(t.date).toLocaleDateString(
-                  "es-AR",
-                  {
-                    timeZone: BUSINESS_TIMEZONE,
-                    day: "2-digit",
-                    month: "short",
-                  },
-                );
+                const formattedDate = new Date(
+                  t.purchaseDate ?? t.date,
+                ).toLocaleDateString("es-AR", {
+                  timeZone: BUSINESS_TIMEZONE,
+                  day: "2-digit",
+                  month: "short",
+                });
 
                 return (
                   <motion.div
@@ -116,6 +115,19 @@ export function TransactionList({
                         </div>
                         <p className="text-xs text-gray-500 truncate">
                           {t.note || "Sin detalles"} • {formattedDate}
+                          {t.statementMonth
+                            ? " · Resumen " +
+                              t.statementMonth +
+                              "/" +
+                              t.statementYear
+                            : ""}
+                          {t.paymentDueDate
+                            ? " · Vence " +
+                              new Date(t.paymentDueDate).toLocaleDateString(
+                                "es-AR",
+                                { timeZone: BUSINESS_TIMEZONE },
+                              )
+                            : ""}
                         </p>
                       </div>
                     </div>

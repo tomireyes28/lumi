@@ -5,6 +5,8 @@ import type { Reminder } from "./reminders";
 export interface CalendarTransaction {
   id: string;
   date: string;
+  statementMonth?: number | null;
+  paymentDueDate?: string | null;
   amount: number | string;
   note?: string | null;
   category?: Category;

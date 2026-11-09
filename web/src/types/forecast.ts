@@ -37,6 +37,7 @@ export interface ActivePlanItem {
 }
 
 export interface CashflowForecastResponse {
+  hasLegacySchedule?: boolean;
   monthsCount: number;
   estimatedMonthlyIncome: number;
   totalFutureDebt: number;
