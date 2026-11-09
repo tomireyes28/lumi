@@ -10,15 +10,13 @@ import { Category } from "@/types/categories";
 import { CreditCard } from "@/types/cards";
 import { toast } from "sonner";
 
-function extractTransactions(
-  res: Transaction[] | PaginatedTransactionsResponse,
-): Transaction[] {
-  if (Array.isArray(res)) return res;
-  if (res && Array.isArray(res.data)) return res.data;
-  return [];
-}
+import { transactionPageQuery } from "@/lib/transaction-pages";
 
 export const useTransactions = () => {
+  const [page, setPage] = useState(1);
+  const [meta, setMeta] = useState<
+    PaginatedTransactionsResponse["meta"] | null
+  >(null);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [cards, setCards] = useState<CreditCard[]>([]);
@@ -71,14 +69,13 @@ export const useTransactions = () => {
         setError(null);
       }
       try {
-        const queryParams = new URLSearchParams({ page: "1", limit: "100" });
-        if (filterType !== "all") {
-          queryParams.set("type", filterType);
+        const data = await apiFetch<PaginatedTransactionsResponse>(
+          transactionPageQuery(page, filterType),
+        );
+        if (isMounted) {
+          setTransactions(data.data);
+          setMeta(data.meta);
         }
-        const data = await apiFetch<
-          Transaction[] | PaginatedTransactionsResponse
-        >(`/transactions?${queryParams.toString()}`);
-        if (isMounted) setTransactions(extractTransactions(data));
       } catch (err) {
         console.error("Error cargando transacciones:", err);
         if (isMounted) {
@@ -96,17 +93,18 @@ export const useTransactions = () => {
     return () => {
       isMounted = false;
     };
-  }, [filterType]);
+  }, [filterType, page]);
 
   const reloadTransactions = async () => {
-    const queryParams = new URLSearchParams({ page: "1", limit: "100" });
-    if (filterType !== "all") {
-      queryParams.set("type", filterType);
-    }
-    const data = await apiFetch<Transaction[] | PaginatedTransactionsResponse>(
-      `/transactions?${queryParams.toString()}`,
+    const data = await apiFetch<PaginatedTransactionsResponse>(
+      transactionPageQuery(page, filterType),
     );
-    setTransactions(extractTransactions(data));
+    if (data.meta.totalPages > 0 && page > data.meta.totalPages) {
+      setPage(data.meta.totalPages);
+      return;
+    }
+    setTransactions(data.data);
+    setMeta(data.meta);
     setError(null);
   };
 
@@ -216,7 +214,13 @@ export const useTransactions = () => {
     tab,
     setTab,
     filterType,
-    setFilterType,
+    setFilterType: (value: "all" | "income" | "expense") => {
+      setPage(1);
+      setFilterType(value);
+    },
+    page,
+    setPage,
+    meta,
     filteredCategories,
     editingTx,
     setEditingTx,

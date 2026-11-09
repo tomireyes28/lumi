@@ -126,7 +126,7 @@ jobs:
         run: npm run lint
 
       - name: Test HttpOnly session boundary and CSRF
-        run: npm run test:bff && npm run test:dates
+        run: npm run test:unit
 
       - name: Run TypeScript Typecheck
         run: npm run typecheck
@@ -136,3 +136,9 @@ jobs:
         env:
           NEXT_PUBLIC_API_URL: http://localhost:3000
           NEXT_PUBLIC_SITE_URL: http://localhost:3001
+
+      - name: Install Chromium for isolated UI regressions
+        run: npx playwright install --with-deps chromium
+
+      - name: Test desktop and mobile UI with synthetic API responses
+        run: npm run test:ui

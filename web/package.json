@@ -12,7 +12,9 @@
     "lint": "eslint",
     "typecheck": "tsc --noEmit --incremental false",
     "test:bff": "node --test test/bff.test.cjs",
-    "test:dates": "node --test test/business-date.test.cjs"
+    "test:dates": "node --test test/business-date.test.cjs",
+    "test:unit": "node --test test/*.test.cjs",
+    "test:ui": "playwright test"
   },
   "dependencies": {
     "date-fns": "^4.1.0",
@@ -27,6 +29,7 @@
     "zustand": "^5.0.12"
   },
   "devDependencies": {
+    "@playwright/test": "^1.65.0",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/react": "^19",

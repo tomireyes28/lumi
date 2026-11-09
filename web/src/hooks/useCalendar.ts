@@ -10,6 +10,11 @@ import {
   calendarWidgetToday,
 } from "@/lib/business-date";
 
+import { createMonthLoader } from "@/lib/transaction-pages";
+const loadMonth = createMonthLoader((path) =>
+  apiFetch<PaginatedTransactionsResponse>(path),
+);
+
 export const useCalendar = () => {
   const [date, setDate] = useState<Date>(calendarWidgetToday);
   const [activeMonthDate, setActiveMonthDate] =
@@ -28,21 +33,14 @@ export const useCalendar = () => {
     const loadData = async () => {
       try {
         const [transData, remData] = await Promise.all([
-          apiFetch<CalendarTransaction[] | PaginatedTransactionsResponse>(
-            `/transactions?month=${viewedMonth}&year=${viewedYear}&page=1&limit=100`,
-          ),
+          loadMonth(viewedMonth, viewedYear),
           apiFetch<CalendarReminder[]>(
             `/reminders?month=${viewedMonth}&year=${viewedYear}`,
           ),
         ]);
 
         if (isMounted) {
-          const txList = Array.isArray(transData)
-            ? transData
-            : Array.isArray(transData?.data)
-              ? transData.data
-              : [];
-          setTransactions(txList);
+          setTransactions(transData);
           setReminders(Array.isArray(remData) ? remData : []);
           setError(null);
         }

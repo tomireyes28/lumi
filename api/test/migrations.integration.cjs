@@ -1031,6 +1031,16 @@ test('explicit statement and payment dates agree across cards, installments and 
     );
     assert.equal(wallet[0].consumed, 33.33);
     assert.equal(wallet[0].currentCycle.month, 2);
+    await prisma.transaction.create({
+      data: {
+        userId: user.id,
+        categoryId: category.id,
+        amount: 1,
+        date: new Date('2025-01-01T15:00:00Z'),
+        installmentGroupId: 'closed-plan',
+        paymentMethod: 'cash',
+      },
+    });
     const forecast = await new AnalyticsService(prisma).getForecast(
       user.id,
       4,
@@ -1040,6 +1050,8 @@ test('explicit statement and payment dates agree across cards, installments and 
       forecast.forecastTimeline.map((t) => t.installmentExpenses),
       [0, 33.34, 33.33, 33.33],
     );
+    assert.equal(forecast.activePlans.length, 1);
+    assert.equal(forecast.activePlans[0].groupId, first.installmentGroupId);
     const snapshot = JSON.stringify(
       rows.map((t) => [
         t.id,

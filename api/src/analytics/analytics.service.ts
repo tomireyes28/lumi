@@ -187,6 +187,12 @@ export class AnalyticsService {
       1,
       0,
     );
+    // Only load historical rows for plans that still have scheduled installments.
+    const activeGroups = await this.prisma.$queryRaw<{ id: string }[]>`
+      SELECT DISTINCT "installmentGroupId" AS id FROM "Transaction"
+      WHERE "userId"=${userId} AND "installmentGroupId" IS NOT NULL
+      AND ("paymentDueDate">=${currentMonthStart} OR ("paymentDueDate" IS NULL AND date>=${currentMonthStart}))
+    `;
     const [
       pastIncomes,
       futureTransactions,
@@ -222,7 +228,7 @@ export class AnalyticsService {
       this.prisma.transaction.findMany({
         where: {
           userId,
-          installmentGroupId: { not: null },
+          installmentGroupId: { in: activeGroups.map((group) => group.id) },
         },
         include: { creditCard: true },
         orderBy: { date: 'asc' },
