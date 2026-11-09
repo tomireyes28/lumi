@@ -1,4 +1,4 @@
-export type BudgetStatus = 'ok' | 'warning' | 'exceeded';
+export type BudgetStatus = "ok" | "warning" | "exceeded";
 
 export interface BudgetProgressItem {
   id: string;
@@ -22,5 +22,6 @@ export interface BudgetsSummaryResponse {
   totalSpent: number;
   totalRemaining: number;
   overallPercentage: number;
+  overallStatus?: BudgetStatus;
   items: BudgetProgressItem[];
 }

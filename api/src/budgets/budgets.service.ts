@@ -34,6 +34,7 @@ export interface BudgetsSummaryResponse {
   totalSpent: number;
   totalRemaining: number;
   overallPercentage: number;
+  overallStatus: BudgetStatus;
   items: BudgetProgressItem[];
 }
 
@@ -117,16 +118,16 @@ export class BudgetsService {
     // Mapeamos el gasto total por categoría en este mes
     const spentByCategory = expenses.reduce((acc, tx) => {
       const current = acc.get(tx.categoryId) || 0;
-      acc.set(tx.categoryId, current + Number(tx.amount));
+      acc.set(tx.categoryId, current + Math.round(Number(tx.amount) * 100));
       return acc;
     }, new Map<string, number>());
 
-    let totalBudgeted = 0;
-    let totalSpent = 0;
+    let totalBudgetedCents = 0;
+    let totalSpentCents = 0;
 
     const items: BudgetProgressItem[] = budgets.map((budget) => {
       const budgetedAmount = Number(budget.amount);
-      const spentAmount = spentByCategory.get(budget.categoryId) || 0;
+      const spentAmount = (spentByCategory.get(budget.categoryId) || 0) / 100;
       const budgetCents = Math.round(budgetedAmount * 100);
       const spentCents = Math.round(spentAmount * 100);
       const remainingAmount = Math.max(0, (budgetCents - spentCents) / 100);
@@ -140,8 +141,8 @@ export class BudgetsService {
         status = 'warning';
       }
 
-      totalBudgeted += budgetedAmount;
-      totalSpent += spentAmount;
+      totalBudgetedCents += budgetCents;
+      totalSpentCents += spentCents;
 
       return {
         id: budget.id,
@@ -155,8 +156,15 @@ export class BudgetsService {
       };
     });
 
-    totalBudgeted = Math.round(totalBudgeted * 100) / 100;
-    totalSpent = Math.round(totalSpent * 100) / 100;
+    const totalBudgeted = totalBudgetedCents / 100;
+    const totalSpent = totalSpentCents / 100;
+    const overallStatus: BudgetStatus =
+      totalBudgetedCents > 0 && totalSpentCents > totalBudgetedCents
+        ? 'exceeded'
+        : totalBudgetedCents > 0 &&
+            totalSpentCents * 100 >= totalBudgetedCents * 75
+          ? 'warning'
+          : 'ok';
     const totalRemaining = Math.max(
       0,
       Math.round((totalBudgeted - totalSpent) * 100) / 100,
@@ -170,6 +178,7 @@ export class BudgetsService {
       totalSpent,
       totalRemaining,
       overallPercentage,
+      overallStatus,
       items,
     };
   }

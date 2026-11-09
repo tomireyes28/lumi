@@ -15,3 +15,9 @@ Un recurso compartido conserva loading/error/datos por clave y descarta respuest
 Las mutaciones confirmadas restablecen el formulario y una recarga fallida muestra «El cambio se guardó… No repitas la operación», con reintento de GET. La recarga devuelve un resultado explícito y no cae en el catch de la escritura. No se presenta como lista vacía una consulta fallida.
 
 Validación en Chromium escritorio/móvil: API 503 en las cuatro pantallas, recuperación, timeout, cambio rápido de mes con respuesta tardía y POST aceptado seguido de GET fallido (un solo POST). Pasaron los 18 recorridos de UI, tipos, lint y build.
+
+## C18 — Umbrales en centavos
+
+El resumen general compara gasto y límite en centavos para exceso y 75%; el porcentaje redondeado queda solo para presentación. La API suma centavos por categoría y devuelve overallStatus aditivo. El frontend calcula el estado con importes para ser compatible con Railway anterior durante el rollout.
+
+Se aclara que el total incluye solo categorías presupuestadas y que los límites son plantillas mensuales: editarlos afecta consultas de otros meses. Las regresiones cubren 100,01/100 (exceso aunque muestre 100%), 74,99/100, 75/100 y el límite exacto. API y seis pruebas de navegador escritorio/móvil confirman coincidencia entre categoría y resumen general.

@@ -216,4 +216,29 @@ describe('BudgetsService', () => {
       });
     });
   });
+  it.each([
+    [100.01, 'exceeded'],
+    [100, 'warning'],
+    [75, 'warning'],
+    [74.99, 'ok'],
+  ])(
+    'compares overall/category status by cents for %s',
+    async (spent, status) => {
+      prisma.budget.findMany.mockResolvedValue([
+        {
+          id: 'b-1',
+          categoryId: 'cat-1',
+          amount: 100,
+          category: { id: 'cat-1', name: 'Test', colorHex: null, icon: null },
+        },
+      ]);
+      prisma.transaction.findMany.mockResolvedValue([
+        { categoryId: 'cat-1', amount: spent },
+      ]);
+      const result = await service.findAll(mockUserId, 11, 2026);
+      expect(result.overallStatus).toBe(status);
+      expect(result.items[0].status).toBe(status);
+      if (spent === 100.01) expect(result.overallPercentage).toBe(100);
+    },
+  );
 });
