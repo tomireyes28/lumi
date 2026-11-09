@@ -3,6 +3,7 @@ export interface Reminder {
   title: string;
   amount: string | number | null;
   dueDate: string;
+  dueOn?: string | null;
   isPaid: boolean;
   isRecurring?: boolean;
 }

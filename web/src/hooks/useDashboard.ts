@@ -45,7 +45,7 @@ export const useDashboard = () => {
 
         const todayAlerts = allReminders.filter((r) => {
           if (r.isPaid) return false;
-          const dueString = storedCalendarKey(String(r.dueDate));
+          const dueString = storedCalendarKey(r.dueOn ?? String(r.dueDate));
           return dueString === todayString;
         });
 

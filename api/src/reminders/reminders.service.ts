@@ -3,7 +3,11 @@ import { PrismaService } from '../prisma/prisma.service';
 import { CreateReminderDto } from './dto/create-reminder.dto';
 import { UpdateReminderDto } from './dto/update-reminder.dto';
 import { Prisma } from '@prisma/client';
-import { getMonthDateRange, parseLocalDate } from '../utils/date.util';
+import {
+  getMonthDateRange,
+  parseLocalDate,
+  calendarColumn,
+} from '../utils/date.util';
 
 @Injectable()
 export class RemindersService {
@@ -23,6 +27,7 @@ export class RemindersService {
         title: createReminderDto.title,
         amount: createReminderDto.amount,
         dueDate: parseLocalDate(createReminderDto.dueDate),
+        dueOn: calendarColumn(parseLocalDate(createReminderDto.dueDate)),
         isRecurring: createReminderDto.isRecurring ?? false,
         userId,
       },
@@ -33,7 +38,15 @@ export class RemindersService {
     const where: Prisma.ReminderWhereInput = { userId };
     if (month && year) {
       const { startDate, endDate } = getMonthDateRange(year, month);
-      where.dueDate = { gte: startDate, lt: endDate };
+      where.OR = [
+        {
+          dueOn: {
+            gte: new Date(Date.UTC(year, month - 1, 1)),
+            lt: new Date(Date.UTC(year, month, 1)),
+          },
+        },
+        { dueOn: null, dueDate: { gte: startDate, lt: endDate } },
+      ];
     }
     return this.prisma.reminder.findMany({
       where,
@@ -44,7 +57,11 @@ export class RemindersService {
   // ==========================================
   // NUEVO MÉTODO: UPDATE
   // ==========================================
-  async update(id: string, updateReminderDto: UpdateReminderDto, userId: string) {
+  async update(
+    id: string,
+    updateReminderDto: UpdateReminderDto,
+    userId: string,
+  ) {
     await this.getReminderOrThrow(id, userId);
 
     // Tipamos el objeto correctamente usando Prisma
@@ -60,6 +77,9 @@ export class RemindersService {
     // Si viene la fecha, la convertimos al objeto Date preservando fecha local
     if (updateReminderDto.dueDate !== undefined) {
       dataToUpdate.dueDate = parseLocalDate(updateReminderDto.dueDate);
+      dataToUpdate.dueOn = calendarColumn(
+        parseLocalDate(updateReminderDto.dueDate),
+      );
     }
 
     return this.prisma.reminder.update({

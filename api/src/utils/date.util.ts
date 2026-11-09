@@ -147,3 +147,28 @@ export function parseLocalDate(value: string | Date): Date {
   }
   return new Date(text);
 }
+
+/** PostgreSQL DATE is a calendar label, not an instant in the business timezone. */
+export function calendarColumn(date: Date): Date {
+  return new Date(businessDateKey(date) + 'T00:00:00.000Z');
+}
+export function calendarColumnAtNoon(date: Date): Date {
+  return businessDate(
+    date.getUTCFullYear(),
+    date.getUTCMonth(),
+    date.getUTCDate(),
+  );
+}
+/** Only for legacy calendar fields; never use this compatibility rule for transactions. */
+export function storedCalendarParts(date: Date) {
+  return date.getUTCHours() === 0 &&
+    date.getUTCMinutes() === 0 &&
+    date.getUTCSeconds() === 0 &&
+    date.getUTCMilliseconds() === 0
+    ? {
+        year: date.getUTCFullYear(),
+        monthIndex: date.getUTCMonth(),
+        day: date.getUTCDate(),
+      }
+    : getCalendarDayParts(date);
+}

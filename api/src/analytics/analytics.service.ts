@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import {
+  calendarColumnAtNoon,
   getMonthDateRange,
   businessDate,
   getCalendarDayParts,
@@ -282,7 +283,9 @@ export class AnalyticsService {
       // - Recurrentes (isRecurring === true): impactan en el mes actual si están impagos, y se proyectan en los meses futuros aunque el mes actual ya se haya abonado.
       const monthReminders = reminders.filter((r) => {
         if (r.amount === null) return false;
-        const rDate = new Date(r.dueDate);
+        const rDate = r.dueOn
+          ? calendarColumnAtNoon(r.dueOn)
+          : new Date(r.dueDate);
         const isInTargetMonth = rDate >= startDate && rDate < endDate;
         const isRecurring = Boolean(
           (r as { isRecurring?: boolean }).isRecurring,

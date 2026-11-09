@@ -37,10 +37,10 @@ export class NotificationsService {
     try {
       const dueToday = await this.prisma.reminder.findMany({
         where: {
-          dueDate: {
-            gte: startOfDay,
-            lt: endOfDay,
-          },
+          OR: [
+            { dueOn: new Date(dateKey + 'T00:00:00Z') },
+            { dueOn: null, dueDate: { gte: startOfDay, lt: endOfDay } },
+          ],
           isPaid: false,
         },
         include: {

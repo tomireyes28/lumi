@@ -181,12 +181,22 @@ async function inspectDatabase(client) {
         AND (a.grantee=0 OR a.grantee IN (SELECT oid FROM pg_roles WHERE rolname IN ('anon','authenticated')))
       ORDER BY schema_name,grantee,privilege_type`)
     ).rows;
+    const temporalData = has('Transaction', 'purchaseDate')
+      ? (
+          await client.query(`SELECT
+      count(*) FILTER (WHERE "purchaseDate" IS NULL)::int AS legacy_transactions,
+      count(*) FILTER (WHERE "purchaseDate" IS NULL AND "paymentMethod"='credit_card')::int AS legacy_card_transactions,
+      count(*) FILTER (WHERE "purchaseDate" IS NOT NULL)::int AS explicit_transactions
+      FROM "Transaction"`)
+        ).rows[0]
+      : null;
     await client.query('COMMIT');
     return {
       session,
       migrations: { managed: migrationTable, history, pending },
       columns,
       dataChecks,
+      temporalData,
       permissions,
       defaultPublicGrants,
       constraints,

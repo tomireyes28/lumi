@@ -67,10 +67,21 @@ describe('RemindersService', () => {
       expect.objectContaining({
         where: expect.objectContaining({
           userId: 'user-1',
-          dueDate: expect.objectContaining({
-            gte: expect.any(Date) as unknown,
-            lt: expect.any(Date) as unknown,
-          }) as unknown,
+          OR: [
+            {
+              dueOn: {
+                gte: new Date('2026-10-01T00:00:00Z'),
+                lt: new Date('2026-11-01T00:00:00Z'),
+              },
+            },
+            {
+              dueOn: null,
+              dueDate: {
+                gte: new Date('2026-10-01T03:00:00Z'),
+                lt: new Date('2026-11-01T03:00:00Z'),
+              },
+            },
+          ],
         }) as unknown,
       }),
     );

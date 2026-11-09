@@ -1,4 +1,4 @@
-import type { Reminder } from './reminders';
+import type { Reminder } from "./reminders";
 
 export type { Reminder };
 

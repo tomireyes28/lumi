@@ -214,11 +214,14 @@ test('upgrade preserves legacy values and enforces real Prisma/PostgreSQL behavi
       ],
     );
     assert.equal(txs[0].installmentGroupId, 'plan');
+    assert.ok(txs.every(t=>t.purchaseDate===null&&t.statementMonth===null&&t.statementYear===null&&t.paymentDueDate===null&&t.statementClosingDate===null));
     const reminder = await prisma.reminder.findUniqueOrThrow({
       where: { id: 'reminder' },
     });
     assert.equal(reminder.amount.toFixed(2), '120.99');
     assert.equal(reminder.isRecurring, false);
+    assert.equal(reminder.dueDate.toISOString(),'2026-12-01T00:00:00.000Z');
+    assert.equal(reminder.dueOn.toISOString(),'2026-12-01T00:00:00.000Z');
     assert.equal(
       (await prisma.reminder.findUniqueOrThrow({ where: { id: 'optional' } }))
         .amount,

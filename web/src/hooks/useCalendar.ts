@@ -86,7 +86,7 @@ export const useCalendar = () => {
 
   const selectedReminders = useMemo(() => {
     return reminders.filter(
-      (r) => storedCalendarKey(r.dueDate) === selectedDateKey,
+      (r) => storedCalendarKey(r.dueOn ?? r.dueDate) === selectedDateKey,
     );
   }, [reminders, selectedDateKey]);
 

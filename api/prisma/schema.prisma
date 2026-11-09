@@ -43,6 +43,14 @@ model Category {
 }
 
 model Transaction {
+  purchaseDate DateTime?
+  statementYear Int?
+  statementMonth Int?
+  statementClosingDate DateTime?
+  paymentDueDate DateTime?
+  installmentNumber Int?
+  installmentCount Int?
+
   id                 String    @id @default(uuid())
   userId             String
   categoryId         String
@@ -103,6 +111,7 @@ model CardCycle {
 }
 
 model Reminder {
+  dueOn DateTime? @db.Date
   id          String   @id @default(uuid())
   title       String   // Ej: "Alquiler", "Netflix"
   amount      Decimal? @db.Decimal(10, 2)

@@ -43,7 +43,7 @@ export function CalendarWidget({
     for (const r of reminders) {
       if (r.dueDate) {
         try {
-          const key = storedCalendarKey(r.dueDate);
+          const key = storedCalendarKey(r.dueOn ?? r.dueDate);
           if (r.isPaid) {
             paid.add(key);
           } else {

@@ -1,11 +1,12 @@
-import { motion, Variants } from 'framer-motion';
-import { CalendarClock } from 'lucide-react';
+import { storedCalendarKey } from "@/lib/business-date";
+import { motion, Variants } from "framer-motion";
+import { CalendarClock } from "lucide-react";
 import {
   ReminderFormState,
   Reminder,
   UpdateReminderInput,
-} from '@/types/reminders';
-import { useId, useState } from 'react';
+} from "@/types/reminders";
+import { useId, useState } from "react";
 
 interface ReminderFormProps {
   form: ReminderFormState;
@@ -36,7 +37,10 @@ export function ReminderForm({
 
       <div className="space-y-4">
         <div>
-          <label htmlFor={titleId} className="block text-xs font-medium text-gray-700 mb-1">
+          <label
+            htmlFor={titleId}
+            className="block text-xs font-medium text-gray-700 mb-1"
+          >
             ¿Qué hay que pagar?
           </label>
           <input
@@ -52,7 +56,10 @@ export function ReminderForm({
 
         <div className="flex gap-3">
           <div className="flex-1">
-            <label htmlFor={amountId} className="block text-xs font-medium text-gray-700 mb-1">
+            <label
+              htmlFor={amountId}
+              className="block text-xs font-medium text-gray-700 mb-1"
+            >
               Monto (Opcional)
             </label>
             <input
@@ -68,7 +75,10 @@ export function ReminderForm({
             />
           </div>
           <div className="flex-1">
-            <label htmlFor={dueDateId} className="block text-xs font-medium text-gray-700 mb-1">
+            <label
+              htmlFor={dueDateId}
+              className="block text-xs font-medium text-gray-700 mb-1"
+            >
               Fecha de Vencimiento
             </label>
             <input
@@ -105,7 +115,7 @@ export function ReminderForm({
           disabled={form.isSubmitting}
           className="w-full mt-2 bg-gray-900 text-white font-bold py-3 rounded-xl hover:bg-gray-800 transition-colors disabled:opacity-50"
         >
-          {form.isSubmitting ? 'Guardando...' : 'Guardar Recordatorio'}
+          {form.isSubmitting ? "Guardando..." : "Guardar Recordatorio"}
         </motion.button>
       </div>
     </motion.form>
@@ -128,11 +138,11 @@ export function EditReminderForm({
   const editDueDateId = useId();
   const editRecurringId = useId();
 
-  const initialDate = new Date(reminder.dueDate).toISOString().split('T')[0];
+  const initialDate = storedCalendarKey(reminder.dueOn ?? reminder.dueDate);
 
   const [title, setTitle] = useState(reminder.title);
   const [amount, setAmount] = useState(
-    reminder.amount ? reminder.amount.toString() : '',
+    reminder.amount ? reminder.amount.toString() : "",
   );
   const [dueDate, setDueDate] = useState(initialDate);
   const [isRecurring, setIsRecurring] = useState(Boolean(reminder.isRecurring));
@@ -156,7 +166,10 @@ export function EditReminderForm({
   return (
     <form onSubmit={submitEdit} className="space-y-4">
       <div>
-        <label htmlFor={editTitleId} className="block text-xs font-medium text-gray-700 mb-1">
+        <label
+          htmlFor={editTitleId}
+          className="block text-xs font-medium text-gray-700 mb-1"
+        >
           ¿Qué hay que pagar?
         </label>
         <input
@@ -171,7 +184,10 @@ export function EditReminderForm({
 
       <div className="flex gap-3">
         <div className="flex-1">
-          <label htmlFor={editAmountId} className="block text-xs font-medium text-gray-700 mb-1">
+          <label
+            htmlFor={editAmountId}
+            className="block text-xs font-medium text-gray-700 mb-1"
+          >
             Monto (Opcional)
           </label>
           <input
@@ -186,7 +202,10 @@ export function EditReminderForm({
           />
         </div>
         <div className="flex-1">
-          <label htmlFor={editDueDateId} className="block text-xs font-medium text-gray-700 mb-1">
+          <label
+            htmlFor={editDueDateId}
+            className="block text-xs font-medium text-gray-700 mb-1"
+          >
             Fecha de Vencimiento
           </label>
           <input
@@ -227,7 +246,7 @@ export function EditReminderForm({
           disabled={isSaving}
           className="flex-1 py-3 font-bold text-white bg-sky-500 rounded-xl hover:bg-sky-600 disabled:opacity-50"
         >
-          {isSaving ? 'Guardando...' : 'Guardar Cambios'}
+          {isSaving ? "Guardando..." : "Guardar Cambios"}
         </button>
       </div>
     </form>
