@@ -9,6 +9,7 @@ const dotenv = require('dotenv');
 const apiRoot = path.resolve(__dirname, '..');
 const tables = [
   'User',
+  'AuthSession',
   'Category',
   'CreditCard',
   'Transaction',

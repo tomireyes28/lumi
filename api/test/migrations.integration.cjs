@@ -10,6 +10,9 @@ const fs = require('node:fs/promises');
 const path = require('node:path');
 const os = require('node:os');
 const crypto = require('node:crypto');
+require('reflect-metadata');
+const { JwtService } = require('@nestjs/jwt');
+const { AuthService } = require('../dist/src/auth/auth.service.js');
 const {
   inspectDatabase,
   checksums,
@@ -456,7 +459,7 @@ test('Supabase API roles lose direct access while Prisma retains CRUD and future
   await deploy(url); // Migration bookkeeping still works with RLS on its own table.
   await withSql(url, async (client) => {
     const report = await inspectDatabase(client);
-    assert.equal(report.permissions.length, 16);
+    assert.equal(report.permissions.length, 18);
     assert.deepEqual(releaseIssues(report), []);
     assert.ok(
       report.permissions.every(
@@ -559,4 +562,21 @@ test('Supabase API roles lose direct access while Prisma retains CRUD and future
   } finally {
     await prisma.$disconnect();
   }
+});
+
+test('sessions survive service reconstruction and logout revokes access across instances',async()=>{
+ const url=await database(); await deploy(url);
+ const prisma=new PrismaClient({adapter:new PrismaPg({connectionString:url})});
+ const jwt=new JwtService(); process.env.JWT_SECRET='synthetic-integration-secret-at-least-32-characters';
+ try {
+ const password=await require('bcrypt').hash('Synthetic-password-123',10);
+ await prisma.user.create({data:{name:'Session test',email:'session@example.invalid',password}});
+ const a=new AuthService(prisma,jwt);const signed=await a.login({email:'session@example.invalid',password:'Synthetic-password-123'});
+ const payload=jwt.verify(signed.token,{secret:process.env.JWT_SECRET});
+ const b=new AuthService(prisma,jwt); await b.validateSession(payload);
+ await a.revokeToken(payload.jti);
+ await assert.rejects(new AuthService(prisma,jwt).validateSession(payload),{status:401});
+ await assert.rejects(b.validateSession(payload),{status:401});
+ await assert.rejects(b.validateSession({sub:payload.sub,email:payload.email}),{status:401});
+ }finally{await prisma.$disconnect();}
 });

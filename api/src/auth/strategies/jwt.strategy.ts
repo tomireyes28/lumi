@@ -29,7 +29,8 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
     private readonly authService: AuthService,
     configService: ConfigService,
   ) {
-    const secret = configService.get<string>('JWT_SECRET') || process.env.JWT_SECRET;
+    const secret =
+      configService.get<string>('JWT_SECRET') || process.env.JWT_SECRET;
     if (!secret) {
       throw new Error(
         'CRITICAL: La variable de entorno JWT_SECRET es obligatoria para inicializar JwtStrategy.',
@@ -51,9 +52,7 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
       throw new UnauthorizedException('Token inválido');
     }
 
-    if (payload.jti && this.authService.isTokenRevoked(payload.jti)) {
-      throw new UnauthorizedException('La sesión fue cerrada o revocada.');
-    }
+    await this.authService.validateSession(payload);
 
     const user = await this.prisma.user.findUnique({
       where: { id: payload.sub },

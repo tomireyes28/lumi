@@ -86,6 +86,7 @@ jobs:
           cache-dependency-path: api/package-lock.json
       - run: npm ci
       - run: npx prisma generate
+      - run: npm run build
       - name: Test migrations and Prisma against real PostgreSQL
         run: npm run test:integration
         env:

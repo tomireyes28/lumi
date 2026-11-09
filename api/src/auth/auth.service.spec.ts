@@ -12,6 +12,11 @@ jest.mock('bcrypt');
 describe('AuthService', () => {
   let service: AuthService;
   let prisma: {
+    authSession: {
+      create: jest.Mock;
+      updateMany: jest.Mock;
+      findUnique: jest.Mock;
+    };
     user: {
       findUnique: jest.Mock;
       create: jest.Mock;
@@ -27,6 +32,11 @@ describe('AuthService', () => {
     process.env.JWT_SECRET = 'test_secret_key';
 
     prisma = {
+      authSession: {
+        create: jest.fn().mockResolvedValue({}),
+        updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+        findUnique: jest.fn(),
+      },
       user: {
         findUnique: jest.fn(),
         create: jest.fn(),
@@ -36,7 +46,9 @@ describe('AuthService', () => {
 
     jwtService = {
       sign: jest.fn().mockReturnValue('mocked-jwt-token'),
-      verify: jest.fn().mockReturnValue({ sub: 'user-123', email: 'test@example.com' }),
+      verify: jest
+        .fn()
+        .mockReturnValue({ sub: 'user-123', email: 'test@example.com' }),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -81,27 +93,30 @@ describe('AuthService', () => {
       });
 
       // Segundo canje (ataque de replay): el código ya fue quemado, debe fallar
-      await expect(service.exchangeOAuthCode(code, 'browser-state-123')).rejects.toThrow(
-        UnauthorizedException,
-      );
+      await expect(
+        service.exchangeOAuthCode(code, 'browser-state-123'),
+      ).rejects.toThrow(UnauthorizedException);
     });
 
     it('should reject and burn code if clientState does not match originating browser', async () => {
-      const code = service.createOAuthExchangeCode('valid-jwt-token', 'origin-browser-nonce');
+      const code = service.createOAuthExchangeCode(
+        'valid-jwt-token',
+        'origin-browser-nonce',
+      );
 
-      await expect(service.exchangeOAuthCode(code, 'attacker-browser-nonce')).rejects.toThrow(
-        UnauthorizedException,
-      );
+      await expect(
+        service.exchangeOAuthCode(code, 'attacker-browser-nonce'),
+      ).rejects.toThrow(UnauthorizedException);
       // El código queda invalidado tras el intento fallido
-      await expect(service.exchangeOAuthCode(code, 'origin-browser-nonce')).rejects.toThrow(
-        UnauthorizedException,
-      );
+      await expect(
+        service.exchangeOAuthCode(code, 'origin-browser-nonce'),
+      ).rejects.toThrow(UnauthorizedException);
     });
 
     it('should throw UnauthorizedException if code does not exist', async () => {
-      await expect(service.exchangeOAuthCode('non-existent-code')).rejects.toThrow(
-        UnauthorizedException,
-      );
+      await expect(
+        service.exchangeOAuthCode('non-existent-code'),
+      ).rejects.toThrow(UnauthorizedException);
     });
   });
 
@@ -178,7 +193,10 @@ describe('AuthService', () => {
     });
 
     it('should throw BadRequestException if email already exists', async () => {
-      prisma.user.findUnique.mockResolvedValue({ id: 'user-existing', email: 'jane@example.com' });
+      prisma.user.findUnique.mockResolvedValue({
+        id: 'user-existing',
+        email: 'jane@example.com',
+      });
 
       await expect(
         service.register({
@@ -253,10 +271,17 @@ describe('AuthService', () => {
       ).rejects.toThrow(UnauthorizedException);
     });
 
-    it('should track revoked token jti until expiration', () => {
-      expect(service.isTokenRevoked('jti-1')).toBe(false);
-      service.revokeToken('jti-1', Math.floor(Date.now() / 1000) + 3600);
-      expect(service.isTokenRevoked('jti-1')).toBe(true);
+    it('persists logout and rejects legacy tokens', async () => {
+      prisma.authSession.findUnique.mockResolvedValue(null);
+      expect(await service.isTokenRevoked('missing')).toBe(true);
+      await service.revokeToken('active');
+      expect(prisma.authSession.updateMany).toHaveBeenCalled();
+      await expect(
+        service.validateSession({
+          sub: 'user-1',
+          email: 'test@example.invalid',
+        }),
+      ).rejects.toThrow(UnauthorizedException);
     });
   });
 

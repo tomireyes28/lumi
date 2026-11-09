@@ -1,4 +1,8 @@
-import { Injectable, BadRequestException, UnauthorizedException } from '@nestjs/common';
+import {
+  Injectable,
+  BadRequestException,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { PrismaService } from '../prisma/prisma.service';
 import { GoogleUser, JwtPayload } from './interfaces/auth.interfaces';
@@ -7,7 +11,7 @@ import * as bcrypt from 'bcrypt';
 import { randomUUID } from 'crypto';
 
 const MAX_EXCHANGE_CODES = 1000;
-const MAX_REVOKED_TOKENS = 5000;
+
 const BCRYPT_MAX_UTF8_BYTES = 72;
 
 @Injectable()
@@ -19,51 +23,64 @@ export class AuthService {
     { token: string; clientState?: string; expiresAt: number }
   >();
 
-  // Lista de revocación en memoria de tokens cerrados explícitamente antes de su expiración
-  private readonly revokedTokens = new Map<string, number>();
-
   constructor(
     private prisma: PrismaService,
     private jwtService: JwtService,
   ) {}
 
-  private signAccessToken(user: { id: string; email: string }): string {
+  private async signAccessToken(user: {
+    id: string;
+    email: string;
+  }): Promise<string> {
     const payload: JwtPayload = {
       sub: user.id,
       email: user.email,
       jti: randomUUID(),
     };
+    await this.prisma.authSession.create({
+      data: {
+        id: payload.jti!,
+        userId: user.id,
+        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+      },
+    });
     return this.jwtService.sign(payload, {
       secret: process.env.JWT_SECRET,
       expiresIn: '7d',
     });
   }
 
-  revokeToken(jti?: string, expSeconds?: number): void {
-    if (!jti) return;
-    const now = Date.now();
-    for (const [id, expiresAt] of this.revokedTokens.entries()) {
-      if (expiresAt <= now) {
-        this.revokedTokens.delete(id);
-      }
-    }
-    while (this.revokedTokens.size >= MAX_REVOKED_TOKENS) {
-      const oldest = this.revokedTokens.keys().next().value;
-      if (!oldest) break;
-      this.revokedTokens.delete(oldest);
-    }
-    const expiresAt = expSeconds ? expSeconds * 1000 : now + 7 * 24 * 60 * 60 * 1000;
-    this.revokedTokens.set(jti, expiresAt);
+  async revokeToken(jti?: string): Promise<void> {
+    if (jti)
+      await this.prisma.authSession.updateMany({
+        where: { id: jti, revokedAt: null },
+        data: { revokedAt: new Date() },
+      });
   }
 
-  isTokenRevoked(jti: string): boolean {
-    const expiresAt = this.revokedTokens.get(jti);
-    if (!expiresAt) return false;
-    if (expiresAt <= Date.now()) {
-      this.revokedTokens.delete(jti);
-      return false;
+  async isTokenRevoked(jti: string): Promise<boolean> {
+    const session = await this.prisma.authSession.findUnique({
+      where: { id: jti },
+    });
+    return (
+      !session || session.revokedAt !== null || session.expiresAt <= new Date()
+    );
+  }
+
+  async validateSession(payload: JwtPayload): Promise<void> {
+    if (!payload.jti)
+      throw new UnauthorizedException('Iniciá sesión nuevamente.');
+    const session = await this.prisma.authSession.findUnique({
+      where: { id: payload.jti },
+    });
+    if (
+      !session ||
+      session.userId !== payload.sub ||
+      session.revokedAt ||
+      session.expiresAt <= new Date()
+    ) {
+      throw new UnauthorizedException('La sesión fue cerrada o expiró.');
     }
-    return true;
   }
 
   // ==========================================
@@ -82,10 +99,16 @@ export class AuthService {
 
     const existingUser =
       typeof this.prisma.user.findUnique === 'function'
-        ? await this.prisma.user.findUnique({ where: { email: normalizedEmail } })
+        ? await this.prisma.user.findUnique({
+            where: { email: normalizedEmail },
+          })
         : null;
 
-    if (existingUser?.googleId && reqUser.googleId && existingUser.googleId !== reqUser.googleId) {
+    if (
+      existingUser?.googleId &&
+      reqUser.googleId &&
+      existingUser.googleId !== reqUser.googleId
+    ) {
       throw new UnauthorizedException(
         'El correo electrónico ya está vinculado a otra identidad de proveedor.',
       );
@@ -147,7 +170,9 @@ export class AuthService {
     const entry = this.oauthExchangeCodes.get(code);
     if (!entry || entry.expiresAt < Date.now()) {
       if (entry) this.oauthExchangeCodes.delete(code);
-      throw new UnauthorizedException('El código de autorización ha expirado o es inválido.');
+      throw new UnauthorizedException(
+        'El código de autorización ha expirado o es inválido.',
+      );
     }
 
     // Quemamos el código inmediatamente (uso único estricto)
@@ -198,7 +223,9 @@ export class AuthService {
 
     const normalizedEmail = email.trim().toLowerCase();
 
-    const userExists = await this.prisma.user.findUnique({ where: { email: normalizedEmail } });
+    const userExists = await this.prisma.user.findUnique({
+      where: { email: normalizedEmail },
+    });
     if (userExists) {
       throw new BadRequestException('El email ya está registrado.');
     }
@@ -216,7 +243,7 @@ export class AuthService {
       });
 
       return {
-        token: this.signAccessToken(newUser),
+        token: await this.signAccessToken(newUser),
         user: {
           id: newUser.id,
           name: newUser.name,
@@ -248,7 +275,9 @@ export class AuthService {
       throw new UnauthorizedException('Credenciales inválidas.');
     }
 
-    const user = await this.prisma.user.findUnique({ where: { email: normalizedEmail } });
+    const user = await this.prisma.user.findUnique({
+      where: { email: normalizedEmail },
+    });
 
     if (!user || !user.password) {
       throw new UnauthorizedException(
@@ -256,14 +285,22 @@ export class AuthService {
       );
     }
 
-    const isPasswordValid = await bcrypt.compare(String(password), user.password);
+    const isPasswordValid = await bcrypt.compare(
+      String(password),
+      user.password,
+    );
     if (!isPasswordValid) {
       throw new UnauthorizedException('Credenciales inválidas.');
     }
 
     return {
-      token: this.signAccessToken(user),
-      user: { id: user.id, name: user.name, email: user.email, picture: user.picture },
+      token: await this.signAccessToken(user),
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        picture: user.picture,
+      },
     };
   }
 }

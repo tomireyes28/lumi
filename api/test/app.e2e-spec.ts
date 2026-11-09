@@ -64,43 +64,91 @@ describe('Lumi API (e2e)', () => {
     process.env.JWT_SECRET =
       process.env.JWT_SECRET || 'test-e2e-jwt-secret-key-minimum-32-chars';
 
+    const sessions = new Map<
+      string,
+      { id: string; userId: string; expiresAt: Date; revokedAt: Date | null }
+    >();
     const mockPrisma = {
+      authSession: {
+        create: jest.fn(
+          ({
+            data,
+          }: {
+            data: { id: string; userId: string; expiresAt: Date };
+          }) => {
+            sessions.set(data.id, { ...data, revokedAt: null });
+            return Promise.resolve(data);
+          },
+        ),
+        findUnique: jest.fn(({ where }: { where: { id: string } }) =>
+          Promise.resolve(sessions.get(where.id) || null),
+        ),
+        updateMany: jest.fn(
+          ({
+            where,
+            data,
+          }: {
+            where: { id: string };
+            data: { revokedAt: Date };
+          }) => {
+            const session = sessions.get(where.id);
+            if (session) Object.assign(session, data);
+            return Promise.resolve({ count: session ? 1 : 0 });
+          },
+        ),
+      },
       $connect: jest.fn(),
       $disconnect: jest.fn(),
       $queryRaw: jest.fn().mockResolvedValue([{ 1: 1 }]),
       onModuleInit: jest.fn(),
       onModuleDestroy: jest.fn(),
       user: {
-        findUnique: jest.fn(({ where }: { where: { id?: string; email?: string; googleId?: string } }) => {
-          if (where.id) return Promise.resolve(users.get(where.id) || null);
-          if (where.email) {
-            return Promise.resolve(
-              Array.from(users.values()).find((u) => u.email === where.email) || null,
-            );
-          }
-          if (where.googleId) {
-            return Promise.resolve(
-              Array.from(users.values()).find((u) => u.googleId === where.googleId) || null,
-            );
-          }
-          return Promise.resolve(null);
-        }),
-        create: jest.fn(({ data }: { data: Partial<MockUserRecord> & { email: string; name: string } }) => {
-          const id = `user-${users.size + 1}`;
-          const record: MockUserRecord = {
-            id,
-            email: data.email,
-            name: data.name,
-            password: data.password ?? null,
-            picture: data.picture ?? null,
-            googleId: data.googleId ?? null,
-            emailVerified: data.emailVerified ?? false,
-            createdAt: new Date(),
-            updatedAt: new Date(),
-          };
-          users.set(id, record);
-          return Promise.resolve(record);
-        }),
+        findUnique: jest.fn(
+          ({
+            where,
+          }: {
+            where: { id?: string; email?: string; googleId?: string };
+          }) => {
+            if (where.id) return Promise.resolve(users.get(where.id) || null);
+            if (where.email) {
+              return Promise.resolve(
+                Array.from(users.values()).find(
+                  (u) => u.email === where.email,
+                ) || null,
+              );
+            }
+            if (where.googleId) {
+              return Promise.resolve(
+                Array.from(users.values()).find(
+                  (u) => u.googleId === where.googleId,
+                ) || null,
+              );
+            }
+            return Promise.resolve(null);
+          },
+        ),
+        create: jest.fn(
+          ({
+            data,
+          }: {
+            data: Partial<MockUserRecord> & { email: string; name: string };
+          }) => {
+            const id = `user-${users.size + 1}`;
+            const record: MockUserRecord = {
+              id,
+              email: data.email,
+              name: data.name,
+              password: data.password ?? null,
+              picture: data.picture ?? null,
+              googleId: data.googleId ?? null,
+              emailVerified: data.emailVerified ?? false,
+              createdAt: new Date(),
+              updatedAt: new Date(),
+            };
+            users.set(id, record);
+            return Promise.resolve(record);
+          },
+        ),
       },
       category: {
         findUnique: jest.fn(({ where }: { where: { id: string } }) =>
@@ -133,11 +181,19 @@ describe('Lumi API (e2e)', () => {
         ),
         findMany: jest.fn(({ where }: { where: { userId: string } }) =>
           Promise.resolve(
-            Array.from(categories.values()).filter((c) => c.userId === where.userId),
+            Array.from(categories.values()).filter(
+              (c) => c.userId === where.userId,
+            ),
           ),
         ),
         update: jest.fn(
-          ({ where, data }: { where: { id: string }; data: Partial<MockCategoryRecord> }) => {
+          ({
+            where,
+            data,
+          }: {
+            where: { id: string };
+            data: Partial<MockCategoryRecord>;
+          }) => {
             const existing = categories.get(where.id)!;
             const updated = { ...existing, ...data };
             categories.set(where.id, updated);
@@ -199,15 +255,27 @@ describe('Lumi API (e2e)', () => {
         }),
       },
       transaction: {
-        count: jest.fn(({ where }: { where?: { categoryId?: string; creditCardId?: string; userId?: string } }) => {
-          const list = Array.from(transactions.values()).filter((tx) => {
-            if (where?.categoryId && tx.categoryId !== where.categoryId) return false;
-            if (where?.creditCardId && tx.creditCardId !== where.creditCardId) return false;
-            if (where?.userId && tx.userId !== where.userId) return false;
-            return true;
-          });
-          return Promise.resolve(list.length);
-        }),
+        count: jest.fn(
+          ({
+            where,
+          }: {
+            where?: {
+              categoryId?: string;
+              creditCardId?: string;
+              userId?: string;
+            };
+          }) => {
+            const list = Array.from(transactions.values()).filter((tx) => {
+              if (where?.categoryId && tx.categoryId !== where.categoryId)
+                return false;
+              if (where?.creditCardId && tx.creditCardId !== where.creditCardId)
+                return false;
+              if (where?.userId && tx.userId !== where.userId) return false;
+              return true;
+            });
+            return Promise.resolve(list.length);
+          },
+        ),
         create: jest.fn(
           ({
             data,
@@ -228,7 +296,9 @@ describe('Lumi API (e2e)', () => {
               amount: new Prisma.Decimal(data.amount),
               date: data.date,
               note: data.note ?? null,
-              paymentMethod: data.paymentMethod ?? (data.creditCard ? 'credit_card' : 'cash'),
+              paymentMethod:
+                data.paymentMethod ??
+                (data.creditCard ? 'credit_card' : 'cash'),
               installmentGroupId: null,
               userId: data.user.connect.id,
               categoryId: data.category.connect.id,
@@ -238,7 +308,9 @@ describe('Lumi API (e2e)', () => {
             return Promise.resolve({
               ...record,
               category: categories.get(record.categoryId),
-              creditCard: record.creditCardId ? cards.get(record.creditCardId) : null,
+              creditCard: record.creditCardId
+                ? cards.get(record.creditCardId)
+                : null,
             });
           },
         ),
@@ -274,12 +346,14 @@ describe('Lumi API (e2e)', () => {
             return Promise.resolve({ count: data.length });
           },
         ),
-        findFirst: jest.fn(({ where }: { where: { installmentGroupId: string } }) => {
-          const match = Array.from(transactions.values())
-            .filter((t) => t.installmentGroupId === where.installmentGroupId)
-            .sort((a, b) => a.date.getTime() - b.date.getTime())[0];
-          return Promise.resolve(match || null);
-        }),
+        findFirst: jest.fn(
+          ({ where }: { where: { installmentGroupId: string } }) => {
+            const match = Array.from(transactions.values())
+              .filter((t) => t.installmentGroupId === where.installmentGroupId)
+              .sort((a, b) => a.date.getTime() - b.date.getTime())[0];
+            return Promise.resolve(match || null);
+          },
+        ),
         findMany: jest.fn(({ where }: { where?: { userId?: string } }) => {
           const list = Array.from(transactions.values()).filter((t) =>
             where?.userId ? t.userId === where.userId : true,
@@ -302,24 +376,35 @@ describe('Lumi API (e2e)', () => {
               category: { type: 'income' | 'expense' };
               creditCardId?: null;
               paymentMethod?: string;
-              OR?: Array<{ creditCardId?: { not: null }; paymentMethod?: string }>;
+              OR?: Array<{
+                creditCardId?: { not: null };
+                paymentMethod?: string;
+              }>;
             };
           }) => {
             const matching = Array.from(transactions.values()).filter((tx) => {
               if (tx.userId !== where.userId) return false;
-              if (tx.date < where.date.gte || tx.date >= where.date.lt) return false;
+              if (tx.date < where.date.gte || tx.date >= where.date.lt)
+                return false;
               const cat = categories.get(tx.categoryId);
               if (!cat || cat.type !== where.category.type) return false;
               if (where.paymentMethod === 'cash') {
                 return tx.creditCardId === null && tx.paymentMethod === 'cash';
               }
               if (where.OR) {
-                return tx.creditCardId !== null || tx.paymentMethod === 'credit_card';
+                return (
+                  tx.creditCardId !== null || tx.paymentMethod === 'credit_card'
+                );
               }
               return true;
             });
-            const sum = matching.reduce((acc, tx) => acc + Number(tx.amount), 0);
-            return Promise.resolve({ _sum: { amount: new Prisma.Decimal(sum) } });
+            const sum = matching.reduce(
+              (acc, tx) => acc + Number(tx.amount),
+              0,
+            );
+            return Promise.resolve({
+              _sum: { amount: new Prisma.Decimal(sum) },
+            });
           },
         ),
       },

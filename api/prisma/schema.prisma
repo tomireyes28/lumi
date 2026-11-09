@@ -15,6 +15,7 @@ model User {
   googleId      String?  @unique
   emailVerified Boolean  @default(false)
 
+  sessions AuthSession[]
   transactions Transaction[]
   categories   Category[]
   creditCards  CreditCard[]
@@ -130,4 +131,15 @@ model Budget {
 
   @@unique([userId, categoryId])
   @@index([userId])
+}
+
+model AuthSession {
+  id String @id
+  userId String
+  user User @relation(fields:[userId],references:[id],onDelete:Cascade)
+  expiresAt DateTime
+  revokedAt DateTime?
+  createdAt DateTime @default(now())
+  @@index([userId])
+  @@index([expiresAt])
 }
