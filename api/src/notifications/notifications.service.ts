@@ -1,146 +1,237 @@
-import { ensureOccurrences } from '../reminders/occurrences';
+import { randomUUID } from 'node:crypto';
 import { Injectable, Logger } from '@nestjs/common';
+import { Cron } from '@nestjs/schedule';
 import { PrismaService } from '../prisma/prisma.service';
-import { Prisma } from '@prisma/client';
-import { Cron, CronExpression } from '@nestjs/schedule';
+import { serializable } from '../utils/serializable.util';
+import { ensureOccurrences } from '../reminders/occurrences';
 import { BUSINESS_TIMEZONE, getBusinessDayRange } from '../utils/date.util';
 
-type ReminderWithUser = Prisma.ReminderGetPayload<{
-  include: { user: true };
-}>;
-
-const MAX_IDEMPOTENCY_CACHE_SIZE = 5000;
-
-export function maskEmailAddress(email: string): string {
-  const [localPart, domain] = email.split('@');
-  if (!localPart || !domain) return '***';
-  const visiblePrefix = localPart.slice(0, 1);
-  return `${visiblePrefix}***@${domain}`;
-}
+// Leave an hour of margin before Resend's 24-hour idempotency expiry.
+const RETRY_WINDOW_MS = 23 * 60 * 60 * 1000;
+const MAX_ATTEMPTS = 8;
 
 @Injectable()
 export class NotificationsService {
   private readonly logger = new Logger(NotificationsService.name);
-  private readonly sentNotifications = new Map<string, number>();
-
   constructor(private readonly prisma: PrismaService) {}
 
-  private hasActiveResendConfig(): boolean {
-    const apiKey = process.env.RESEND_API_KEY?.trim();
-    return Boolean(apiKey && apiKey !== 're_your_api_key');
+  private configured() {
+    const key = process.env.RESEND_API_KEY?.trim();
+    return Boolean(
+      key && key !== 're_your_api_key' && process.env.RESEND_FROM_EMAIL?.trim(),
+    );
   }
 
-  @Cron(CronExpression.EVERY_DAY_AT_9AM, { timeZone: BUSINESS_TIMEZONE })
-  async checkDueReminders(referenceDate: Date = new Date()) {
+  @Cron('0 */10 * * * *', { timeZone: BUSINESS_TIMEZONE })
+  async scheduledTick() {
+    const hour = Number(
+      new Intl.DateTimeFormat('en-GB', {
+        timeZone: BUSINESS_TIMEZONE,
+        hour: '2-digit',
+        hourCycle: 'h23',
+      }).format(new Date()),
+    );
+    try {
+      if (hour >= 9) await this.checkDueReminders();
+      else await this.drain();
+    } catch {
+      this.logger.error('notification_worker_failed');
+    }
+  }
+
+  async checkDueReminders(referenceDate = new Date()) {
     const { dateKey, startOfDay, endOfDay } =
       getBusinessDayRange(referenceDate);
-
     try {
       await ensureOccurrences(this.prisma, undefined, referenceDate);
-      const dueToday = await this.prisma.reminder.findMany({
+      const due = await this.prisma.reminder.findMany({
         where: {
+          isPaid: false,
+          isCancelled: false,
           OR: [
             { dueOn: new Date(dateKey + 'T00:00:00Z') },
             { dueOn: null, dueDate: { gte: startOfDay, lt: endOfDay } },
           ],
-          isPaid: false,
-          isCancelled: false,
         },
-        include: {
-          user: true,
-        },
+        include: { user: true },
       });
-
-      if (dueToday.length === 0) {
-        this.logger.debug(`Sin vencimientos pendientes para ${dateKey}.`);
-        return { processed: 0, sent: 0 };
+      if (!this.configured()) {
+        this.logger.debug(`notification_config_missing pending=${due.length}`);
+        return { processed: due.length, sent: 0 };
       }
-
-      if (!this.hasActiveResendConfig()) {
-        this.logger.debug(
-          `Se detectaron ${dueToday.length} recordatorios para ${dateKey}, pero RESEND_API_KEY no está configurada (modo local sin envío de email).`,
-        );
-        return { processed: dueToday.length, sent: 0 };
+      for (const reminder of due) {
+        const payload = JSON.stringify({
+          from: process.env.RESEND_FROM_EMAIL!.trim(),
+          to: [reminder.user.email],
+          subject: `Recordatorio de vencimiento: ${reminder.title}`,
+          text: `Hola ${reminder.user.name}, el ${dateKey} vence "${reminder.title}"${reminder.amount === null ? '' : ` por $${Number(reminder.amount).toLocaleString('es-AR')}`}.`,
+        });
+        // Immutable payload: retries must never reuse a key with different content.
+        await this.prisma.notificationDelivery.createMany({
+          data: [
+            {
+              id: `due:${reminder.id}`,
+              reminderId: reminder.id,
+              payload,
+              nextAttemptAt: referenceDate,
+            },
+          ],
+          skipDuplicates: true,
+        });
       }
-
-      let sentCount = 0;
-      for (const reminder of dueToday) {
-        const sent = await this.sendEmailNotification(reminder, dateKey);
-        if (sent) sentCount += 1;
-      }
-
-      return { processed: dueToday.length, sent: sentCount };
-    } catch (error) {
-      this.logger.error('Error procesando recordatorios del día', error);
+      return { processed: due.length, sent: await this.drain(referenceDate) };
+    } catch {
+      this.logger.error('notification_job_failed');
       return { processed: 0, sent: 0 };
     }
   }
 
-  async sendEmailNotification(
-    reminder: ReminderWithUser,
-    dateKey?: string,
-  ): Promise<boolean> {
-    const effectiveDateKey = dateKey || getBusinessDayRange(new Date()).dateKey;
-    const idempotencyKey = `${reminder.id}:${effectiveDateKey}`;
-
-    if (this.sentNotifications.has(idempotencyKey)) {
-      return false;
-    }
-
-    const apiKey = process.env.RESEND_API_KEY?.trim();
-    if (!apiKey || apiKey === 're_your_api_key') {
-      return false;
-    }
-
-    const fromAddress =
-      process.env.RESEND_FROM_EMAIL?.trim() ||
-      'Lumi Finanzas <onboarding@resend.dev>';
-    const maskedEmail = maskEmailAddress(reminder.user.email);
-
-    try {
-      const amountLabel =
-        reminder.amount !== null && reminder.amount !== undefined
-          ? ` por $${Number(reminder.amount).toLocaleString('es-AR')}`
-          : '';
-
-      const response = await fetch('https://api.resend.com/emails', {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${apiKey}`,
-          'Content-Type': 'application/json',
-          'Idempotency-Key': idempotencyKey,
-        },
-        body: JSON.stringify({
-          from: fromAddress,
-          to: [reminder.user.email],
-          subject: `Recordatorio de vencimiento hoy: ${reminder.title}`,
-          text: `Hola ${reminder.user.name}, te recordamos que hoy vence "${reminder.title}"${amountLabel}.`,
-        }),
+  async drain(now = new Date()) {
+    if (!this.configured()) return 0;
+    const candidates = await this.prisma.notificationDelivery.findMany({
+      where: {
+        status: 'pending',
+        nextAttemptAt: { lte: now },
+        OR: [{ leaseUntil: null }, { leaseUntil: { lte: now } }],
+      },
+      orderBy: { nextAttemptAt: 'asc' },
+      take: 100,
+      select: { id: true },
+    });
+    let accepted = 0;
+    for (const candidate of candidates) {
+      const claimed = await serializable(this.prisma, async (tx) => {
+        await tx.$queryRaw`SELECT id FROM "NotificationDelivery" WHERE id=${candidate.id} FOR UPDATE`;
+        const row = await tx.notificationDelivery.findUnique({
+          where: { id: candidate.id },
+          include: { reminder: true },
+        });
+        if (
+          !row ||
+          row.status !== 'pending' ||
+          row.nextAttemptAt > now ||
+          (row.leaseUntil && row.leaseUntil > now)
+        )
+          return null;
+        if (row.reminder.isPaid || row.reminder.isCancelled) {
+          await tx.notificationDelivery.update({
+            where: { id: row.id },
+            data: { status: 'cancelled', leaseUntil: null, leaseToken: null },
+          });
+          return null;
+        }
+        if (
+          row.attempts >= MAX_ATTEMPTS ||
+          (row.firstAttemptAt &&
+            now.getTime() - row.firstAttemptAt.getTime() >= RETRY_WINDOW_MS)
+        ) {
+          await tx.notificationDelivery.update({
+            where: { id: row.id },
+            data: {
+              status: 'review',
+              lastCode: 'retry_window_exhausted',
+              leaseUntil: null,
+              leaseToken: null,
+            },
+          });
+          return null;
+        }
+        return tx.notificationDelivery.update({
+          where: { id: row.id },
+          data: {
+            attempts: { increment: 1 },
+            firstAttemptAt: row.firstAttemptAt ?? now,
+            leaseUntil: new Date(now.getTime() + 60_000),
+            leaseToken: randomUUID(),
+          },
+        });
       });
-
-      if (!response.ok) {
-        this.logger.warn(
-          `Resend devolvió HTTP ${response.status} para reminderId=${reminder.id} (${maskedEmail})`,
-        );
-        return false;
+      if (!claimed) continue;
+      let code = 'transport_or_timeout',
+        success = false,
+        retryable = true,
+        providerId: string | null = null,
+        retryAfterMs = 0;
+      try {
+        const response = await fetch('https://api.resend.com/emails', {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${process.env.RESEND_API_KEY!.trim()}`,
+            'Content-Type': 'application/json',
+            'Idempotency-Key': claimed.id,
+          },
+          body: claimed.payload,
+          signal: AbortSignal.timeout(10_000),
+        });
+        success = response.ok;
+        code = `http_${response.status}`;
+        retryable =
+          response.status === 429 ||
+          response.status >= 500 ||
+          response.status === 409;
+        if (success) {
+          const result: unknown = await response.json();
+          if (
+            result &&
+            typeof result === 'object' &&
+            'id' in result &&
+            typeof result.id === 'string'
+          )
+            providerId = result.id;
+          else {
+            success = false;
+            retryable = true;
+            code = 'invalid_provider_response';
+          }
+        } else {
+          const header = response.headers.get('retry-after');
+          const seconds = header === null ? NaN : Number(header);
+          const until = Number.isFinite(seconds)
+            ? seconds * 1000
+            : Date.parse(header ?? '') - now.getTime();
+          if (Number.isFinite(until)) retryAfterMs = Math.max(0, until);
+        }
+      } catch {
+        success = false;
+        retryable = true;
+        code = 'transport_or_timeout';
       }
-
-      if (this.sentNotifications.size >= MAX_IDEMPOTENCY_CACHE_SIZE) {
-        const oldestKey = this.sentNotifications.keys().next().value;
-        if (oldestKey) this.sentNotifications.delete(oldestKey);
-      }
-      this.sentNotifications.set(idempotencyKey, Date.now());
-
+      const nextAttemptAt = new Date(
+        now.getTime() +
+          Math.max(retryAfterMs, 60_000 * 2 ** (claimed.attempts - 1)),
+      );
+      const exhausted =
+        claimed.attempts >= MAX_ATTEMPTS ||
+        nextAttemptAt.getTime() - claimed.firstAttemptAt!.getTime() >=
+          RETRY_WINDOW_MS;
+      // Token fencing prevents an expired worker from acknowledging a new lease.
+      await this.prisma.notificationDelivery.updateMany({
+        where: {
+          id: claimed.id,
+          status: 'pending',
+          leaseToken: claimed.leaseToken,
+        },
+        data: {
+          status: success
+            ? 'accepted'
+            : !retryable
+              ? 'failed'
+              : exhausted
+                ? 'review'
+                : 'pending',
+          acceptedAt: success ? now : null,
+          providerId,
+          lastCode: code,
+          nextAttemptAt,
+          leaseUntil: null,
+          leaseToken: null,
+        },
+      });
+      if (success) accepted++;
       this.logger.log(
-        `Notificación enviada para reminderId=${reminder.id} (${maskedEmail})`,
+        `notification_attempt status=${success ? 'accepted' : code} attempt=${claimed.attempts}`,
       );
-      return true;
-    } catch (error) {
-      this.logger.error(
-        `Falló el envío de correo para reminderId=${reminder.id} (${maskedEmail})`,
-        error,
-      );
-      return false;
     }
+    return accepted;
   }
 }

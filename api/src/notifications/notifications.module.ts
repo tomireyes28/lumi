@@ -3,7 +3,7 @@ import { NotificationsService } from './notifications.service';
 import { PrismaModule } from '../prisma/prisma.module';
 
 @Module({
-  imports: [PrismaModule], 
+  imports: [PrismaModule],
   providers: [NotificationsService],
 })
 export class NotificationsModule {}

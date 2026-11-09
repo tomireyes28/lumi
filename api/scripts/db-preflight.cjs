@@ -17,6 +17,7 @@ const tables = [
   'Transaction',
   'Reminder',
   'ReminderRule',
+  'NotificationDelivery',
   'Budget',
   'CardCycle',
   '_prisma_migrations',

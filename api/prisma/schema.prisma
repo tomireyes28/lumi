@@ -113,10 +113,11 @@ model CardCycle {
 }
 
 model Reminder {
+  deliveries       NotificationDelivery[]
   ruleId           String?
-  rule             ReminderRule? @relation(fields: [ruleId], references: [id], onDelete: SetNull)
+  rule             ReminderRule?          @relation(fields: [ruleId], references: [id], onDelete: SetNull)
   occurrencePeriod String?
-  isCancelled      Boolean       @default(false)
+  isCancelled      Boolean                @default(false)
 
   dueOn       DateTime? @db.Date
   id          String    @id @default(uuid())
@@ -193,4 +194,23 @@ model ReminderRule {
   reminders Reminder[]
 
   @@index([userId, active])
+}
+
+model NotificationDelivery {
+  id             String    @id
+  reminderId     String
+  reminder       Reminder  @relation(fields: [reminderId], references: [id], onDelete: Cascade)
+  payload        String
+  status         String    @default("pending")
+  attempts       Int       @default(0)
+  firstAttemptAt DateTime?
+  nextAttemptAt  DateTime  @default(now())
+  leaseUntil     DateTime?
+  leaseToken     String?
+  acceptedAt     DateTime?
+  providerId     String?
+  lastCode       String?
+  createdAt      DateTime  @default(now())
+
+  @@index([status, nextAttemptAt])
 }

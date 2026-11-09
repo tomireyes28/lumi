@@ -475,7 +475,7 @@ test('Supabase API roles lose direct access while Prisma retains CRUD and future
   await deploy(url); // Migration bookkeeping still works with RLS on its own table.
   await withSql(url, async (client) => {
     const report = await inspectDatabase(client);
-    assert.equal(report.permissions.length, 24);
+    assert.equal(report.permissions.length, 26);
     assert.deepEqual(releaseIssues(report), []);
     assert.ok(
       report.permissions.every(
@@ -1524,5 +1524,196 @@ test('recurrence migration preserves the paid reminder and attaches its rule', a
     assert.equal(row.dueDate.toISOString(), '2026-10-31T00:00:00.000Z');
   } finally {
     await prisma.$disconnect();
+  }
+});
+
+test('persistent notification outbox survives retries, restarts, concurrency and ambiguous acceptance', async () => {
+  const url = await database();
+  await deploy(url);
+  const a = new PrismaClient({
+    adapter: new PrismaPg({ connectionString: url }),
+  });
+  const b = new PrismaClient({
+    adapter: new PrismaPg({ connectionString: url }),
+  });
+  const {
+    NotificationsService,
+  } = require('../dist/src/notifications/notifications.service.js');
+  const env = { ...process.env },
+    originalFetch = global.fetch;
+  process.env.RESEND_API_KEY = 'synthetic-not-a-real-key';
+  process.env.RESEND_FROM_EMAIL = 'Lumi <fixture@example.invalid>';
+  const now = new Date('2026-11-09T15:00:00Z');
+  const accepted = new Map();
+  let calls = 0,
+    deliveries = 0;
+  const provider = async (_url, options) => {
+    calls++;
+    assert.ok(options.signal instanceof AbortSignal);
+    const key = options.headers['Idempotency-Key'];
+    if (!accepted.has(key)) {
+      accepted.set(key, options.body);
+      deliveries++;
+    }
+    assert.equal(
+      accepted.get(key),
+      options.body,
+      'retry payload must be immutable',
+    );
+    return new Response(JSON.stringify({ id: 'provider-' + key }), {
+      status: 200,
+    });
+  };
+  try {
+    const user = await a.user.create({
+      data: { name: 'Outbox fixture', email: 'outbox@example.invalid' },
+    });
+    const first = await a.reminder.create({
+      data: {
+        userId: user.id,
+        title: 'Due',
+        dueDate: now,
+        dueOn: new Date('2026-11-09T00:00:00Z'),
+      },
+    });
+    global.fetch = provider;
+    await Promise.all([
+      new NotificationsService(a).checkDueReminders(now),
+      new NotificationsService(b).checkDueReminders(now),
+    ]);
+    assert.equal(deliveries, 1);
+    assert.equal(calls, 1);
+    await new NotificationsService(b).checkDueReminders(now);
+    assert.equal(calls, 1, 'restart/repeated job must not resend');
+    assert.equal(
+      (
+        await a.notificationDelivery.findUnique({
+          where: { id: 'due:' + first.id },
+        })
+      ).status,
+      'accepted',
+    );
+
+    async function queued(suffix) {
+      const reminder = await a.reminder.create({
+        data: {
+          id: 'rem-' + suffix,
+          userId: user.id,
+          title: suffix,
+          dueDate: now,
+        },
+      });
+      return a.notificationDelivery.create({
+        data: {
+          id: 'due:' + reminder.id,
+          reminderId: reminder.id,
+          payload: JSON.stringify({
+            to: ['outbox@example.invalid'],
+            subject: suffix,
+          }),
+          nextAttemptAt: now,
+        },
+      });
+    }
+    for (const failure of [429, 503, 'timeout']) {
+      const row = await queued(String(failure));
+      global.fetch = async (_url, options) => {
+        assert.ok(options.signal instanceof AbortSignal);
+        if (failure === 'timeout')
+          throw new DOMException('Synthetic timeout', 'TimeoutError');
+        return new Response('{}', {
+          status: failure,
+          headers: { 'retry-after': '60' },
+        });
+      };
+      assert.equal(await new NotificationsService(a).drain(now), 0);
+      const pending = await a.notificationDelivery.findUnique({
+        where: { id: row.id },
+      });
+      assert.equal(pending.status, 'pending');
+      assert.equal(pending.attempts, 1);
+      await a.reminder.update({
+        where: { id: row.reminderId },
+        data: { title: 'Edited after enqueue' },
+      });
+      global.fetch = provider;
+      assert.equal(
+        await new NotificationsService(b).drain(
+          new Date(now.getTime() + 60_000),
+        ),
+        1,
+      );
+      assert.equal(accepted.get(row.id), row.payload);
+    }
+
+    const crash = await queued('crash');
+    const originalUpdate = a.notificationDelivery.updateMany;
+    a.notificationDelivery.updateMany = async () => {
+      throw new Error('Synthetic crash after provider acceptance');
+    };
+    global.fetch = provider;
+    const before = deliveries;
+    await assert.rejects(
+      () => new NotificationsService(a).drain(now),
+      /Synthetic crash/,
+    );
+    a.notificationDelivery.updateMany = originalUpdate;
+    assert.equal(deliveries, before + 1);
+    assert.equal(
+      await new NotificationsService(b).drain(new Date(now.getTime() + 61_000)),
+      1,
+    );
+    assert.equal(
+      deliveries,
+      before + 1,
+      'same provider key deduplicates ambiguous acceptance',
+    );
+    assert.equal(
+      (await a.notificationDelivery.findUnique({ where: { id: crash.id } }))
+        .attempts,
+      2,
+    );
+
+    const expired = await queued('expired');
+    await a.notificationDelivery.update({
+      where: { id: expired.id },
+      data: {
+        attempts: 1,
+        firstAttemptAt: new Date(now.getTime() - 24 * 3600_000),
+      },
+    });
+    const paid = await queued('paid');
+    await a.reminder.update({
+      where: { id: paid.reminderId },
+      data: { isPaid: true },
+    });
+    const failed = await queued('permanent');
+    let permanentCalls = 0;
+    global.fetch = async () => {
+      permanentCalls++;
+      return new Response('{}', { status: 403 });
+    };
+    await new NotificationsService(b).drain(now);
+    assert.equal(permanentCalls, 1);
+    assert.equal(
+      (await a.notificationDelivery.findUnique({ where: { id: expired.id } }))
+        .status,
+      'review',
+    );
+    assert.equal(
+      (await a.notificationDelivery.findUnique({ where: { id: paid.id } }))
+        .status,
+      'cancelled',
+    );
+    assert.equal(
+      (await a.notificationDelivery.findUnique({ where: { id: failed.id } }))
+        .status,
+      'failed',
+    );
+  } finally {
+    global.fetch = originalFetch;
+    process.env = env;
+    await a.$disconnect();
+    await b.$disconnect();
   }
 });
