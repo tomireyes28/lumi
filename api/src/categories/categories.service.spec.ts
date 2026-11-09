@@ -7,6 +7,8 @@ import { CategoryType } from './dto/create-category.dto';
 describe('CategoriesService', () => {
   let service: CategoriesService;
   let prisma: {
+    $transaction: jest.Mock;
+    $queryRaw: jest.Mock;
     category: {
       findUnique: jest.Mock;
       create: jest.Mock;
@@ -33,6 +35,8 @@ describe('CategoriesService', () => {
 
   beforeEach(async () => {
     prisma = {
+      $transaction: jest.fn((fn: (tx: unknown) => unknown) => fn(prisma)),
+      $queryRaw: jest.fn().mockResolvedValue([]),
       category: {
         findUnique: jest.fn(),
         create: jest.fn(),

@@ -29,3 +29,19 @@ La regresión R03 (20/01, cierre habitual 25, febrero con cierre 10) produce res
 La edición se serializa sobre el movimiento y valida siempre categoría, tarjeta y medio de pago finales. Se rechazan tanto categoría de ingreso sobre tarjeta existente como tarjeta sobre un ingreso existente. La referencia y el medio se escriben en un único UPDATE escalar: una regresión con PostgreSQL detectó que dos escrituras de relación separadas podían activar el trigger dejando credit_card al desconectar.
 
 La edición temporal mueve únicamente ese movimiento al ciclo de la fecha indicada. referenceDate conserva la entrada usada para poder reasignar una tarjeta después; purchaseDate no se reescribe ni se infiere para registros heredados. Nota/importe solos no recalculan las fechas ya asignadas. El formulario diferencia fecha de compra al crear y referencia individual al editar. La regresión real cubre ambas variantes ingreso/tarjeta, cambio de fecha/tarjeta, desconexión, fechas inválidas, aislamiento y conservación de otras cuotas.
+
+## C12 · Integridad concurrente
+
+Creación de movimientos/presupuestos y edición/borrado de categorías comparten transacciones Serializable y bloqueos de categoría del usuario. PATCH bloquea primero el movimiento y ordena los bloqueos de categorías. Los conflictos de Prisma y del adaptador pg (SQLSTATE 40001/40P01) se reintentan hasta tres veces y terminan en 409 controlado si persisten. Las categorías con movimientos o presupuestos no se borran ni cambian de tipo; retirar una cuota de tarjeta a efectivo la excluye del plan para no proyectarla otra vez como deuda.
+
+La base conserva FK RESTRICT de movimientos, claves únicas y comprobaciones de período/posición; la pertenencia al usuario y las reglas ingreso/tarjeta se sostienen en la frontera de servicios y el protocolo transaccional. La arquitectura confirmada accede exclusivamente por Railway/Prisma. Un futuro escritor directo debe adoptar este protocolo o reforzar esas reglas en base antes de incorporarse. No se simulan asociaciones como cero cuando falta un método de Prisma en un mock.
+
+La regresión usa dos clientes/conexiones de PostgreSQL y repite carreras de creación/cambio de tipo, presupuesto/cambio de tipo, creación/borrado y dos PATCH parciales. Se comprueba consistencia y rechazos controlados, sin aceptar un 500 como resultado válido.
+
+## Evidencia previa al push
+
+Pasaron tipos, lint, ambos builds, 77 unitarios, tres pruebas HTTP rápidas, 15 regresiones de fechas en cada TZ (UTC y Buenos Aires), 13 escenarios de PostgreSQL por entorno (16/UTC y 17.6/Buenos Aires), los tres tests HttpOnly/CSRF y el test frontend de fechas en UTC/Buenos Aires/Auckland. Se repitió la regresión dirigida de PATCH/concurrencia tras el último ajuste.
+
+El 09/11 se aplicaron las dos migraciones nuevas mediante Prisma migrate deploy. Las huellas de todas las columnas originales de las siete tablas de dominio coincidieron antes/después. Cero migraciones pendientes, cero divergencias activas, cero permisos CRUD públicos. Se conservaron 103 movimientos (102 de tarjeta) como heredados sin inventar compra/ciclo; los dos recordatorios quedaron con fecha calendario explícita. No se reinició la base.
+
+Publicación: ambos proveedores siguen main y se verifican sus SHA después del push. Los campos y el formulario son compatibles con una API anterior durante el despliegue. Ante fallos, conservar el esquema aditivo y los datos; no hacer reset ni una reclasificación masiva. Una corrección de fechas históricas requiere revisar por separado un diagnóstico concreto y su reversión.

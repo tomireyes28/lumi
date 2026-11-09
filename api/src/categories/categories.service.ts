@@ -1,3 +1,5 @@
+import { serializable } from '../utils/serializable.util';
+import { ownedCategory } from '../utils/category-lock.util';
 import {
   Injectable,
   NotFoundException,
@@ -10,14 +12,6 @@ import { UpdateCategoryDto } from './dto/update-category.dto';
 @Injectable()
 export class CategoriesService {
   constructor(private readonly prisma: PrismaService) {}
-
-  private async getCategoryOrThrow(id: string, userId: string) {
-    const category = await this.prisma.category.findUnique({ where: { id } });
-    if (!category || category.userId !== userId) {
-      throw new NotFoundException('Categoría no encontrada o no autorizada');
-    }
-    return category;
-  }
 
   async create(createCategoryDto: CreateCategoryDto, userId: string) {
     return this.prisma.category.create({
@@ -38,68 +32,52 @@ export class CategoriesService {
     });
   }
 
-  async update(
-    id: string,
-    updateCategoryDto: UpdateCategoryDto,
-    userId: string,
-  ) {
-    const existing = await this.getCategoryOrThrow(id, userId);
-
-    if (
-      updateCategoryDto.type !== undefined &&
-      String(updateCategoryDto.type) !== String(existing.type)
-    ) {
-      const [txCount, budgetCount] = await Promise.all([
-        typeof this.prisma.transaction?.count === 'function'
-          ? this.prisma.transaction.count({ where: { categoryId: id } })
-          : Promise.resolve(0),
-        typeof this.prisma.budget?.count === 'function'
-          ? this.prisma.budget.count({ where: { categoryId: id } })
-          : Promise.resolve(0),
-      ]);
-
-      if (txCount > 0 || budgetCount > 0) {
-        throw new BadRequestException(
-          'No podés cambiar el tipo (ingreso/gasto) de una categoría que ya tiene movimientos o presupuestos asociados.',
-        );
+  async update(id: string, dto: UpdateCategoryDto, userId: string) {
+    return serializable(this.prisma, async (tx) => {
+      const existing = await ownedCategory(tx, id, userId);
+      if (!existing)
+        throw new NotFoundException('Categoría no encontrada o no autorizada');
+      if (dto.type !== undefined && String(dto.type) !== existing.type) {
+        const [movements, budgets] = await Promise.all([
+          tx.transaction.count({ where: { categoryId: id } }),
+          tx.budget.count({ where: { categoryId: id } }),
+        ]);
+        if (movements || budgets)
+          throw new BadRequestException(
+            'No podés cambiar el tipo de una categoría con movimientos o presupuestos.',
+          );
       }
-    }
-
-    return this.prisma.category.update({
-      where: { id },
-      data: updateCategoryDto,
+      return tx.category.update({ where: { id }, data: dto });
     });
   }
-
   async remove(id: string, userId: string) {
-    await this.getCategoryOrThrow(id, userId);
-
-    // VALIDACIÓN DE SEGURIDAD PARA TRANSACCIONES HUÉRFANAS
-    const txCount = await this.prisma.transaction.count({
-      where: { categoryId: id },
-    });
-
-    if (txCount > 0) {
-      throw new BadRequestException(
-        `No podés borrar esta categoría porque tiene ${txCount} movimientos asociados. Editala o borrá los gastos primero.`,
-      );
-    }
-
     try {
-      return await this.prisma.category.delete({
-        where: { id },
+      return await serializable(this.prisma, async (tx) => {
+        const existing = await ownedCategory(tx, id, userId);
+        if (!existing)
+          throw new NotFoundException(
+            'Categoría no encontrada o no autorizada',
+          );
+        const [movements, budgets] = await Promise.all([
+          tx.transaction.count({ where: { categoryId: id } }),
+          tx.budget.count({ where: { categoryId: id } }),
+        ]);
+        if (movements || budgets)
+          throw new BadRequestException(
+            'No podés borrar una categoría con movimientos o presupuestos.',
+          );
+        return tx.category.delete({ where: { id } });
       });
     } catch (error: unknown) {
       if (
+        error &&
         typeof error === 'object' &&
-        error !== null &&
         'code' in error &&
-        (error as { code?: string }).code === 'P2003'
-      ) {
+        error.code === 'P2003'
+      )
         throw new BadRequestException(
-          'No podés borrar esta categoría porque tiene movimientos asociados.',
+          'La categoría tiene movimientos asociados.',
         );
-      }
       throw error;
     }
   }

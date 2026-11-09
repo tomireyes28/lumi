@@ -1,3 +1,5 @@
+import { serializable } from '../utils/serializable.util';
+import { ownedCategory } from '../utils/category-lock.util';
 import {
   Injectable,
   BadRequestException,
@@ -40,43 +42,43 @@ export class BudgetsService {
   constructor(private readonly prisma: PrismaService) {}
 
   async upsert(userId: string, dto: CreateBudgetDto) {
-    const { categoryId, amount } = dto;
+    return serializable(this.prisma, async (tx) => {
+      const { categoryId, amount } = dto;
 
-    // 0. Anti-IDOR: Validamos que la categoría exista, sea de gasto y pertenezca al usuario
-    const category = await this.prisma.category.findUnique({
-      where: { id: categoryId },
-    });
+      // 0. Anti-IDOR: Validamos que la categoría exista, sea de gasto y pertenezca al usuario
+      const category = await ownedCategory(tx, categoryId, userId);
 
-    if (!category || category.userId !== userId) {
-      throw new BadRequestException(
-        'La categoría especificada no existe o no pertenece a tu usuario.',
-      );
-    }
+      if (!category || category.userId !== userId) {
+        throw new BadRequestException(
+          'La categoría especificada no existe o no pertenece a tu usuario.',
+        );
+      }
 
-    if (category.type !== 'expense') {
-      throw new BadRequestException(
-        'Solo se pueden definir presupuestos para categorías de gasto.',
-      );
-    }
+      if (category.type !== 'expense') {
+        throw new BadRequestException(
+          'Solo se pueden definir presupuestos para categorías de gasto.',
+        );
+      }
 
-    return this.prisma.budget.upsert({
-      where: {
-        userId_categoryId: {
+      return tx.budget.upsert({
+        where: {
+          userId_categoryId: {
+            userId,
+            categoryId,
+          },
+        },
+        update: {
+          amount,
+        },
+        create: {
           userId,
           categoryId,
+          amount,
         },
-      },
-      update: {
-        amount,
-      },
-      create: {
-        userId,
-        categoryId,
-        amount,
-      },
-      include: {
-        category: true,
-      },
+        include: {
+          category: true,
+        },
+      });
     });
   }
 

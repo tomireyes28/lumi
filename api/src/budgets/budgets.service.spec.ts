@@ -6,6 +6,8 @@ import { BadRequestException, NotFoundException } from '@nestjs/common';
 describe('BudgetsService', () => {
   let service: BudgetsService;
   let prisma: {
+    $transaction: jest.Mock;
+    $queryRaw: jest.Mock;
     category: { findUnique: jest.Mock };
     budget: {
       upsert: jest.Mock;
@@ -20,6 +22,8 @@ describe('BudgetsService', () => {
 
   beforeEach(async () => {
     prisma = {
+      $transaction: jest.fn((fn: (tx: unknown) => unknown) => fn(prisma)),
+      $queryRaw: jest.fn().mockResolvedValue([]),
       category: { findUnique: jest.fn() },
       budget: {
         upsert: jest.fn(),
@@ -31,10 +35,7 @@ describe('BudgetsService', () => {
     };
 
     const module: TestingModule = await Test.createTestingModule({
-      providers: [
-        BudgetsService,
-        { provide: PrismaService, useValue: prisma },
-      ],
+      providers: [BudgetsService, { provide: PrismaService, useValue: prisma }],
     }).compile();
 
     service = module.get<BudgetsService>(BudgetsService);
@@ -107,19 +108,34 @@ describe('BudgetsService', () => {
           id: 'b-1',
           categoryId: 'cat-1',
           amount: 10000,
-          category: { id: 'cat-1', name: 'Super', colorHex: '#fff', icon: 'cart' },
+          category: {
+            id: 'cat-1',
+            name: 'Super',
+            colorHex: '#fff',
+            icon: 'cart',
+          },
         },
         {
           id: 'b-2',
           categoryId: 'cat-2',
           amount: 5000,
-          category: { id: 'cat-2', name: 'Ocio', colorHex: '#fff', icon: 'film' },
+          category: {
+            id: 'cat-2',
+            name: 'Ocio',
+            colorHex: '#fff',
+            icon: 'film',
+          },
         },
         {
           id: 'b-3',
           categoryId: 'cat-3',
           amount: 2000,
-          category: { id: 'cat-3', name: 'Cafe', colorHex: '#fff', icon: 'coffee' },
+          category: {
+            id: 'cat-3',
+            name: 'Cafe',
+            colorHex: '#fff',
+            icon: 'coffee',
+          },
         },
       ]);
 
@@ -156,7 +172,12 @@ describe('BudgetsService', () => {
           id: 'b-edge',
           categoryId: 'cat-edge',
           amount: 100,
-          category: { id: 'cat-edge', name: 'Super', colorHex: '#fff', icon: 'cart' },
+          category: {
+            id: 'cat-edge',
+            name: 'Super',
+            colorHex: '#fff',
+            icon: 'cart',
+          },
         },
       ]);
       prisma.transaction.findMany.mockResolvedValue([
@@ -190,7 +211,9 @@ describe('BudgetsService', () => {
 
       const result = await service.remove('b-own', mockUserId);
       expect(result).toEqual({ id: 'b-own' });
-      expect(prisma.budget.delete).toHaveBeenCalledWith({ where: { id: 'b-own' } });
+      expect(prisma.budget.delete).toHaveBeenCalledWith({
+        where: { id: 'b-own' },
+      });
     });
   });
 });

@@ -114,7 +114,14 @@ export function TransactionList({
                           )}
                         </div>
                         <p className="text-xs text-gray-500 truncate">
-                          {t.note || "Sin detalles"} • {formattedDate}
+                          {t.note || "Sin detalles"} • Imputado {formattedDate}
+                          {t.purchaseDate && t.purchaseDate !== t.date
+                            ? " · Compra " +
+                              new Date(t.purchaseDate).toLocaleDateString(
+                                "es-AR",
+                                { timeZone: BUSINESS_TIMEZONE },
+                              )
+                            : ""}
                           {t.statementMonth
                             ? " · Resumen " +
                               t.statementMonth +

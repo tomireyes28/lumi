@@ -59,6 +59,11 @@ jobs:
     strategy:
       matrix:
         postgres: ['16', '17']
+        include:
+          - postgres: '16'
+            timezone: UTC
+          - postgres: '17'
+            timezone: America/Argentina/Buenos_Aires
     services:
       postgres:
         image: postgres:${{ matrix.postgres }}-alpine
@@ -78,6 +83,7 @@ jobs:
         working-directory: ./api
     env:
       TEST_DATABASE_URL: postgresql://lumi_test:lumi_test_ci_only@127.0.0.1:5432/lumi_test_admin
+      TZ: ${{ matrix.timezone }}
       DATABASE_URL: postgresql://lumi_test:lumi_test_ci_only@127.0.0.1:5432/lumi_test_admin
       DIRECT_URL: postgresql://lumi_test:lumi_test_ci_only@127.0.0.1:5432/lumi_test_admin
     steps:
@@ -120,7 +126,7 @@ jobs:
         run: npm run lint
 
       - name: Test HttpOnly session boundary and CSRF
-        run: npm run test:bff
+        run: npm run test:bff && npm run test:dates
 
       - name: Run TypeScript Typecheck
         run: npm run typecheck

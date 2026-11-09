@@ -11,7 +11,8 @@
     "start": "next start",
     "lint": "eslint",
     "typecheck": "tsc --noEmit --incremental false",
-    "test:bff": "node --test test/bff.test.cjs"
+    "test:bff": "node --test test/bff.test.cjs",
+    "test:dates": "node --test test/business-date.test.cjs"
   },
   "dependencies": {
     "date-fns": "^4.1.0",

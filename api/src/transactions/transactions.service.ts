@@ -1,3 +1,4 @@
+import { ownedCategory } from '../utils/category-lock.util';
 import { serializable } from '../utils/serializable.util';
 import {
   Injectable,
@@ -21,72 +22,108 @@ export class TransactionsService {
   constructor(private readonly prisma: PrismaService) {}
 
   async create(createTransactionDto: CreateTransactionDto, userId: string) {
-    const { installments, amount, date, note, creditCardId, categoryId } =
-      createTransactionDto;
-    const startDate = date ? parseLocalDate(date) : new Date();
+    return serializable(this.prisma, async (tx) => {
+      const { installments, amount, date, note, creditCardId, categoryId } =
+        createTransactionDto;
+      const startDate = date ? parseLocalDate(date) : new Date();
 
-    // 0. Verificamos que la categoría pertenezca al usuario autenticado (anti-IDOR)
-    const category = await this.prisma.category.findUnique({
-      where: { id: categoryId },
-    });
-    if (!category || category.userId !== userId) {
-      throw new BadRequestException(
-        'La categoría especificada no existe o no pertenece a tu usuario.',
-      );
-    }
-
-    if (
-      category.type === 'income' &&
-      (creditCardId || (installments && installments > 1))
-    ) {
-      throw new BadRequestException(
-        'Los ingresos no pueden asociarse a una tarjeta de crédito ni dividirse en cuotas.',
-      );
-    }
-
-    if (installments && installments > 1 && !creditCardId) {
-      throw new BadRequestException(
-        'Las compras en cuotas requieren asociar una tarjeta de crédito.',
-      );
-    }
-
-    if (
-      installments &&
-      installments > 1 &&
-      Math.round(amount * 100) < installments
-    ) {
-      throw new BadRequestException(
-        'El monto total debe alcanzar para al menos $0,01 por cada cuota.',
-      );
-    }
-
-    let creditCard: {
-      id?: string;
-      userId: string;
-      closingDay?: number;
-      dueDay?: number;
-      cycles?: CustomCycleDateRef[];
-    } | null = null;
-
-    if (creditCardId) {
-      creditCard = await this.prisma.creditCard.findUnique({
-        where: { id: creditCardId },
-        include: { cycles: true },
-      });
-      if (!creditCard || creditCard.userId !== userId) {
+      // 0. Verificamos que la categoría pertenezca al usuario autenticado (anti-IDOR)
+      const category = await ownedCategory(tx, categoryId, userId);
+      if (!category || category.userId !== userId) {
         throw new BadRequestException(
-          'La tarjeta especificada no existe o no pertenece a tu usuario.',
+          'La categoría especificada no existe o no pertenece a tu usuario.',
         );
       }
-    }
 
-    const paymentMethod = creditCardId ? 'credit_card' : 'cash';
+      if (
+        category.type === 'income' &&
+        (creditCardId || (installments && installments > 1))
+      ) {
+        throw new BadRequestException(
+          'Los ingresos no pueden asociarse a una tarjeta de crédito ni dividirse en cuotas.',
+        );
+      }
 
-    // 1. SI ES UN MOVIMIENTO NORMAL (Sin cuotas o 1 sola cuota)
-    if (!installments || installments <= 1) {
-      const temporal = InstallmentCalculator.calculate({
+      if (installments && installments > 1 && !creditCardId) {
+        throw new BadRequestException(
+          'Las compras en cuotas requieren asociar una tarjeta de crédito.',
+        );
+      }
+
+      if (
+        installments &&
+        installments > 1 &&
+        Math.round(amount * 100) < installments
+      ) {
+        throw new BadRequestException(
+          'El monto total debe alcanzar para al menos $0,01 por cada cuota.',
+        );
+      }
+
+      let creditCard: {
+        id?: string;
+        userId: string;
+        closingDay?: number;
+        dueDay?: number;
+        cycles?: CustomCycleDateRef[];
+      } | null = null;
+
+      if (creditCardId) {
+        creditCard = await tx.creditCard.findUnique({
+          where: { id: creditCardId },
+          include: { cycles: true },
+        });
+        if (!creditCard || creditCard.userId !== userId) {
+          throw new BadRequestException(
+            'La tarjeta especificada no existe o no pertenece a tu usuario.',
+          );
+        }
+      }
+
+      const paymentMethod = creditCardId ? 'credit_card' : 'cash';
+
+      // 1. SI ES UN MOVIMIENTO NORMAL (Sin cuotas o 1 sola cuota)
+      if (!installments || installments <= 1) {
+        const temporal = InstallmentCalculator.calculate({
+          amount,
+          installments: 1,
+          startDate,
+          userId,
+          categoryId,
+          creditCardId,
+          closingDay: creditCard?.closingDay,
+          dueDay: creditCard?.dueDay,
+          customCycles: creditCard?.cycles,
+          note,
+        }).transactionsData[0];
+        return tx.transaction.create({
+          data: {
+            amount,
+            note,
+            date: temporal.date,
+            purchaseDate: startDate,
+            referenceDate: startDate,
+            statementYear: temporal.statementYear,
+            statementMonth: temporal.statementMonth,
+            statementClosingDate: temporal.statementClosingDate,
+            paymentDueDate: temporal.paymentDueDate,
+            installmentNumber: 1,
+            installmentCount: 1,
+            paymentMethod,
+            user: { connect: { id: userId } },
+            category: { connect: { id: categoryId } },
+            ...(creditCardId && {
+              creditCard: { connect: { id: creditCardId } },
+            }),
+          },
+          include: { category: true, creditCard: true },
+        });
+      }
+
+      // 2. SI ES UN GASTO EN CUOTAS (Delegado al motor InstallmentCalculator con cierre de tarjeta)
+      const { groupId, transactionsData } = InstallmentCalculator.calculate({
         amount,
-        installments: 1,
+        installments,
         startDate,
         userId,
         categoryId,
@@ -95,53 +132,17 @@ export class TransactionsService {
         dueDay: creditCard?.dueDay,
         customCycles: creditCard?.cycles,
         note,
-      }).transactionsData[0];
-      return this.prisma.transaction.create({
-        data: {
-          amount,
-          note,
-          date: temporal.date,
-          purchaseDate: startDate,
-          referenceDate: startDate,
-          statementYear: temporal.statementYear,
-          statementMonth: temporal.statementMonth,
-          statementClosingDate: temporal.statementClosingDate,
-          paymentDueDate: temporal.paymentDueDate,
-          installmentNumber: 1,
-          installmentCount: 1,
-          paymentMethod,
-          user: { connect: { id: userId } },
-          category: { connect: { id: categoryId } },
-          ...(creditCardId && {
-            creditCard: { connect: { id: creditCardId } },
-          }),
-        },
+      });
+
+      await tx.transaction.createMany({
+        data: transactionsData,
+      });
+
+      return tx.transaction.findFirst({
+        where: { installmentGroupId: groupId },
+        orderBy: { date: 'asc' },
         include: { category: true, creditCard: true },
       });
-    }
-
-    // 2. SI ES UN GASTO EN CUOTAS (Delegado al motor InstallmentCalculator con cierre de tarjeta)
-    const { groupId, transactionsData } = InstallmentCalculator.calculate({
-      amount,
-      installments,
-      startDate,
-      userId,
-      categoryId,
-      creditCardId,
-      closingDay: creditCard?.closingDay,
-      dueDay: creditCard?.dueDay,
-      customCycles: creditCard?.cycles,
-      note,
-    });
-
-    await this.prisma.transaction.createMany({
-      data: transactionsData,
-    });
-
-    return this.prisma.transaction.findFirst({
-      where: { installmentGroupId: groupId },
-      orderBy: { date: 'asc' },
-      include: { category: true, creditCard: true },
     });
   }
 
@@ -212,6 +213,10 @@ export class TransactionsService {
           'Transacción no encontrada o no autorizada',
         );
       const categoryId = dto.categoryId ?? existing.categoryId;
+      for (const idToLock of [
+        ...new Set([existing.categoryId, categoryId]),
+      ].sort())
+        await ownedCategory(tx, idToLock, userId);
       const category = await tx.category.findUnique({
         where: { id: categoryId },
       });
@@ -248,6 +253,11 @@ export class TransactionsService {
       if (dto.creditCardId !== undefined) {
         data.creditCardId = cardId;
         data.paymentMethod = method;
+        if (method === 'cash') {
+          data.installmentGroupId = null;
+          data.installmentNumber = null;
+          data.installmentCount = null;
+        }
       }
       if (
         dto.date !== undefined ||
