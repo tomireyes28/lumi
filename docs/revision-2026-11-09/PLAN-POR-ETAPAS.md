@@ -18,7 +18,7 @@ Los hallazgos ya cerrados —F01 runtime, F02, F04, F06, F07, F10 secuencial y F
 
 | Etapa | Resultado esperado | Commits | Publicación del autor |
 |---|---|---:|---|
-| 1 | Historial de base y release reproducibles | C01–C02 | Push 1, tras comprobar Supabase |
+| 1 | Historial de base, release y tablas privadas | C01–C02 + C02b | Push 1, tras comprobar Supabase |
 | 2 | Sesiones y OAuth resistentes a reinicios y vinculación | C03–C07 | Push 2, con corte de sesión comunicado |
 | 3 | Fechas, cuotas y edición con una política coherente | C08–C12 | Push 3, con esquema aditivo previamente validado |
 | 4 | Recurrencia, forecast y notificaciones consistentes | C13–C15 | Push 4, tras validar ocurrencias y jobs |
@@ -48,7 +48,11 @@ Los hallazgos ya cerrados —F01 runtime, F02, F04, F06, F07, F10 secuencial y F
 
 **Listo cuando:** instalación nueva y upgrade pasan; el histórico real tiene una explicación verificable y no se pide reset de producción.
 
-**Punto de push 1:** ambos builds y checks actuales pasan, se ensaya la migración en entorno aislado y el autor revisa el runbook. No correr `migrate reset`, `db push --accept-data-loss` ni borrar `_prisma_migrations` para hacer desaparecer diferencias.
+### C02b — `fix(security): cerrar acceso directo a tablas de Supabase`
+
+Corrección añadida tras comprobar permisos efectivos en producción y confirmar con el autor que todo acceso pasa por Railway/Prisma. Una migración nueva habilita RLS sin políticas públicas, revoca permisos de PUBLIC/anon/authenticated en las tablas de Lumi y su historial y retira grants por defecto del rol creador para tablas futuras. No cambia datos ni fuerza RLS al propietario. Probar acceso denegado a los dos roles públicos, defensa RLS ante un grant accidental y CRUD de Prisma conservado.
+
+**Punto de push 1:** ambos builds y checks actuales pasan y se ensaya la migración en entorno aislado. Por instrucción posterior del autor, Codex hace el push al terminar esta etapa. No correr `migrate reset`, `db push --accept-data-loss` ni borrar `_prisma_migrations` para hacer desaparecer diferencias. El autor autoriza prescindir del backup de producción; se conserva un ensayo sintético de restauración y se documentan las opciones privadas de proveedores que no pudieron acreditarse.
 
 ## Etapa 2 · Autenticación y sesión persistentes
 

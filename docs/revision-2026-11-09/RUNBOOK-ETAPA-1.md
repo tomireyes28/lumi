@@ -74,3 +74,19 @@ El ensayo sintético no acredita un backup de Supabase ni recupera datos reales.
 Ante fallo de código, revertir el commit específico y publicar nuevamente, conservando el esquema compatible. Ante fallo de migración, inspeccionar el error y el estado real; no usar reset, db push destructivo, borrar `_prisma_migrations` ni marcar una migración como aplicada a ciegas. Un rollback de frontend/API no debe reabrir grants públicos. El cierre de permisos es transaccional y limita cuánto espera por locks; no modifica filas ni importes.
 
 Referencias: [RLS y bypass del propietario](https://www.postgresql.org/docs/17/ddl-rowsecurity.html), [privilegios por defecto y alcance global/esquema](https://www.postgresql.org/docs/16/sql-alterdefaultprivileges.html).
+
+## Corrección de acceso directo
+
+`20261109000000_close_direct_database_access` habilita RLS y revoca todos los permisos de PUBLIC y de los dos roles de API existentes sobre las ocho tablas revisadas. También revoca defaults globales y de esquema para tablas creadas por el rol que ejecuta la migración. No altera roles de Supabase, el esquema auth/storage, ni otras tablas. No agrega políticas que permitan acceso desde el navegador.
+
+Prisma sigue accediendo como propietario/BYPASSRLS. Esto protege la vía directa de Supabase; el aislamiento entre usuarios de Lumi continúa dependiendo de las autorizaciones de la API. Una futura migración que use otro rol creador debe revisar sus defaults y habilitar RLS para sus tablas. Una futura integración con Supabase Auth/REST necesita diseñar políticas expresas antes de conceder acceso.
+
+La regresión reproduce los grants públicos observados y prueba SELECT sobre las ocho tablas y rechazo de INSERT/UPDATE/DELETE/TRUNCATE para los roles de API. Además prueba una concesión SELECT/INSERT accidental con RLS activo, privacidad de una tabla futura, migrate deploy repetido y CRUD real con Prisma. La aplicación de esta migración en Supabase y los SHA finales se comprueban al publicar; no inferir su aplicación del mero hecho de versionar el SQL.
+
+## Resultado previo al push
+
+El 09/11/2026 se aplicó la migración nueva mediante Prisma migrate deploy, después de pasar sus regresiones con PostgreSQL 16 y 17.6. La inspección posterior de Supabase confirmó ocho migraciones aplicadas, ninguna pendiente, cero divergencias de checksum activas, RLS en las ocho tablas revisadas y ningún permiso CRUD para las 16 combinaciones tabla/rol público. Los grants públicos por defecto del rol creador quedaron vacíos. Los conteos de las siete tablas de dominio y las sumas de Transaction/Reminder/Budget coincidieron antes y después. No se reinició la base.
+
+Validación local: API lint/typecheck/build, 73 unitarios, 3 pruebas HTTP; web lint/typecheck/build; cinco escenarios de integración por cada versión PostgreSQL, todos aprobados. Next requirió limpiar exclusivamente su caché generada `.next` tras un fallo local de Turbopack; no se modificó la aplicación para evitar el compilador. El aviso existente de `middleware` de Next queda en la etapa 6.
+
+Después del push deben quedar aprobados los cuatro jobs de CI (API, Web, PostgreSQL 16 y 17), ambos proveedores deben publicar la misma revisión y `/health` debe mantener la conexión. Usar los comandos de este documento para repetir la comprobación. La configuración privada de bloqueo por CI y los comandos efectivos del panel siguen sin acreditarse; la operación de esta etapa usa validación local previa, migrate deploy controlado y comprobación posterior del despliegue.

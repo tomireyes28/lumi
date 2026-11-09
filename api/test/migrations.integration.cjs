@@ -30,6 +30,12 @@ function isolatedUrl(value) {
     'Set TEST_DATABASE_URL explicitly; production URLs are never a fallback',
   );
   const url = new URL(value);
+  assert.ok(['postgres:', 'postgresql:'].includes(url.protocol));
+  assert.equal(
+    url.search,
+    '',
+    'Query options could override the validated connection host',
+  );
   assert.ok(
     ['localhost', '127.0.0.1', '[::1]'].includes(url.hostname),
     'Tests require loopback PostgreSQL',
@@ -54,7 +60,12 @@ after(async () => {
     }
     await admin.end();
   }
-  if (sandbox) await fs.rm(sandbox, { recursive: true, force: true });
+  if (sandbox) {
+    const resolved = await fs.realpath(sandbox);
+    assert.equal(path.dirname(resolved), await fs.realpath(os.tmpdir()));
+    assert.match(path.basename(resolved), /^lumi-migrations-[a-z0-9]+$/i);
+    await fs.rm(resolved, { recursive: true, force: true });
+  }
 });
 
 async function database() {
@@ -415,4 +426,137 @@ test('a synthetic backup restores data, schema, trigger and migration history', 
     );
   });
   await deploy(target);
+});
+
+test('Supabase API roles lose direct access while Prisma retains CRUD and future tables stay private', async () => {
+  // This cluster is disposable. The migration itself never creates or alters roles.
+  await admin.query(`DO $$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname='anon') THEN CREATE ROLE anon NOLOGIN NOBYPASSRLS; END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname='authenticated') THEN CREATE ROLE authenticated NOLOGIN NOBYPASSRLS; END IF;
+  END $$;`);
+  const url = await database();
+  await deploy(url, true);
+  await withSql(url, async (client) => {
+    await seedLegacy(client);
+    // Reproduce the observed grants, including global + per-schema defaults.
+    await client.query(`GRANT ALL ON ALL TABLES IN SCHEMA public TO PUBLIC, anon, authenticated;
+      ALTER DEFAULT PRIVILEGES GRANT ALL ON TABLES TO PUBLIC, anon, authenticated;
+      ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO PUBLIC, anon, authenticated;`);
+    const before = await inspectDatabase(client);
+    assert.ok(
+      before.permissions.every(
+        (p) => p.can_select && p.can_insert && !p.rls_enabled,
+      ),
+    );
+    assert.ok(
+      releaseIssues(before).includes('Public roles still have database access'),
+    );
+  });
+  await deploy(url);
+  await deploy(url); // Migration bookkeeping still works with RLS on its own table.
+  await withSql(url, async (client) => {
+    const report = await inspectDatabase(client);
+    assert.equal(report.permissions.length, 16);
+    assert.deepEqual(releaseIssues(report), []);
+    assert.ok(
+      report.permissions.every(
+        (p) =>
+          p.rls_enabled &&
+          !p.force_rls &&
+          !p.can_select &&
+          !p.can_insert &&
+          !p.can_update &&
+          !p.can_delete,
+      ),
+    );
+    assert.deepEqual(report.defaultPublicGrants, []);
+    for (const role of ['anon', 'authenticated']) {
+      await client.query(`SET ROLE "${role}"`);
+      try {
+        for (const table of new Set(
+          report.permissions.map((p) => p.table_name),
+        )) {
+          await assert.rejects(
+            client.query(`SELECT * FROM public."${table}" LIMIT 1`),
+            { code: '42501' },
+          );
+        }
+        await assert.rejects(
+          client.query(
+            `INSERT INTO "User" (id,name,email) VALUES ('intruder','Synthetic','intruder@example.invalid')`,
+          ),
+          { code: '42501' },
+        );
+        await assert.rejects(
+          client.query(
+            `UPDATE "User" SET name='Changed' WHERE id='legacy-user'`,
+          ),
+          { code: '42501' },
+        );
+        await assert.rejects(
+          client.query(`DELETE FROM "User" WHERE id='legacy-user'`),
+          { code: '42501' },
+        );
+        await assert.rejects(client.query(`TRUNCATE "Transaction"`), {
+          code: '42501',
+        });
+      } finally {
+        await client.query('RESET ROLE');
+      }
+    }
+    // RLS is a second barrier if someone accidentally re-grants table access.
+    await client.query('GRANT SELECT,INSERT ON "User" TO anon');
+    await client.query('SET ROLE anon');
+    try {
+      assert.deepEqual((await client.query('SELECT * FROM "User"')).rows, []);
+      await assert.rejects(
+        client.query(
+          `INSERT INTO "User" (id,name,email) VALUES ('intruder','Synthetic','intruder@example.invalid')`,
+        ),
+        { code: '42501' },
+      );
+    } finally {
+      await client.query('RESET ROLE');
+    }
+    await client.query('REVOKE ALL ON "User" FROM anon');
+    await client.query(
+      'CREATE TABLE "FuturePrivateTable" (id text PRIMARY KEY)',
+    );
+    for (const role of ['anon', 'authenticated']) {
+      assert.equal(
+        (
+          await client.query(
+            "SELECT has_table_privilege($1, 'public.\"FuturePrivateTable\"', 'SELECT') AS allowed",
+            [role],
+          )
+        ).rows[0].allowed,
+        false,
+      );
+    }
+  });
+  const prisma = new PrismaClient({
+    adapter: new PrismaPg({ connectionString: url }),
+  });
+  try {
+    assert.equal((await prisma.transaction.findMany()).length, 2);
+    const user = await prisma.user.create({
+      data: { name: 'Owner access', email: 'owner@example.invalid' },
+    });
+    assert.equal(
+      (
+        await prisma.user.update({
+          where: { id: user.id },
+          data: { name: 'Updated owner access' },
+        })
+      ).name,
+      'Updated owner access',
+    );
+    await prisma.user.delete({ where: { id: user.id } });
+    assert.equal(
+      await prisma.user.findUnique({ where: { id: user.id } }),
+      null,
+    );
+  } finally {
+    await prisma.$disconnect();
+  }
 });
