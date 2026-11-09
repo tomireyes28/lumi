@@ -153,6 +153,7 @@ describe('AnalyticsService - Forecast', () => {
       expect(plan.concept).toBe('Heladera');
       expect(plan.totalInstallments).toBe(3);
       expect(plan.remainingInstallments).toBe(3);
+      expect(plan.elapsedInstallments).toBe(0);
       expect(plan.remainingAmount).toBe(60000);
       expect(plan.creditCard?.alias).toBe('Visa Macro');
       expect(forecast.totalFutureDebt).toBe(60000);
@@ -228,7 +229,7 @@ describe('AnalyticsService - Forecast', () => {
       expect(forecast.forecastTimeline[2].fixedExpenses).toBe(40000);
     });
 
-    it('should report 100% commitment ratio when income is 0 and there are committed obligations', async () => {
+    it('should return unavailable ratio when income is zero with obligations', async () => {
       const now = new Date();
       const currentYear = now.getFullYear();
       const currentMonth = now.getMonth();
@@ -251,7 +252,65 @@ describe('AnalyticsService - Forecast', () => {
 
       const forecast = await service.getForecast(mockUserId, 3);
       expect(forecast.estimatedMonthlyIncome).toBe(0);
-      expect(forecast.averageCommitmentRatio).toBe(100);
+      expect(forecast.averageCommitmentRatio).toBeNull();
+      expect(forecast.ratioStatus).toBe('no_income');
+    });
+
+    it.each([3, 6, 12])(
+      'keeps current income independent of a %s month horizon',
+      async (horizon) => {
+        prisma.transaction.findMany
+          .mockResolvedValueOnce([])
+          .mockResolvedValueOnce([
+            {
+              amount: 100,
+              date: new Date('2026-11-05T15:00:00Z'),
+              category: { type: 'income' },
+            },
+            {
+              amount: 900,
+              date: new Date('2026-12-05T15:00:00Z'),
+              category: { type: 'income' },
+            },
+          ])
+          .mockResolvedValueOnce([]);
+        prisma.reminder.findMany.mockResolvedValue([
+          {
+            amount: 150,
+            dueDate: new Date('2026-11-20T15:00:00Z'),
+            isPaid: false,
+          },
+        ]);
+        const result = await service.getForecast(
+          mockUserId,
+          horizon,
+          new Date('2026-11-09T15:00:00Z'),
+        );
+        expect(result.estimatedMonthlyIncome).toBe(100);
+        expect(result.forecastTimeline[0].commitmentRatio).toBe(150);
+        expect(result.forecastTimeline[0].ratioStatus).toBe('available');
+      },
+    );
+    it('does not treat future-only income as the current income base', async () => {
+      prisma.transaction.findMany
+        .mockResolvedValueOnce([])
+        .mockResolvedValueOnce([
+          {
+            amount: 900,
+            date: new Date('2026-12-05T15:00:00Z'),
+            category: { type: 'income' },
+          },
+        ])
+        .mockResolvedValueOnce([]);
+      prisma.reminder.findMany.mockResolvedValue([]);
+      const result = await service.getForecast(
+        mockUserId,
+        12,
+        new Date('2026-11-09T15:00:00Z'),
+      );
+      expect(result.estimatedMonthlyIncome).toBe(0);
+      expect(result.forecastTimeline[0].commitmentRatio).toBeNull();
+      expect(result.averageCommitmentRatio).toBeNull();
     });
   });
 });

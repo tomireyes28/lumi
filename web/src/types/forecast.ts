@@ -8,7 +8,8 @@ export interface ForecastMonthItem {
   totalCommitted: number;
   estimatedIncome: number;
   projectedNetCashflow: number;
-  commitmentRatio: number;
+  commitmentRatio: number | null;
+  ratioStatus: 'available' | 'no_income';
   installments: {
     id: string;
     note: string;
@@ -21,6 +22,7 @@ export interface ActivePlanItem {
   groupId: string;
   concept: string;
   totalInstallments: number;
+  elapsedInstallments?: number;
   paidInstallments: number;
   remainingInstallments: number;
   installmentAmount: number;
@@ -42,7 +44,8 @@ export interface CashflowForecastResponse {
   estimatedMonthlyIncome: number;
   totalFutureDebt: number;
   debtFreePeriod: string | null;
-  averageCommitmentRatio: number;
+  averageCommitmentRatio: number | null;
+  ratioStatus: 'available' | 'no_income';
   forecastTimeline: ForecastMonthItem[];
   activePlans: ActivePlanItem[];
 }

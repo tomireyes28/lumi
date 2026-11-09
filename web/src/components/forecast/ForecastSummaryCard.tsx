@@ -8,14 +8,15 @@ interface ForecastSummaryCardProps {
 }
 
 export function ForecastSummaryCard({ data, itemVariants }: ForecastSummaryCardProps) {
+  const ratio = data.estimatedMonthlyIncome > 0 ? data.averageCommitmentRatio : null;
   const hasNoIncomeWithDebt =
     data.estimatedMonthlyIncome <= 0 &&
-    (data.totalFutureDebt > 0 || data.averageCommitmentRatio > 0);
-  const isHighCommitment = hasNoIncomeWithDebt || data.averageCommitmentRatio > 45;
-  const isModerate = data.averageCommitmentRatio >= 25 && !isHighCommitment;
+    (data.totalFutureDebt > 0 || data.forecastTimeline.some((month) => month.totalCommitted > 0));
+  const isHighCommitment = hasNoIncomeWithDebt || (ratio ?? 0) > 45;
+  const isModerate = (ratio ?? 0) >= 25 && !isHighCommitment;
 
   let ratioBadge = 'bg-emerald-50 text-emerald-700 border-emerald-200';
-  let ratioText = 'Compromiso Saludable';
+  let ratioText = ratio === null ? 'Sin ingresos registrados' : 'Compromiso Saludable';
   if (hasNoIncomeWithDebt) {
     ratioBadge = 'bg-rose-50 text-rose-700 border-rose-200';
     ratioText = 'Sin ingresos registrados';
@@ -46,7 +47,7 @@ export function ForecastSummaryCard({ data, itemVariants }: ForecastSummaryCardP
         </div>
 
         <div className={`px-3 py-1 rounded-full text-xs font-bold border ${ratioBadge}`}>
-          {data.averageCommitmentRatio}% del ingreso
+          {ratio === null ? 'Sin base de ingresos' : `${ratio}% del ingreso`}
         </div>
       </div>
 

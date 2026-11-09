@@ -18,7 +18,8 @@ export interface ForecastTimelineItem {
   totalCommitted: number;
   estimatedIncome: number;
   projectedNetCashflow: number;
-  commitmentRatio: number;
+  commitmentRatio: number | null;
+  ratioStatus: 'available' | 'no_income';
   installments: {
     id: string;
     note: string;
@@ -31,6 +32,8 @@ export interface ActivePlanItem {
   groupId: string;
   concept: string;
   totalInstallments: number;
+  elapsedInstallments: number;
+  /** @deprecated Compatibility alias: elapsed, not confirmed paid. */
   paidInstallments: number;
   remainingInstallments: number;
   installmentAmount: number;
@@ -245,7 +248,18 @@ export class AnalyticsService {
     } else {
       // Si no hay historial de meses previos, revisamos si hubo ingresos en el mes corriente
       const currentMonthIncome = futureTransactions
-        .filter((tx) => tx.category?.type === 'income')
+        .filter(
+          (tx) =>
+            tx.category?.type === 'income' &&
+            tx.date >= currentMonthStart &&
+            tx.date <
+              businessDate(
+                getCalendarDayParts(now).year,
+                getCalendarDayParts(now).monthIndex + 1,
+                1,
+                0,
+              ),
+        )
         .reduce((acc, tx) => acc + Number(tx.amount), 0);
       estimatedMonthlyIncome = Math.round(currentMonthIncome * 100) / 100;
     }
@@ -321,11 +335,9 @@ export class AnalyticsService {
       const commitmentRatio =
         estimatedMonthlyIncome > 0
           ? Math.round((totalCommitted / estimatedMonthlyIncome) * 100)
-          : totalCommitted > 0
-            ? 100
-            : 0;
+          : null;
 
-      totalCommitmentRatioSum += commitmentRatio;
+      totalCommitmentRatioSum += commitmentRatio ?? 0;
 
       forecastTimeline.push({
         period: `${m.toString().padStart(2, '0')}/${y}`,
@@ -338,6 +350,7 @@ export class AnalyticsService {
         estimatedIncome: estimatedMonthlyIncome,
         projectedNetCashflow,
         commitmentRatio,
+        ratioStatus: commitmentRatio === null ? 'no_income' : 'available',
         installments: monthInstallmentTx.map((tx) => ({
           id: tx.id,
           note: tx.note || 'Compra en cuotas',
@@ -367,7 +380,7 @@ export class AnalyticsService {
           (b.paymentDueDate ?? b.date).getTime(),
       );
       const totalInstallments = txs.length;
-      const paidTxs = txs.filter(
+      const elapsedTxs = txs.filter(
         (tx) => (tx.paymentDueDate ?? tx.date) < currentMonthStart,
       );
       const remainingTxs = txs.filter(
@@ -401,19 +414,22 @@ export class AnalyticsService {
         const finishMonth =
           getCalendarDayParts(lastTx.paymentDueDate ?? lastTx.date).monthIndex +
           1;
-        const finishYear = getCalendarDayParts(lastTx.date).year;
+        const finishYear = getCalendarDayParts(
+          lastTx.paymentDueDate ?? lastTx.date,
+        ).year;
 
         activePlans.push({
           groupId,
           concept: cleanConcept || 'Compra en cuotas',
           totalInstallments,
-          paidInstallments: paidTxs.length,
+          elapsedInstallments: elapsedTxs.length,
+          paidInstallments: elapsedTxs.length,
           remainingInstallments: remainingTxs.length,
           installmentAmount,
           remainingAmount,
           totalAmount,
           completionPercentage: Math.round(
-            (paidTxs.length / totalInstallments) * 100,
+            (elapsedTxs.length / totalInstallments) * 100,
           ),
           finishDate: (lastTx.paymentDueDate ?? lastTx.date).toISOString(),
           finishPeriod: `${MONTH_NAMES[finishMonth - 1]} ${finishYear}`,
@@ -435,17 +451,16 @@ export class AnalyticsService {
       debtFreePeriod = `${MONTH_NAMES[getCalendarDayParts(latestFinishDate).monthIndex]} ${getCalendarDayParts(latestFinishDate).year}`;
     }
 
-    const hasCommittedObligations =
-      totalFutureDebt > 0 ||
-      forecastTimeline.some((item) => item.totalCommitted > 0);
     const averageCommitmentRatio =
-      estimatedMonthlyIncome <= 0 && hasCommittedObligations
-        ? 100
-        : monthsCount > 0
-          ? Math.round(totalCommitmentRatioSum / monthsCount)
-          : 0;
+      estimatedMonthlyIncome > 0 && monthsCount > 0
+        ? Math.round(totalCommitmentRatioSum / monthsCount)
+        : null;
 
     return {
+      ratioStatus:
+        averageCommitmentRatio === null
+          ? ('no_income' as const)
+          : ('available' as const),
       monthsCount,
       hasLegacySchedule: futureTransactions.some(
         (tx) =>
