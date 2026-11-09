@@ -1,55 +1,57 @@
 import { BadRequestException } from '@nestjs/common';
 import {
+  businessDate,
+  clampedBusinessDate,
   getMonthDateRange,
   parseLocalDate,
   getCalendarDayParts,
   isValidCalendarDateString,
+  getBusinessDayRange,
 } from './date.util';
-
-describe('date.util', () => {
-  it('should return start and end date of a given month', () => {
-    const { startDate, endDate } = getMonthDateRange(2026, 3); // Marzo 2026
-
-    expect(startDate.getFullYear()).toBe(2026);
-    expect(startDate.getMonth()).toBe(2); // 0-indexed: 2 = Marzo
-    expect(startDate.getDate()).toBe(1);
-
-    expect(endDate.getFullYear()).toBe(2026);
-    expect(endDate.getMonth()).toBe(3); // 3 = Abril
-    expect(endDate.getDate()).toBe(1);
+describe('business dates (independent of process TZ)', () => {
+  it('uses Buenos Aires month/day boundaries', () => {
+    expect(getMonthDateRange(2026, 3)).toEqual({
+      startDate: new Date('2026-03-01T03:00:00Z'),
+      endDate: new Date('2026-04-01T03:00:00Z'),
+    });
+    expect(getCalendarDayParts(new Date('2026-01-26T01:00:00Z'))).toEqual({
+      year: 2026,
+      monthIndex: 0,
+      day: 25,
+    });
+    expect(getMonthDateRange(2026, 0).startDate.toISOString()).toBe(
+      '2025-12-01T03:00:00.000Z',
+    );
   });
-
-  it('should parse YYYY-MM-DD strings at local noon without shifting day backwards in UTC-3', () => {
-    const parsed = parseLocalDate('2026-09-24');
-    expect(parsed.getFullYear()).toBe(2026);
-    expect(parsed.getMonth()).toBe(8); // Septiembre
-    expect(parsed.getDate()).toBe(24);
-    expect(parsed.getHours()).toBe(12);
+  it('distinguishes a calendar day from an instant and rejects overflow', () => {
+    expect(parseLocalDate('2026-09-24').toISOString()).toBe(
+      '2026-09-24T15:00:00.000Z',
+    );
+    expect(parseLocalDate('2026-01-26T01:00:00Z').toISOString()).toBe(
+      '2026-01-26T01:00:00.000Z',
+    );
+    for (const bad of [
+      '2026-02-31',
+      '2026-01-00',
+      '2026-13-01',
+      '2026-01-26T12:00:00',
+      'not-a-date',
+    ])
+      expect(() => parseLocalDate(bad)).toThrow(BadRequestException);
+    expect(isValidCalendarDateString('2024-02-29')).toBe(true);
+    expect(isValidCalendarDateString('2026-02-29')).toBe(false);
+    expect(clampedBusinessDate(2026, 1, 31).toISOString()).toBe(
+      '2026-02-28T15:00:00.000Z',
+    );
   });
-
-  it('should clamp overflow days in parseLocalDate and reject null/invalid strings', () => {
-    const clamped = parseLocalDate('2026-02-31');
-    expect(clamped.getFullYear()).toBe(2026);
-    expect(clamped.getMonth()).toBe(1); // Febrero
-    expect(clamped.getDate()).toBe(28);
-
-    expect(() => parseLocalDate(null as unknown as string)).toThrow(BadRequestException);
-    expect(() => parseLocalDate('not-a-date')).toThrow(BadRequestException);
-  });
-
-  it('should validate strict calendar date strings accurately', () => {
-    expect(isValidCalendarDateString('2026-02-28')).toBe(true);
-    expect(isValidCalendarDateString('2026-02-31')).toBe(false);
-    expect(isValidCalendarDateString('not-a-date')).toBe(false);
-  });
-
-  it('should extract calendar day parts accurately from both UTC midnight and local noon dates', () => {
-    const utcMidnight = new Date('2026-10-25T00:00:00.000Z');
-    const partsUtc = getCalendarDayParts(utcMidnight);
-    expect(partsUtc).toEqual({ year: 2026, monthIndex: 9, day: 25 });
-
-    const localNoon = new Date(2026, 9, 25, 12, 0, 0);
-    const partsLocal = getCalendarDayParts(localNoon);
-    expect(partsLocal).toEqual({ year: 2026, monthIndex: 9, day: 25 });
+  it('queries a half-open local day across month/year boundaries', () => {
+    expect(getBusinessDayRange(new Date('2026-01-01T01:00:00Z'))).toEqual({
+      dateKey: '2025-12-31',
+      startOfDay: new Date('2025-12-31T03:00:00Z'),
+      endOfDay: new Date('2026-01-01T03:00:00Z'),
+    });
+    expect(businessDate(2024, 1, 29).toISOString()).toBe(
+      '2024-02-29T15:00:00.000Z',
+    );
   });
 });

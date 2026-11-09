@@ -1,7 +1,12 @@
-import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  BadRequestException,
+  NotFoundException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateBudgetDto } from './dto/create-budget.dto';
 import { getMonthDateRange } from '../utils/date.util';
+import { getCalendarDayParts } from '../utils/date.util';
 
 export type BudgetStatus = 'ok' | 'warning' | 'exceeded';
 
@@ -43,11 +48,15 @@ export class BudgetsService {
     });
 
     if (!category || category.userId !== userId) {
-      throw new BadRequestException('La categoría especificada no existe o no pertenece a tu usuario.');
+      throw new BadRequestException(
+        'La categoría especificada no existe o no pertenece a tu usuario.',
+      );
     }
 
     if (category.type !== 'expense') {
-      throw new BadRequestException('Solo se pueden definir presupuestos para categorías de gasto.');
+      throw new BadRequestException(
+        'Solo se pueden definir presupuestos para categorías de gasto.',
+      );
     }
 
     return this.prisma.budget.upsert({
@@ -71,10 +80,14 @@ export class BudgetsService {
     });
   }
 
-  async findAll(userId: string, targetMonth?: number, targetYear?: number): Promise<BudgetsSummaryResponse> {
+  async findAll(
+    userId: string,
+    targetMonth?: number,
+    targetYear?: number,
+  ): Promise<BudgetsSummaryResponse> {
     const now = new Date();
-    const month = targetMonth || now.getMonth() + 1;
-    const year = targetYear || now.getFullYear();
+    const month = targetMonth || getCalendarDayParts(now).monthIndex + 1;
+    const year = targetYear || getCalendarDayParts(now).year;
 
     const { startDate, endDate } = getMonthDateRange(year, month);
 
@@ -142,8 +155,12 @@ export class BudgetsService {
 
     totalBudgeted = Math.round(totalBudgeted * 100) / 100;
     totalSpent = Math.round(totalSpent * 100) / 100;
-    const totalRemaining = Math.max(0, Math.round((totalBudgeted - totalSpent) * 100) / 100);
-    const overallPercentage = totalBudgeted > 0 ? Math.round((totalSpent / totalBudgeted) * 100) : 0;
+    const totalRemaining = Math.max(
+      0,
+      Math.round((totalBudgeted - totalSpent) * 100) / 100,
+    );
+    const overallPercentage =
+      totalBudgeted > 0 ? Math.round((totalSpent / totalBudgeted) * 100) : 0;
 
     return {
       period: `${month}/${year}`,

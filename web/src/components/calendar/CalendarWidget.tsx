@@ -1,9 +1,10 @@
-import { useMemo } from 'react';
-import Calendar from 'react-calendar';
-import 'react-calendar/dist/Calendar.css';
-import { format } from 'date-fns';
-import { motion, Variants } from 'framer-motion';
-import { CalendarTransaction, CalendarReminder } from '@/types/calendar';
+import { businessDateKey, storedCalendarKey } from "@/lib/business-date";
+import { useMemo } from "react";
+import Calendar from "react-calendar";
+import "react-calendar/dist/Calendar.css";
+import { format } from "date-fns";
+import { motion, Variants } from "framer-motion";
+import { CalendarTransaction, CalendarReminder } from "@/types/calendar";
 
 interface CalendarWidgetProps {
   date: Date;
@@ -13,14 +14,6 @@ interface CalendarWidgetProps {
   reminders: CalendarReminder[];
   itemVariants: Variants;
 }
-
-const toCalendarDateKey = (isoDateString: string): string => {
-  const datePart = String(isoDateString).split('T')[0];
-  if (/^\d{4}-\d{2}-\d{2}$/.test(datePart)) {
-    return datePart;
-  }
-  return format(new Date(isoDateString), 'yyyy-MM-dd');
-};
 
 export function CalendarWidget({
   date,
@@ -35,7 +28,7 @@ export function CalendarWidget({
     for (const t of transactions) {
       if (t.date) {
         try {
-          set.add(toCalendarDateKey(t.date));
+          set.add(businessDateKey(t.date));
         } catch {
           // Ignorar fechas con formato inválido
         }
@@ -50,7 +43,7 @@ export function CalendarWidget({
     for (const r of reminders) {
       if (r.dueDate) {
         try {
-          const key = toCalendarDateKey(r.dueDate);
+          const key = storedCalendarKey(r.dueDate);
           if (r.isPaid) {
             paid.add(key);
           } else {
@@ -71,9 +64,9 @@ export function CalendarWidget({
     date: Date;
     view: string;
   }) => {
-    if (view !== 'month') return null;
+    if (view !== "month") return null;
 
-    const tileKey = format(tileDate, 'yyyy-MM-dd');
+    const tileKey = format(tileDate, "yyyy-MM-dd");
     const hasTransaction = transactionDates.has(tileKey);
     const hasPendingReminder = pendingReminderDates.has(tileKey);
     const hasPaidReminder = paidReminderDates.has(tileKey);
@@ -83,7 +76,10 @@ export function CalendarWidget({
     return (
       <div className="flex justify-center gap-1 mt-1 h-2">
         {hasTransaction && (
-          <div className="w-1.5 h-1.5 rounded-full bg-sky-300" title="Movimiento" />
+          <div
+            className="w-1.5 h-1.5 rounded-full bg-sky-300"
+            title="Movimiento"
+          />
         )}
         {hasPendingReminder && (
           <div

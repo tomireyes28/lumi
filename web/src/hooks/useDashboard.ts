@@ -1,10 +1,12 @@
-import { useCallback, useEffect, useState } from 'react';
-import { apiFetch } from '@/lib/api';
-import { SummaryData, CardRecommendation, Reminder } from '@/types/dashboard';
+import { businessDateKey, storedCalendarKey } from "@/lib/business-date";
+import { useCallback, useEffect, useState } from "react";
+import { apiFetch } from "@/lib/api";
+import { SummaryData, CardRecommendation, Reminder } from "@/types/dashboard";
 
 export const useDashboard = () => {
   const [summary, setSummary] = useState<SummaryData | null>(null);
-  const [recommendation, setRecommendation] = useState<CardRecommendation | null>(null);
+  const [recommendation, setRecommendation] =
+    useState<CardRecommendation | null>(null);
   const [reminders, setReminders] = useState<Reminder[]>([]);
   const [dueToday, setDueToday] = useState<Reminder[]>([]);
   const [loading, setLoading] = useState(true);
@@ -23,9 +25,11 @@ export const useDashboard = () => {
     const loadDashboardData = async () => {
       try {
         const [summaryData, recData, remindersData] = await Promise.all([
-          apiFetch<SummaryData>('/transactions/summary'),
-          apiFetch<CardRecommendation | null>('/credit-cards/recommendation').catch(() => null),
-          apiFetch<Reminder[]>('/reminders'),
+          apiFetch<SummaryData>("/transactions/summary"),
+          apiFetch<CardRecommendation | null>(
+            "/credit-cards/recommendation",
+          ).catch(() => null),
+          apiFetch<Reminder[]>("/reminders"),
         ]);
 
         if (!isMounted) return;
@@ -37,29 +41,22 @@ export const useDashboard = () => {
         const allReminders = Array.isArray(remindersData) ? remindersData : [];
         setReminders(allReminders);
 
-        const today = new Date();
-        const todayYear = today.getFullYear();
-        const todayMonth = String(today.getMonth() + 1).padStart(2, '0');
-        const todayDay = String(today.getDate()).padStart(2, '0');
-        const todayString = `${todayYear}-${todayMonth}-${todayDay}`;
+        const todayString = businessDateKey(new Date());
 
         const todayAlerts = allReminders.filter((r) => {
           if (r.isPaid) return false;
-          const dueString =
-            typeof r.dueDate === 'string'
-              ? r.dueDate.split('T')[0]
-              : new Date(r.dueDate).toISOString().split('T')[0];
+          const dueString = storedCalendarKey(String(r.dueDate));
           return dueString === todayString;
         });
 
         setDueToday(todayAlerts);
       } catch (err) {
-        console.error('Error cargando el dashboard:', err);
+        console.error("Error cargando el dashboard:", err);
         if (isMounted) {
           setError(
             err instanceof Error
               ? err.message
-              : 'No se pudo obtener tu resumen financiero.',
+              : "No se pudo obtener tu resumen financiero.",
           );
         }
       } finally {
@@ -76,5 +73,13 @@ export const useDashboard = () => {
     };
   }, [refreshIndex]);
 
-  return { summary, recommendation, reminders, dueToday, loading, error, reload };
+  return {
+    summary,
+    recommendation,
+    reminders,
+    dueToday,
+    loading,
+    error,
+    reload,
+  };
 };

@@ -1,8 +1,9 @@
-import { useEffect, useState, useMemo } from 'react';
-import { apiFetch } from '@/lib/api';
-import { BudgetsSummaryResponse } from '@/types/budgets';
-import { Category } from '@/types/categories';
-import { toast } from 'sonner';
+import { calendarWidgetToday } from "@/lib/business-date";
+import { useEffect, useState, useMemo } from "react";
+import { apiFetch } from "@/lib/api";
+import { BudgetsSummaryResponse } from "@/types/budgets";
+import { Category } from "@/types/categories";
+import { toast } from "sonner";
 
 export const useBudgets = () => {
   const [data, setData] = useState<BudgetsSummaryResponse | null>(null);
@@ -11,7 +12,7 @@ export const useBudgets = () => {
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const now = new Date();
+  const now = calendarWidgetToday();
   const [month, setMonthState] = useState<number>(now.getMonth() + 1);
   const [year, setYearState] = useState<number>(now.getFullYear());
   const [refreshIndex, setRefreshIndex] = useState(0);
@@ -38,10 +39,10 @@ export const useBudgets = () => {
     let isMounted = true;
     const fetchCategories = async () => {
       try {
-        const catData = await apiFetch<Category[]>('/categories');
+        const catData = await apiFetch<Category[]>("/categories");
         if (isMounted) setCategories(catData);
       } catch (err) {
-        console.error('Error cargando categorías:', err);
+        console.error("Error cargando categorías:", err);
       }
     };
     void fetchCategories();
@@ -62,10 +63,12 @@ export const useBudgets = () => {
           setError(null);
         }
       } catch (err) {
-        console.error('Error cargando presupuestos:', err);
+        console.error("Error cargando presupuestos:", err);
         if (isMounted) {
-          setError('No se pudieron cargar los presupuestos del período seleccionado.');
-          toast.error('No se pudieron cargar los presupuestos');
+          setError(
+            "No se pudieron cargar los presupuestos del período seleccionado.",
+          );
+          toast.error("No se pudieron cargar los presupuestos");
         }
       } finally {
         if (isMounted) setLoading(false);
@@ -82,17 +85,19 @@ export const useBudgets = () => {
   const upsertBudget = async (categoryId: string, amount: number) => {
     setIsSubmitting(true);
     try {
-      await apiFetch('/budgets', {
-        method: 'POST',
+      await apiFetch("/budgets", {
+        method: "POST",
         body: JSON.stringify({ categoryId, amount }),
       });
-      toast.success('Presupuesto guardado con éxito');
+      toast.success("Presupuesto guardado con éxito");
       reload();
       return true;
     } catch (err) {
-      console.error('Error guardando presupuesto:', err);
+      console.error("Error guardando presupuesto:", err);
       toast.error(
-        err instanceof Error ? err.message : 'No se pudo guardar el presupuesto',
+        err instanceof Error
+          ? err.message
+          : "No se pudo guardar el presupuesto",
       );
       return false;
     } finally {
@@ -102,19 +107,19 @@ export const useBudgets = () => {
 
   const deleteBudget = async (id: string) => {
     try {
-      await apiFetch(`/budgets/${id}`, { method: 'DELETE' });
-      toast.success('Presupuesto eliminado');
+      await apiFetch(`/budgets/${id}`, { method: "DELETE" });
+      toast.success("Presupuesto eliminado");
       reload();
       return true;
     } catch (err) {
-      console.error('Error eliminando presupuesto:', err);
-      toast.error('No se pudo eliminar el presupuesto');
+      console.error("Error eliminando presupuesto:", err);
+      toast.error("No se pudo eliminar el presupuesto");
       return false;
     }
   };
 
   const expenseCategories = useMemo(() => {
-    return categories.filter((c) => c.type === 'expense');
+    return categories.filter((c) => c.type === "expense");
   }, [categories]);
 
   return {

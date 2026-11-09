@@ -1,106 +1,149 @@
 import { BadRequestException } from '@nestjs/common';
-
-export function getMonthDateRange(year: number, month: number) {
-  const startDate = new Date(year, month - 1, 1);
-  const endDate = new Date(year, month, 1);
-  return { startDate, endDate };
-}
-
-/**
- * Valida que una cadena represente una fecha calendario real (sin desbordes como 2026-02-31).
- */
-export function isValidCalendarDateString(value: unknown): boolean {
-  if (typeof value !== 'string') return false;
-  const trimmed = value.trim();
-  const match = /^(\d{4})-(\d{2})-(\d{2})(?:T.*)?$/.exec(trimmed);
-  if (!match) return false;
-
-  const year = Number(match[1]);
-  const month = Number(match[2]);
-  const day = Number(match[3]);
-
-  if (year < 1970 || year > 2100 || month < 1 || month > 12 || day < 1) {
-    return false;
-  }
-
-  const daysInMonth = new Date(year, month, 0).getDate();
-  if (day > daysInMonth) {
-    return false;
-  }
-
-  const parsed = new Date(trimmed);
-  return !Number.isNaN(parsed.getTime());
-}
-
-/**
- * Parsea un string de fecha ('YYYY-MM-DD' o ISO completo) o instancia Date
- * evitando el corrimiento de -1 día en zonas horarias negativas (ej: UTC-3 Argentina)
- * y evitando que días inexistentes (ej: 31 de febrero) desborden al mes siguiente.
- */
-export function parseLocalDate(dateInput: string | Date): Date {
-  if (dateInput instanceof Date) {
-    if (Number.isNaN(dateInput.getTime())) {
-      throw new BadRequestException('Fecha inválida.');
-    }
-    return dateInput;
-  }
-
-  if (typeof dateInput !== 'string') {
-    throw new BadRequestException('Fecha inválida: se esperaba un texto de fecha válido.');
-  }
-
-  const trimmed = dateInput.trim();
-  if (!trimmed) {
-    throw new BadRequestException('Fecha inválida: la fecha no puede estar vacía.');
-  }
-
-  const dateOnlyMatch = /^(\d{4})-(\d{2})-(\d{2})$/.exec(trimmed);
-  if (dateOnlyMatch) {
-    const year = Number(dateOnlyMatch[1]);
-    const month = Number(dateOnlyMatch[2]);
-    const rawDay = Number(dateOnlyMatch[3]);
-
-    if (month < 1 || month > 12) {
-      throw new BadRequestException('Fecha inválida: el mes debe estar entre 1 y 12.');
-    }
-
-    const daysInMonth = new Date(year, month, 0).getDate();
-    const clampedDay = Math.min(Math.max(1, rawDay), daysInMonth);
-    return new Date(year, month - 1, clampedDay, 12, 0, 0, 0);
-  }
-
-  const parsed = new Date(trimmed);
-  if (Number.isNaN(parsed.getTime())) {
-    throw new BadRequestException('Fecha inválida.');
-  }
-  return parsed;
-}
-
-/**
- * Extrae año, mes (0-indexed) y día preservando la fecha calendario
- * tanto para fechas guardadas en medianoche UTC (00:00:00.000Z) como en hora local.
- */
+export const BUSINESS_TIMEZONE = 'America/Argentina/Buenos_Aires';
+const formatter = new Intl.DateTimeFormat('en-GB', {
+  timeZone: BUSINESS_TIMEZONE,
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+  hour: '2-digit',
+  minute: '2-digit',
+  second: '2-digit',
+  hourCycle: 'h23',
+});
 export function getCalendarDayParts(date: Date): {
   year: number;
   monthIndex: number;
   day: number;
 } {
-  if (
-    date.getUTCHours() === 0 &&
-    date.getUTCMinutes() === 0 &&
-    date.getUTCSeconds() === 0 &&
-    date.getUTCMilliseconds() === 0
-  ) {
-    return {
-      year: date.getUTCFullYear(),
-      monthIndex: date.getUTCMonth(),
-      day: date.getUTCDate(),
-    };
-  }
-
+  if (!Number.isFinite(date.getTime()))
+    throw new BadRequestException('Fecha inválida.');
+  const parts = Object.fromEntries(
+    formatter.formatToParts(date).map((p) => [p.type, p.value]),
+  );
   return {
-    year: date.getFullYear(),
-    monthIndex: date.getMonth(),
-    day: date.getDate(),
+    year: Number(parts.year),
+    monthIndex: Number(parts.month) - 1,
+    day: Number(parts.day),
   };
+}
+export function daysInMonth(year: number, monthIndex: number): number {
+  return new Date(Date.UTC(year, monthIndex + 1, 0)).getUTCDate();
+}
+export function businessDate(
+  year: number,
+  monthIndex: number,
+  day: number,
+  hour = 12,
+  minute = 0,
+  second = 0,
+  ms = 0,
+): Date {
+  const normalized = new Date(Date.UTC(year, monthIndex, 1));
+  year = normalized.getUTCFullYear();
+  monthIndex = normalized.getUTCMonth();
+  if (!Number.isInteger(day) || day < 1 || day > daysInMonth(year, monthIndex))
+    throw new BadRequestException('Fecha calendario inválida.');
+  const wall = Date.UTC(year, monthIndex, day, hour, minute, second, ms);
+  let candidate = wall;
+  let previous = NaN;
+  for (let i = 0; i < 5; i++) {
+    const parts = Object.fromEntries(
+      formatter
+        .formatToParts(new Date(candidate))
+        .map((p) => [p.type, p.value]),
+    );
+    const represented = Date.UTC(
+      Number(parts.year),
+      Number(parts.month) - 1,
+      Number(parts.day),
+      Number(parts.hour),
+      Number(parts.minute),
+      Number(parts.second),
+    );
+    const offset =
+      represented - (candidate - new Date(candidate).getUTCMilliseconds());
+    const next = wall - offset;
+    if (next === candidate) return new Date(candidate);
+    if (next === previous) return new Date(Math.max(next, candidate));
+    previous = candidate;
+    candidate = next;
+  }
+  throw new BadRequestException('No se pudo resolver la fecha de negocio.');
+}
+export function clampedBusinessDate(
+  year: number,
+  monthIndex: number,
+  day: number,
+): Date {
+  return businessDate(
+    year,
+    monthIndex,
+    Math.min(Math.max(day, 1), daysInMonth(year, monthIndex)),
+  );
+}
+export function getMonthDateRange(year: number, month: number) {
+  return {
+    startDate: businessDate(year, month - 1, 1, 0),
+    endDate: businessDate(year, month, 1, 0),
+  };
+}
+export function businessDateKey(date: Date): string {
+  const p = getCalendarDayParts(date);
+  return (
+    String(p.year) +
+    '-' +
+    String(p.monthIndex + 1).padStart(2, '0') +
+    '-' +
+    String(p.day).padStart(2, '0')
+  );
+}
+export function getBusinessDayRange(reference: Date = new Date()) {
+  const p = getCalendarDayParts(reference);
+  const next = new Date(Date.UTC(p.year, p.monthIndex, p.day + 1));
+  return {
+    dateKey: businessDateKey(reference),
+    startOfDay: businessDate(p.year, p.monthIndex, p.day, 0),
+    endOfDay: businessDate(
+      next.getUTCFullYear(),
+      next.getUTCMonth(),
+      next.getUTCDate(),
+      0,
+    ),
+  };
+}
+export function isValidCalendarDateString(value: unknown): boolean {
+  if (typeof value !== 'string') return false;
+  const match =
+    /^(\d{4})-(\d{2})-(\d{2})(?:T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?(?:Z|[+-]\d{2}:\d{2}))?$/.exec(
+      value.trim(),
+    );
+  if (!match) return false;
+  const y = Number(match[1]),
+    m = Number(match[2]),
+    d = Number(match[3]);
+  return (
+    y >= 1970 &&
+    y <= 2100 &&
+    m >= 1 &&
+    m <= 12 &&
+    d >= 1 &&
+    d <= daysInMonth(y, m - 1) &&
+    Number.isFinite(Date.parse(value.trim()))
+  );
+}
+/** Date-only is a business calendar day (anchored at noon); ISO with offset is an instant. */
+export function parseLocalDate(value: string | Date): Date {
+  if (value instanceof Date) {
+    if (!Number.isFinite(value.getTime()))
+      throw new BadRequestException('Fecha inválida.');
+    return new Date(value);
+  }
+  if (!isValidCalendarDateString(value))
+    throw new BadRequestException('Fecha calendario inválida.');
+  const text = value.trim();
+  if (text.length === 10) {
+    const [y, m, d] = text.split('-').map(Number);
+    return businessDate(y, m - 1, d);
+  }
+  return new Date(text);
 }

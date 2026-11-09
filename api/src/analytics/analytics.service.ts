@@ -1,6 +1,10 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { getMonthDateRange } from '../utils/date.util';
+import {
+  getMonthDateRange,
+  businessDate,
+  getCalendarDayParts,
+} from '../utils/date.util';
 
 export interface ForecastTimelineItem {
   period: string;
@@ -46,8 +50,8 @@ export class AnalyticsService {
 
   async getMonthlyAnalytics(userId: string) {
     const now = new Date();
-    const currentYear = now.getFullYear();
-    const currentMonth = now.getMonth() + 1;
+    const currentYear = getCalendarDayParts(now).year;
+    const currentMonth = getCalendarDayParts(now).monthIndex + 1;
 
     // 1. Calculamos las fechas
     const currentMonthRange = getMonthDateRange(currentYear, currentMonth);
@@ -59,7 +63,10 @@ export class AnalyticsService {
         where: {
           userId,
           category: { type: 'expense' },
-          date: { gte: currentMonthRange.startDate, lt: currentMonthRange.endDate },
+          date: {
+            gte: currentMonthRange.startDate,
+            lt: currentMonthRange.endDate,
+          },
         },
         include: { category: true },
         orderBy: { date: 'desc' },
@@ -88,7 +95,8 @@ export class AnalyticsService {
           };
         }
 
-        acc[catId].total = Math.round((acc[catId].total + Number(current.amount)) * 100) / 100;
+        acc[catId].total =
+          Math.round((acc[catId].total + Number(current.amount)) * 100) / 100;
 
         acc[catId].transactions.push({
           id: current.id,
@@ -105,21 +113,32 @@ export class AnalyticsService {
           name: string;
           color: string;
           total: number;
-          transactions: { id: string; note: string | null; amount: number; date: Date }[];
+          transactions: {
+            id: string;
+            note: string | null;
+            amount: number;
+            date: Date;
+          }[];
         }
       >,
     );
 
-    const categoryBreakdown = Object.values(expensesByCategory).sort((a, b) => b.total - a.total);
+    const categoryBreakdown = Object.values(expensesByCategory).sort(
+      (a, b) => b.total - a.total,
+    );
 
     // 4. Calculamos totales y porcentajes
     const totalCurrentMonth =
-      Math.round(currentMonthExpenses.reduce((sum, t) => sum + Number(t.amount), 0) * 100) / 100;
+      Math.round(
+        currentMonthExpenses.reduce((sum, t) => sum + Number(t.amount), 0) *
+          100,
+      ) / 100;
     const totalLastMonth = Number(lastMonthAgg._sum.amount || 0);
 
     let percentageChange = 0;
     if (totalLastMonth > 0) {
-      percentageChange = ((totalCurrentMonth - totalLastMonth) / totalLastMonth) * 100;
+      percentageChange =
+        ((totalCurrentMonth - totalLastMonth) / totalLastMonth) * 100;
     }
 
     return {
@@ -132,56 +151,80 @@ export class AnalyticsService {
 
   async getForecast(userId: string, monthsCount = 6) {
     const now = new Date();
-    const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-    const currentMonthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 1);
-    const forecastEnd = new Date(now.getFullYear(), now.getMonth() + monthsCount, 1);
+    const currentMonthStart = getMonthDateRange(
+      getCalendarDayParts(now).year,
+      getCalendarDayParts(now).monthIndex + 1,
+    ).startDate;
+    const currentMonthEnd = getMonthDateRange(
+      getCalendarDayParts(now).year,
+      getCalendarDayParts(now).monthIndex + 1,
+    ).endDate;
+    const forecastEnd = businessDate(
+      getCalendarDayParts(now).year,
+      getCalendarDayParts(now).monthIndex + monthsCount,
+      1,
+      0,
+    );
 
     // 1. Buscamos ingresos de los últimos 3 meses para calcular un promedio confiable
-    const threeMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 3, 1);
-    const [pastIncomes, futureTransactions, reminders, allInstallmentTransactions] =
-      await Promise.all([
-        this.prisma.transaction.findMany({
-          where: {
-            userId,
-            category: { type: 'income' },
-            date: { gte: threeMonthsAgo, lt: currentMonthStart },
-          },
-          select: { amount: true, date: true },
-        }),
-        this.prisma.transaction.findMany({
-          where: {
-            userId,
-            date: { gte: currentMonthStart, lt: forecastEnd },
-          },
-          include: { category: true, creditCard: true },
-          orderBy: { date: 'asc' },
-        }),
-        this.prisma.reminder.findMany({
-          where: { userId },
-          orderBy: { dueDate: 'asc' },
-        }),
-        this.prisma.transaction.findMany({
-          where: {
-            userId,
-            installmentGroupId: { not: null },
-          },
-          include: { creditCard: true },
-          orderBy: { date: 'asc' },
-        }),
-      ]);
+    const threeMonthsAgo = businessDate(
+      getCalendarDayParts(now).year,
+      getCalendarDayParts(now).monthIndex - 3,
+      1,
+      0,
+    );
+    const [
+      pastIncomes,
+      futureTransactions,
+      reminders,
+      allInstallmentTransactions,
+    ] = await Promise.all([
+      this.prisma.transaction.findMany({
+        where: {
+          userId,
+          category: { type: 'income' },
+          date: { gte: threeMonthsAgo, lt: currentMonthStart },
+        },
+        select: { amount: true, date: true },
+      }),
+      this.prisma.transaction.findMany({
+        where: {
+          userId,
+          date: { gte: currentMonthStart, lt: forecastEnd },
+        },
+        include: { category: true, creditCard: true },
+        orderBy: { date: 'asc' },
+      }),
+      this.prisma.reminder.findMany({
+        where: { userId },
+        orderBy: { dueDate: 'asc' },
+      }),
+      this.prisma.transaction.findMany({
+        where: {
+          userId,
+          installmentGroupId: { not: null },
+        },
+        include: { creditCard: true },
+        orderBy: { date: 'asc' },
+      }),
+    ]);
 
     // Estimamos el ingreso mensual promedio dividiendo por los meses que efectivamente tuvieron ingresos (máx 3)
     let estimatedMonthlyIncome = 0;
     if (pastIncomes.length > 0) {
-      const totalPastIncome = pastIncomes.reduce((acc, tx) => acc + Number(tx.amount), 0);
+      const totalPastIncome = pastIncomes.reduce(
+        (acc, tx) => acc + Number(tx.amount),
+        0,
+      );
       const activeMonthsCount = new Set(
         pastIncomes.map((tx) => {
-          const d = new Date(tx.date);
-          return `${d.getFullYear()}-${d.getMonth()}`;
+          const d = getCalendarDayParts(new Date(tx.date));
+          return `${d.year}-${d.monthIndex}`;
         }),
       ).size;
       const divisor = Math.max(1, Math.min(3, activeMonthsCount));
-      estimatedMonthlyIncome = Math.round((totalPastIncome / divisor) * 100) / 100;
+      estimatedMonthlyIncome =
+        Math.round((totalPastIncome / divisor) * 100) / 100;
     } else {
       // Si no hay historial de meses previos, revisamos si hubo ingresos en el mes corriente
       const currentMonthIncome = futureTransactions
@@ -210,9 +253,13 @@ export class AnalyticsService {
     let totalCommitmentRatioSum = 0;
 
     for (let i = 0; i < monthsCount; i++) {
-      const monthDate = new Date(now.getFullYear(), now.getMonth() + i, 1);
-      const m = monthDate.getMonth() + 1;
-      const y = monthDate.getFullYear();
+      const monthDate = businessDate(
+        getCalendarDayParts(now).year,
+        getCalendarDayParts(now).monthIndex + i,
+        1,
+      );
+      const m = getCalendarDayParts(monthDate).monthIndex + 1;
+      const y = getCalendarDayParts(monthDate).year;
       const { startDate, endDate } = getMonthDateRange(y, m);
 
       // Transacciones de gasto en cuotas o con tarjeta del mes
@@ -225,7 +272,10 @@ export class AnalyticsService {
       );
 
       const installmentExpenses =
-        Math.round(monthInstallmentTx.reduce((sum, tx) => sum + Number(tx.amount), 0) * 100) / 100;
+        Math.round(
+          monthInstallmentTx.reduce((sum, tx) => sum + Number(tx.amount), 0) *
+            100,
+        ) / 100;
 
       // Recordatorios con monto:
       // - Puntuales (!isRecurring): solo impactan en el mes exacto de su vencimiento si siguen impagos.
@@ -253,9 +303,13 @@ export class AnalyticsService {
       });
 
       const fixedExpenses =
-        Math.round(monthReminders.reduce((sum, r) => sum + Number(r.amount || 0), 0) * 100) / 100;
+        Math.round(
+          monthReminders.reduce((sum, r) => sum + Number(r.amount || 0), 0) *
+            100,
+        ) / 100;
 
-      const totalCommitted = Math.round((installmentExpenses + fixedExpenses) * 100) / 100;
+      const totalCommitted =
+        Math.round((installmentExpenses + fixedExpenses) * 100) / 100;
       const projectedNetCashflow =
         Math.round((estimatedMonthlyIncome - totalCommitted) * 100) / 100;
       const commitmentRatio =
@@ -311,9 +365,12 @@ export class AnalyticsService {
         const lastTx = txs[txs.length - 1];
         const installmentAmount = Number(remainingTxs[0].amount);
         const remainingAmount =
-          Math.round(remainingTxs.reduce((sum, t) => sum + Number(t.amount), 0) * 100) / 100;
+          Math.round(
+            remainingTxs.reduce((sum, t) => sum + Number(t.amount), 0) * 100,
+          ) / 100;
         const totalAmount =
-          Math.round(txs.reduce((sum, t) => sum + Number(t.amount), 0) * 100) / 100;
+          Math.round(txs.reduce((sum, t) => sum + Number(t.amount), 0) * 100) /
+          100;
 
         totalFutureDebt += remainingAmount;
         if (!latestFinishDate || lastTx.date > latestFinishDate) {
@@ -324,8 +381,8 @@ export class AnalyticsService {
           .replace(/\s*\(Cuota\s*\d+\/\d+\)\s*/gi, '')
           .trim();
 
-        const finishMonth = lastTx.date.getMonth() + 1;
-        const finishYear = lastTx.date.getFullYear();
+        const finishMonth = getCalendarDayParts(lastTx.date).monthIndex + 1;
+        const finishYear = getCalendarDayParts(lastTx.date).year;
 
         activePlans.push({
           groupId,
@@ -336,7 +393,9 @@ export class AnalyticsService {
           installmentAmount,
           remainingAmount,
           totalAmount,
-          completionPercentage: Math.round((paidTxs.length / totalInstallments) * 100),
+          completionPercentage: Math.round(
+            (paidTxs.length / totalInstallments) * 100,
+          ),
           finishDate: lastTx.date.toISOString(),
           finishPeriod: `${MONTH_NAMES[finishMonth - 1]} ${finishYear}`,
           creditCard: firstTx.creditCard
@@ -354,7 +413,7 @@ export class AnalyticsService {
 
     let debtFreePeriod: string | null = null;
     if (latestFinishDate) {
-      debtFreePeriod = `${MONTH_NAMES[latestFinishDate.getMonth()]} ${latestFinishDate.getFullYear()}`;
+      debtFreePeriod = `${MONTH_NAMES[getCalendarDayParts(latestFinishDate).monthIndex]} ${getCalendarDayParts(latestFinishDate).year}`;
     }
 
     const hasCommittedObligations =

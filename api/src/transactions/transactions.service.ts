@@ -1,18 +1,27 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateTransactionDto } from './dto/create-transaction.dto';
 import { GetTransactionsFilterDto } from './dto/get-transactions-filter.dto';
 import { UpdateTransactionDto } from './dto/update-transaction.dto';
 import { Prisma } from '@prisma/client';
 import { getMonthDateRange, parseLocalDate } from '../utils/date.util';
-import { InstallmentCalculator, CustomCycleDateRef } from './utils/installment-calculator.util';
+import { getCalendarDayParts } from '../utils/date.util';
+import {
+  InstallmentCalculator,
+  CustomCycleDateRef,
+} from './utils/installment-calculator.util';
 
 @Injectable()
 export class TransactionsService {
   constructor(private readonly prisma: PrismaService) {}
 
   async create(createTransactionDto: CreateTransactionDto, userId: string) {
-    const { installments, amount, date, note, creditCardId, categoryId } = createTransactionDto;
+    const { installments, amount, date, note, creditCardId, categoryId } =
+      createTransactionDto;
     const startDate = date ? parseLocalDate(date) : new Date();
 
     // 0. Verificamos que la categoría pertenezca al usuario autenticado (anti-IDOR)
@@ -25,7 +34,10 @@ export class TransactionsService {
       );
     }
 
-    if (category.type === 'income' && (creditCardId || (installments && installments > 1))) {
+    if (
+      category.type === 'income' &&
+      (creditCardId || (installments && installments > 1))
+    ) {
       throw new BadRequestException(
         'Los ingresos no pueden asociarse a una tarjeta de crédito ni dividirse en cuotas.',
       );
@@ -37,7 +49,11 @@ export class TransactionsService {
       );
     }
 
-    if (installments && installments > 1 && Math.round(amount * 100) < installments) {
+    if (
+      installments &&
+      installments > 1 &&
+      Math.round(amount * 100) < installments
+    ) {
       throw new BadRequestException(
         'El monto total debe alcanzar para al menos $0,01 por cada cuota.',
       );
@@ -90,7 +106,9 @@ export class TransactionsService {
           paymentMethod,
           user: { connect: { id: userId } },
           category: { connect: { id: categoryId } },
-          ...(creditCardId && { creditCard: { connect: { id: creditCardId } } }),
+          ...(creditCardId && {
+            creditCard: { connect: { id: creditCardId } },
+          }),
         },
         include: { category: true, creditCard: true },
       });
@@ -130,8 +148,15 @@ export class TransactionsService {
     if (month && year) {
       const parsedMonth = parseInt(month, 10);
       const parsedYear = parseInt(year, 10);
-      if (parsedMonth < 1 || parsedMonth > 12 || parsedYear < 2000 || parsedYear > 2100) {
-        throw new BadRequestException('El período de búsqueda (mes/año) no es válido.');
+      if (
+        parsedMonth < 1 ||
+        parsedMonth > 12 ||
+        parsedYear < 2000 ||
+        parsedYear > 2100
+      ) {
+        throw new BadRequestException(
+          'El período de búsqueda (mes/año) no es válido.',
+        );
       }
       const { startDate, endDate } = getMonthDateRange(parsedYear, parsedMonth);
       whereClause.date = { gte: startDate, lt: endDate };
@@ -171,8 +196,14 @@ export class TransactionsService {
     });
   }
 
-  async update(id: string, updateTransactionDto: UpdateTransactionDto, userId: string) {
-    const transaction = await this.prisma.transaction.findUnique({ where: { id } });
+  async update(
+    id: string,
+    updateTransactionDto: UpdateTransactionDto,
+    userId: string,
+  ) {
+    const transaction = await this.prisma.transaction.findUnique({
+      where: { id },
+    });
 
     if (!transaction || transaction.userId !== userId) {
       throw new NotFoundException('Transacción no encontrada o no autorizada');
@@ -188,7 +219,9 @@ export class TransactionsService {
     }
     if (updateTransactionDto.date !== undefined) {
       if (updateTransactionDto.date === null) {
-        throw new BadRequestException('La fecha de la transacción no puede ser nula.');
+        throw new BadRequestException(
+          'La fecha de la transacción no puede ser nula.',
+        );
       }
       dataToUpdate.date = parseLocalDate(updateTransactionDto.date);
     }
@@ -204,7 +237,9 @@ export class TransactionsService {
         );
       }
       targetCategoryType = category.type;
-      dataToUpdate.category = { connect: { id: updateTransactionDto.categoryId } };
+      dataToUpdate.category = {
+        connect: { id: updateTransactionDto.categoryId },
+      };
     }
 
     if (updateTransactionDto.creditCardId === null) {
@@ -224,7 +259,9 @@ export class TransactionsService {
           'La tarjeta especificada no existe o no pertenece a tu usuario.',
         );
       }
-      dataToUpdate.creditCard = { connect: { id: updateTransactionDto.creditCardId } };
+      dataToUpdate.creditCard = {
+        connect: { id: updateTransactionDto.creditCardId },
+      };
       dataToUpdate.paymentMethod = 'credit_card';
     }
 
@@ -236,7 +273,9 @@ export class TransactionsService {
   }
 
   async remove(id: string, userId: string) {
-    const transaction = await this.prisma.transaction.findUnique({ where: { id } });
+    const transaction = await this.prisma.transaction.findUnique({
+      where: { id },
+    });
 
     if (!transaction || transaction.userId !== userId) {
       throw new NotFoundException('Transacción no encontrada o no autorizada');
@@ -245,9 +284,13 @@ export class TransactionsService {
     return this.prisma.transaction.delete({ where: { id } });
   }
 
-  async getMonthlySummary(userId: string, targetMonth?: number, targetYear?: number) {
-    const month = targetMonth || new Date().getMonth() + 1;
-    const year = targetYear || new Date().getFullYear();
+  async getMonthlySummary(
+    userId: string,
+    targetMonth?: number,
+    targetYear?: number,
+  ) {
+    const month = targetMonth || getCalendarDayParts(new Date()).monthIndex + 1;
+    const year = targetYear || getCalendarDayParts(new Date()).year;
 
     const { startDate, endDate } = getMonthDateRange(year, month);
 
@@ -274,7 +317,10 @@ export class TransactionsService {
         where: {
           ...baseWhere,
           category: { type: 'expense' },
-          OR: [{ creditCardId: { not: null } }, { paymentMethod: 'credit_card' }],
+          OR: [
+            { creditCardId: { not: null } },
+            { paymentMethod: 'credit_card' },
+          ],
         },
         _sum: { amount: true },
       }),
@@ -283,7 +329,8 @@ export class TransactionsService {
     const totalIncome = Number(incomes._sum.amount || 0);
     const totalCashExpense = Number(cashExpenses._sum.amount || 0);
     const totalCardExpense = Number(cardExpenses._sum.amount || 0);
-    const availableCash = Math.round((totalIncome - totalCashExpense) * 100) / 100;
+    const availableCash =
+      Math.round((totalIncome - totalCashExpense) * 100) / 100;
 
     return {
       period: `${month}/${year}`,

@@ -2,12 +2,12 @@ import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { Prisma } from '@prisma/client';
 import { Cron, CronExpression } from '@nestjs/schedule';
+import { BUSINESS_TIMEZONE, getBusinessDayRange } from '../utils/date.util';
 
 type ReminderWithUser = Prisma.ReminderGetPayload<{
   include: { user: true };
 }>;
 
-const BUSINESS_TIMEZONE = 'America/Argentina/Buenos_Aires';
 const MAX_IDEMPOTENCY_CACHE_SIZE = 5000;
 
 export function maskEmailAddress(email: string): string {
@@ -24,28 +24,6 @@ export class NotificationsService {
 
   constructor(private readonly prisma: PrismaService) {}
 
-  private getBusinessDayRange(referenceDate: Date = new Date()): {
-    dateKey: string;
-    startOfDay: Date;
-    endOfDay: Date;
-  } {
-    const formatter = new Intl.DateTimeFormat('en-CA', {
-      timeZone: BUSINESS_TIMEZONE,
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-    });
-    const dateKey = formatter.format(referenceDate);
-    const [yearStr, monthStr, dayStr] = dateKey.split('-');
-    const year = Number(yearStr);
-    const monthIndex = Number(monthStr) - 1;
-    const day = Number(dayStr);
-
-    const startOfDay = new Date(year, monthIndex, day, 0, 0, 0, 0);
-    const endOfDay = new Date(year, monthIndex, day, 23, 59, 59, 999);
-    return { dateKey, startOfDay, endOfDay };
-  }
-
   private hasActiveResendConfig(): boolean {
     const apiKey = process.env.RESEND_API_KEY?.trim();
     return Boolean(apiKey && apiKey !== 're_your_api_key');
@@ -54,14 +32,14 @@ export class NotificationsService {
   @Cron(CronExpression.EVERY_DAY_AT_9AM, { timeZone: BUSINESS_TIMEZONE })
   async checkDueReminders(referenceDate: Date = new Date()) {
     const { dateKey, startOfDay, endOfDay } =
-      this.getBusinessDayRange(referenceDate);
+      getBusinessDayRange(referenceDate);
 
     try {
       const dueToday = await this.prisma.reminder.findMany({
         where: {
           dueDate: {
             gte: startOfDay,
-            lte: endOfDay,
+            lt: endOfDay,
           },
           isPaid: false,
         },
@@ -99,8 +77,7 @@ export class NotificationsService {
     reminder: ReminderWithUser,
     dateKey?: string,
   ): Promise<boolean> {
-    const effectiveDateKey =
-      dateKey || this.getBusinessDayRange(new Date()).dateKey;
+    const effectiveDateKey = dateKey || getBusinessDayRange(new Date()).dateKey;
     const idempotencyKey = `${reminder.id}:${effectiveDateKey}`;
 
     if (this.sentNotifications.has(idempotencyKey)) {
@@ -113,7 +90,8 @@ export class NotificationsService {
     }
 
     const fromAddress =
-      process.env.RESEND_FROM_EMAIL?.trim() || 'Lumi Finanzas <onboarding@resend.dev>';
+      process.env.RESEND_FROM_EMAIL?.trim() ||
+      'Lumi Finanzas <onboarding@resend.dev>';
     const maskedEmail = maskEmailAddress(reminder.user.email);
 
     try {

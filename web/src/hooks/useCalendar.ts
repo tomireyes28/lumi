@@ -1,13 +1,19 @@
-import { useEffect, useState, useMemo } from 'react';
-import { apiFetch } from '@/lib/api';
-import { format } from 'date-fns';
-import { CalendarTransaction, CalendarReminder } from '@/types/calendar';
-import { PaginatedTransactionsResponse } from '@/types/transactions';
-import { toast } from 'sonner';
+import { useEffect, useState, useMemo } from "react";
+import { apiFetch } from "@/lib/api";
+import { format } from "date-fns";
+import { CalendarTransaction, CalendarReminder } from "@/types/calendar";
+import { PaginatedTransactionsResponse } from "@/types/transactions";
+import { toast } from "sonner";
+import {
+  businessDateKey,
+  storedCalendarKey,
+  calendarWidgetToday,
+} from "@/lib/business-date";
 
 export const useCalendar = () => {
-  const [date, setDate] = useState<Date>(new Date());
-  const [activeMonthDate, setActiveMonthDate] = useState<Date>(new Date());
+  const [date, setDate] = useState<Date>(calendarWidgetToday);
+  const [activeMonthDate, setActiveMonthDate] =
+    useState<Date>(calendarWidgetToday);
   const [transactions, setTransactions] = useState<CalendarTransaction[]>([]);
   const [reminders, setReminders] = useState<CalendarReminder[]>([]);
   const [loading, setLoading] = useState(true);
@@ -41,10 +47,10 @@ export const useCalendar = () => {
           setError(null);
         }
       } catch (err) {
-        console.error('Error cargando datos del calendario:', err);
+        console.error("Error cargando datos del calendario:", err);
         if (isMounted) {
-          setError('Hubo un error al cargar los datos del calendario.');
-          toast.error('Hubo un error al cargar los datos del calendario.');
+          setError("Hubo un error al cargar los datos del calendario.");
+          toast.error("Hubo un error al cargar los datos del calendario.");
         }
       } finally {
         if (isMounted) {
@@ -70,17 +76,17 @@ export const useCalendar = () => {
     }
   };
 
-  const selectedDateKey = useMemo(() => format(date, 'yyyy-MM-dd'), [date]);
+  const selectedDateKey = useMemo(() => format(date, "yyyy-MM-dd"), [date]);
 
   const selectedTransactions = useMemo(() => {
     return transactions.filter(
-      (t) => String(t.date).split('T')[0] === selectedDateKey,
+      (t) => businessDateKey(t.date) === selectedDateKey,
     );
   }, [transactions, selectedDateKey]);
 
   const selectedReminders = useMemo(() => {
     return reminders.filter(
-      (r) => String(r.dueDate).split('T')[0] === selectedDateKey,
+      (r) => storedCalendarKey(r.dueDate) === selectedDateKey,
     );
   }, [reminders, selectedDateKey]);
 
