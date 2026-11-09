@@ -10,6 +10,7 @@ const apiRoot = path.resolve(__dirname, '..');
 const tables = [
   'User',
   'AuthSession',
+  'OAuthGrant',
   'Category',
   'CreditCard',
   'Transaction',

@@ -5,6 +5,7 @@ import { JwtService } from '@nestjs/jwt';
 import { BadRequestException, UnauthorizedException } from '@nestjs/common';
 import * as bcrypt from 'bcrypt';
 import { OAuthStateStore } from './strategies/oauth-state.store';
+import { OAuthGrantStore } from './oauth-grant.store';
 import type { Request } from 'express';
 
 jest.mock('bcrypt');
@@ -12,6 +13,8 @@ jest.mock('bcrypt');
 describe('AuthService', () => {
   let service: AuthService;
   let prisma: {
+    oAuthGrant: { create: jest.Mock };
+    $queryRaw: jest.Mock;
     $transaction: jest.Mock;
     authSession: {
       create: jest.Mock;
@@ -32,12 +35,48 @@ describe('AuthService', () => {
   beforeEach(async () => {
     process.env.JWT_SECRET = 'test_secret_key';
 
+    const grants = new Map<
+      string,
+      { kind: string; payload: Record<string, string>; expiresAt: Date }
+    >();
     prisma = {
+      oAuthGrant: {
+        create: jest.fn(
+          ({
+            data,
+          }: {
+            data: {
+              id: string;
+              kind: string;
+              payload: Record<string, string>;
+              expiresAt: Date;
+            };
+          }) => {
+            grants.set(data.id, data);
+            return Promise.resolve(data);
+          },
+        ),
+      },
+      $queryRaw: jest.fn(
+        (_sql: TemplateStringsArray, id: string, kind: string) => {
+          const entry = grants.get(id);
+          if (!entry || entry.kind !== kind || entry.expiresAt <= new Date())
+            return Promise.resolve([]);
+          grants.delete(id);
+          return Promise.resolve([{ payload: entry.payload }]);
+        },
+      ),
       $transaction: jest.fn((fn: (tx: unknown) => unknown) => fn(prisma)),
       authSession: {
         create: jest.fn().mockResolvedValue({}),
         updateMany: jest.fn().mockResolvedValue({ count: 1 }),
-        findUnique: jest.fn(),
+        findUnique: jest.fn().mockResolvedValue({
+          userId: 'user-123',
+          authVersion: 0,
+          user: { authVersion: 0 },
+          revokedAt: null,
+          expiresAt: new Date(Date.now() + 60000),
+        }),
       },
       user: {
         findUnique: jest.fn(),
@@ -48,9 +87,11 @@ describe('AuthService', () => {
 
     jwtService = {
       sign: jest.fn().mockReturnValue('mocked-jwt-token'),
-      verify: jest
-        .fn()
-        .mockReturnValue({ sub: 'user-123', email: 'test@example.com' }),
+      verify: jest.fn().mockReturnValue({
+        sub: 'user-123',
+        email: 'test@example.com',
+        jti: 'session-test',
+      }),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -75,7 +116,10 @@ describe('AuthService', () => {
   describe('OAuth Exchange Flow (Anti-URL Leakage, Anti-Replay & Anti-CSRF)', () => {
     it('should generate an exchange code, exchange it once, and burn it on replay', async () => {
       const token = 'valid-jwt-token';
-      const code = service.createOAuthExchangeCode(token, 'browser-state-123');
+      const code = await service.createOAuthExchangeCode(
+        token,
+        'browser-state-123',
+      );
       expect(typeof code).toBe('string');
       expect(code.length).toBeGreaterThan(10);
 
@@ -101,7 +145,7 @@ describe('AuthService', () => {
     });
 
     it('should reject and burn code if clientState does not match originating browser', async () => {
-      const code = service.createOAuthExchangeCode(
+      const code = await service.createOAuthExchangeCode(
         'valid-jwt-token',
         'origin-browser-nonce',
       );
@@ -288,14 +332,17 @@ describe('AuthService', () => {
   });
 
   describe('OAuthStateStore (Anti-Login CSRF & PKCE)', () => {
-    it('should sign state, bind HttpOnly cookie, verify PKCE verifier, and block replay', () => {
-      const store = new OAuthStateStore('hmac_secret_test', false);
+    it('should keep PKCE private, bind its browser and block replay', async () => {
+      const store = new OAuthStateStore(
+        new OAuthGrantStore(prisma as unknown as PrismaService),
+        false,
+      );
       let setCookieHeader = '';
 
       const mockReqStore = {
         query: { client_state: 'browser-state-123' },
         res: {
-          setHeader: (_name: string, val: string) => {
+          appendHeader: (_name: string, val: string) => {
             setCookieHeader = val;
           },
           getHeader: () => undefined,
@@ -303,7 +350,7 @@ describe('AuthService', () => {
       } as unknown as Request;
 
       let generatedState = '';
-      store.store(
+      await store.store(
         mockReqStore,
         'pkce-code-verifier-xyz',
         undefined,
@@ -314,20 +361,21 @@ describe('AuthService', () => {
         },
       );
 
-      expect(generatedState).toContain('.');
+      expect(generatedState).not.toContain('pkce-code-verifier-xyz');
+      expect(generatedState.length).toBeGreaterThan(30);
       expect(setCookieHeader).toContain('lumi_oauth_state=');
 
       const cookiePair = setCookieHeader.split(';')[0];
       const mockReqVerify = {
         headers: { cookie: cookiePair },
         res: {
-          setHeader: jest.fn(),
+          appendHeader: jest.fn(),
           getHeader: () => undefined,
         },
       } as unknown as Request & { oauthClientState?: string };
 
       // 1ra verificación exitosa
-      store.verify(
+      await store.verify(
         mockReqVerify,
         generatedState,
         undefined,
@@ -340,13 +388,18 @@ describe('AuthService', () => {
       expect(mockReqVerify.oauthClientState).toBe('browser-state-123');
 
       // 2da verificación del mismo state debe fallar (anti-replay)
-      store.verify(mockReqVerify, generatedState, undefined, (_err, ok) => {
-        expect(ok).toBe(false);
-      });
+      await store.verify(
+        mockReqVerify,
+        generatedState,
+        undefined,
+        (_err, ok) => {
+          expect(ok).toBe(false);
+        },
+      );
 
       // Sin cookie de navegador (ataque Login CSRF) debe fallar
       const csrfReq = { headers: {} } as unknown as Request;
-      store.verify(csrfReq, generatedState, undefined, (_err, ok) => {
+      await store.verify(csrfReq, generatedState, undefined, (_err, ok) => {
         expect(ok).toBe(false);
       });
     });

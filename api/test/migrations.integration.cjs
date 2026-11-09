@@ -459,7 +459,7 @@ test('Supabase API roles lose direct access while Prisma retains CRUD and future
   await deploy(url); // Migration bookkeeping still works with RLS on its own table.
   await withSql(url, async (client) => {
     const report = await inspectDatabase(client);
-    assert.equal(report.permissions.length, 18);
+    assert.equal(report.permissions.length, 20);
     assert.deepEqual(releaseIssues(report), []);
     assert.ok(
       report.permissions.every(
@@ -661,4 +661,37 @@ test('sessions survive service reconstruction and logout revokes access across i
   } finally {
     await prisma.$disconnect();
   }
+});
+
+test('OAuth grants can be exchanged on another instance only once under concurrency',async()=>{
+ const url=await database();await deploy(url);
+ const prisma=new PrismaClient({adapter:new PrismaPg({connectionString:url})});
+ const {OAuthGrantStore}=require('../dist/src/auth/oauth-grant.store.js');
+ const {OAuthStateStore}=require('../dist/src/auth/strategies/oauth-state.store.js');
+ process.env.JWT_SECRET='synthetic-integration-secret-at-least-32-characters';
+ try{
+ const a=new AuthService(prisma,new JwtService());const b=new AuthService(prisma,new JwtService());
+ const token=await a.googleLogin({googleId:'oauth-test-subject',email:'oauth@example.invalid',emailVerified:true,name:'Synthetic'});
+ const code=await a.createOAuthExchangeCode(token,'browser-binding');
+ assert.equal(await prisma.oAuthGrant.findUnique({where:{id:code}}),null);
+ const attempts=await Promise.allSettled([a.exchangeOAuthCode(code,'browser-binding'),b.exchangeOAuthCode(code,'browser-binding')]);
+ assert.equal(attempts.filter(r=>r.status==='fulfilled').length,1);
+ const wrong=await a.createOAuthExchangeCode(token,'browser-binding');
+ await assert.rejects(b.exchangeOAuthCode(wrong,'wrong-browser'),{status:401});
+ await assert.rejects(a.exchangeOAuthCode(wrong,'browser-binding'),{status:401});
+ const expired=await a.createOAuthExchangeCode(token,'browser-binding');
+ await prisma.oAuthGrant.updateMany({data:{expiresAt:new Date(0)}});
+ await assert.rejects(b.exchangeOAuthCode(expired,'browser-binding'),{status:401});
+ const first=new OAuthStateStore(new OAuthGrantStore(prisma));const second=new OAuthStateStore(new OAuthGrantStore(prisma));
+ let cookie='';let state='';
+ await first.store({query:{client_state:'browser'},res:{appendHeader:(_n,v)=>{cookie=v.split(';')[0];}}},'private-pkce-verifier',undefined,undefined,(err,s)=>{assert.equal(err,null);state=s;});
+ assert.ok(state.length>30);assert.ok(!state.includes('private-pkce-verifier'));
+ const verify=(store,headers)=>new Promise((resolve)=>store.verify({headers,res:{appendHeader:()=>{}}},state,undefined,(err,ok)=>resolve({err,ok})));
+ assert.equal((await verify(second,{})).ok,false);
+ assert.equal((await verify(second,{cookie:'lumi_oauth_state=wrong'})).ok,false);
+ const consumed=await Promise.all([verify(first,{cookie}),verify(second,{cookie})]);
+ assert.equal(consumed.filter(r=>r.ok==='private-pkce-verifier').length,1);
+ assert.equal((await verify(second,{cookie})).ok,false);
+ await a.cleanupExpiredSecurityState();
+ }finally{await prisma.$disconnect();}
 });

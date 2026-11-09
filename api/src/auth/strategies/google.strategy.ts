@@ -3,19 +3,16 @@ import { Strategy, Profile, StrategyOptions } from 'passport-google-oauth20';
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { OAuthStateStore } from './oauth-state.store';
+import { OAuthGrantStore } from '../oauth-grant.store';
+import { PrismaService } from '../../prisma/prisma.service';
 
 @Injectable()
 export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
-  constructor(configService: ConfigService) {
+  constructor(configService: ConfigService, prisma: PrismaService) {
     const isProd = configService.get<string>('NODE_ENV') === 'production';
     const clientID = configService.get<string>('GOOGLE_CLIENT_ID');
     const clientSecret = configService.get<string>('GOOGLE_CLIENT_SECRET');
     const callbackURL = configService.get<string>('GOOGLE_CALLBACK_URL');
-    const stateSecret =
-      configService.get<string>('JWT_SECRET') ||
-      process.env.JWT_SECRET ||
-      'dev-oauth-state-fallback-secret';
-
     if (isProd && (!clientID || !clientSecret || !callbackURL)) {
       throw new Error(
         'CRITICAL: GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET y GOOGLE_CALLBACK_URL son obligatorias en producción.',
@@ -29,7 +26,7 @@ export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
       scope: ['email', 'profile'],
       state: true,
       pkce: true,
-      store: new OAuthStateStore(stateSecret, isProd),
+      store: new OAuthStateStore(new OAuthGrantStore(prisma), isProd),
     } as unknown as StrategyOptions);
   }
 

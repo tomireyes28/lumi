@@ -9,24 +9,26 @@ import { GoogleUser, JwtPayload } from './interfaces/auth.interfaces';
 import { RegisterDto, LoginDto } from './dto/auth.dto';
 import * as bcrypt from 'bcrypt';
 import { randomUUID } from 'crypto';
-
-const MAX_EXCHANGE_CODES = 1000;
+import { OAuthGrantStore } from './oauth-grant.store';
+import { Interval } from '@nestjs/schedule';
 
 const BCRYPT_MAX_UTF8_BYTES = 72;
 
 @Injectable()
 export class AuthService {
-  // Almacén temporal acotado para códigos OAuth de un solo uso (TTL 60s).
-  // Nota operativa: en despliegues multi-réplica debe respaldarse en Redis/DB compartida.
-  private readonly oauthExchangeCodes = new Map<
-    string,
-    { token: string; clientState?: string; expiresAt: number }
-  >();
-
   constructor(
     private prisma: PrismaService,
     private jwtService: JwtService,
   ) {}
+
+  @Interval(3600000)
+  async cleanupExpiredSecurityState(): Promise<void> {
+    const now = new Date();
+    await this.prisma.$transaction([
+      this.prisma.authSession.deleteMany({ where: { expiresAt: { lt: now } } }),
+      this.prisma.oAuthGrant.deleteMany({ where: { expiresAt: { lt: now } } }),
+    ]);
+  }
 
   private async signAccessToken(user: {
     id: string;
@@ -163,51 +165,30 @@ export class AuthService {
     throw new UnauthorizedException('No se pudo vincular la cuenta.');
   }
 
-  // Genera un código temporal de un solo uso vinculado al estado del navegador
-  createOAuthExchangeCode(token: string, clientState?: string): string {
-    const now = Date.now();
-    for (const [code, entry] of this.oauthExchangeCodes.entries()) {
-      if (entry.expiresAt < now) {
-        this.oauthExchangeCodes.delete(code);
-      }
-    }
-    while (this.oauthExchangeCodes.size >= MAX_EXCHANGE_CODES) {
-      const oldest = this.oauthExchangeCodes.keys().next().value;
-      if (!oldest) break;
-      this.oauthExchangeCodes.delete(oldest);
-    }
-
-    const code = randomUUID();
-    this.oauthExchangeCodes.set(code, {
-      token,
-      clientState: clientState?.trim() || undefined,
-      expiresAt: now + 60 * 1000, // Válido por 60 segundos
-    });
-    return code;
+  async createOAuthExchangeCode(
+    token: string,
+    clientState?: string,
+  ): Promise<string> {
+    if (!clientState?.trim())
+      throw new UnauthorizedException('Falta estado del navegador.');
+    return new OAuthGrantStore(this.prisma).create(
+      'exchange',
+      { token, clientState: clientState.trim() },
+      60000,
+    );
   }
 
-  // Canjea el código temporal por el token JWT y datos de usuario verificando vínculo con el navegador
   async exchangeOAuthCode(code: string, clientState?: string) {
-    const entry = this.oauthExchangeCodes.get(code);
-    if (!entry || entry.expiresAt < Date.now()) {
-      if (entry) this.oauthExchangeCodes.delete(code);
-      throw new UnauthorizedException(
-        'El código de autorización ha expirado o es inválido.',
-      );
-    }
-
-    // Quemamos el código inmediatamente (uso único estricto)
-    this.oauthExchangeCodes.delete(code);
-
-    if (entry.clientState && entry.clientState !== clientState?.trim()) {
-      throw new UnauthorizedException(
-        'El estado de autorización no coincide con la sesión del navegador.',
-      );
-    }
-
+    const entry = await new OAuthGrantStore(this.prisma).consume(
+      code,
+      'exchange',
+    );
+    if (!entry || !clientState || entry.clientState !== clientState.trim())
+      throw new UnauthorizedException('Código inválido o expirado.');
     const payload = this.jwtService.verify<JwtPayload>(entry.token, {
       secret: process.env.JWT_SECRET,
     });
+    await this.validateSession(payload);
     const user = await this.prisma.user.findUnique({
       where: { id: payload.sub },
       select: { id: true, name: true, email: true, picture: true },

@@ -145,3 +145,11 @@ model AuthSession {
   @@index([userId])
   @@index([expiresAt])
 }
+
+model OAuthGrant {
+ id String @id
+ kind String
+ payload Json
+ expiresAt DateTime
+ @@index([expiresAt])
+}

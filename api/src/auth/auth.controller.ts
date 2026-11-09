@@ -77,7 +77,7 @@ export class AuthController {
     @Res() res: Response,
   ) {
     const token = await this.authService.googleLogin(req.user);
-    const code = this.authService.createOAuthExchangeCode(
+    const code = await this.authService.createOAuthExchangeCode(
       token,
       req.oauthClientState,
     );

@@ -11,3 +11,7 @@ La etapa se publica completa al finalizar C03–C07; los commits intermedios no 
 ## C04 · Vinculación Google
 
 Se exige subject y email positivamente verificado. La vinculación y revocación son una transacción serializable con reintento de conflictos. Una versión de autenticación permite rechazar también una sesión local emitida durante la vinculación usando credenciales anteriores. La nueva sesión del propietario continúa válida. La regresión real cubre ambas sesiones, subject diferente y verificación ausente.
+
+## C05 · OAuth compartido
+
+Códigos y nonces aleatorios se guardan por hash en OAuthGrant, con TTL y consumo DELETE RETURNING atómico. PKCE queda en PostgreSQL privado; la URL lleva un identificador opaco. La cookie HttpOnly de Railway mantiene la vinculación del navegador. La regresión real prueba canje entre instancias, dos consumos concurrentes con un ganador, replay, estado ajeno y expiración. Un job horario elimina únicamente sesiones y grants vencidos.
