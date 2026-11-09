@@ -145,7 +145,7 @@ export function EditReminderForm({
     reminder.amount ? reminder.amount.toString() : "",
   );
   const [dueDate, setDueDate] = useState(initialDate);
-  const [isRecurring, setIsRecurring] = useState(Boolean(reminder.isRecurring));
+  const [isRecurring, setIsRecurring] = useState(Boolean(reminder.rule?.active??reminder.isRecurring));
   const [isSaving, setIsSaving] = useState(false);
 
   const submitEdit = async (e: React.FormEvent) => {

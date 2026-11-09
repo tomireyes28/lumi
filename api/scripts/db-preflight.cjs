@@ -16,6 +16,7 @@ const tables = [
   'CreditCard',
   'Transaction',
   'Reminder',
+  'ReminderRule',
   'Budget',
   'CardCycle',
   '_prisma_migrations',

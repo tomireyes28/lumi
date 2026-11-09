@@ -5,6 +5,9 @@ import { PrismaService } from '../prisma/prisma.service';
 describe('AnalyticsService - Forecast', () => {
   let service: AnalyticsService;
   let prisma: {
+    reminderRule: { findMany: jest.Mock; create: jest.Mock };
+    $transaction: jest.Mock;
+    $queryRaw: jest.Mock;
     transaction: {
       findMany: jest.Mock;
       aggregate: jest.Mock;
@@ -18,6 +21,12 @@ describe('AnalyticsService - Forecast', () => {
 
   beforeEach(async () => {
     prisma = {
+      reminderRule: {
+        findMany: jest.fn().mockResolvedValue([]),
+        create: jest.fn().mockResolvedValue({ id: 'rule-test' }),
+      },
+      $transaction: jest.fn((fn: (tx: unknown) => unknown) => fn(prisma)),
+      $queryRaw: jest.fn().mockResolvedValue([]),
       transaction: {
         findMany: jest.fn(),
         aggregate: jest.fn(),
@@ -63,7 +72,11 @@ describe('AnalyticsService - Forecast', () => {
           note: 'Heladera (Cuota 1/3)',
           installmentGroupId: 'group-heladera',
           creditCardId: 'card-1',
-          creditCard: { alias: 'Visa Macro', lastFour: '1234', colorHex: '#fff' },
+          creditCard: {
+            alias: 'Visa Macro',
+            lastFour: '1234',
+            colorHex: '#fff',
+          },
           category: { type: 'expense' },
         },
         {
@@ -73,7 +86,11 @@ describe('AnalyticsService - Forecast', () => {
           note: 'Heladera (Cuota 2/3)',
           installmentGroupId: 'group-heladera',
           creditCardId: 'card-1',
-          creditCard: { alias: 'Visa Macro', lastFour: '1234', colorHex: '#fff' },
+          creditCard: {
+            alias: 'Visa Macro',
+            lastFour: '1234',
+            colorHex: '#fff',
+          },
           category: { type: 'expense' },
         },
         {
@@ -83,7 +100,11 @@ describe('AnalyticsService - Forecast', () => {
           note: 'Heladera (Cuota 3/3)',
           installmentGroupId: 'group-heladera',
           creditCardId: 'card-1',
-          creditCard: { alias: 'Visa Macro', lastFour: '1234', colorHex: '#fff' },
+          creditCard: {
+            alias: 'Visa Macro',
+            lastFour: '1234',
+            colorHex: '#fff',
+          },
           category: { type: 'expense' },
         },
       ];
@@ -165,7 +186,9 @@ describe('AnalyticsService - Forecast', () => {
       const currentMonth = now.getMonth();
 
       prisma.transaction.findMany
-        .mockResolvedValueOnce([{ amount: 100000, date: new Date(currentYear, currentMonth - 1, 5) }])
+        .mockResolvedValueOnce([
+          { amount: 100000, date: new Date(currentYear, currentMonth - 1, 5) },
+        ])
         .mockResolvedValueOnce([])
         .mockResolvedValueOnce([]);
 
@@ -186,6 +209,14 @@ describe('AnalyticsService - Forecast', () => {
           isPaid: true,
           isRecurring: true,
         },
+        ...[1, 2].map((offset) => ({
+          id: 'occurrence-' + offset,
+          title: 'Alquiler',
+          amount: 40000,
+          dueDate: new Date(currentYear, currentMonth + offset, 5, 12),
+          isPaid: false,
+          isRecurring: true,
+        })),
       ]);
 
       const forecast = await service.getForecast(mockUserId, 3);

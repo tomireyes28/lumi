@@ -9,6 +9,9 @@ import { Prisma } from '@prisma/client';
 describe('NotificationsService', () => {
   let service: NotificationsService;
   let prisma: {
+    reminderRule: { findMany: jest.Mock; create: jest.Mock };
+    $transaction: jest.Mock;
+    $queryRaw: jest.Mock;
     reminder: {
       findMany: jest.Mock;
     };
@@ -18,6 +21,12 @@ describe('NotificationsService', () => {
   beforeEach(async () => {
     process.env = { ...originalEnv };
     prisma = {
+      reminderRule: {
+        findMany: jest.fn().mockResolvedValue([]),
+        create: jest.fn().mockResolvedValue({ id: 'rule-test' }),
+      },
+      $transaction: jest.fn((fn: (tx: unknown) => unknown) => fn(prisma)),
+      $queryRaw: jest.fn().mockResolvedValue([]),
       reminder: {
         findMany: jest.fn(),
       },
@@ -96,7 +105,9 @@ describe('NotificationsService', () => {
     } as Response);
 
     const firstRun = await service.checkDueReminders(new Date(2026, 9, 15, 12));
-    const secondRun = await service.checkDueReminders(new Date(2026, 9, 15, 12));
+    const secondRun = await service.checkDueReminders(
+      new Date(2026, 9, 15, 12),
+    );
 
     expect(firstRun).toEqual({ processed: 1, sent: 1 });
     expect(secondRun).toEqual({ processed: 1, sent: 0 });

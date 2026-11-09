@@ -1,3 +1,4 @@
+import { ensureOccurrences } from '../reminders/occurrences';
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { Prisma } from '@prisma/client';
@@ -35,6 +36,7 @@ export class NotificationsService {
       getBusinessDayRange(referenceDate);
 
     try {
+      await ensureOccurrences(this.prisma, undefined, referenceDate);
       const dueToday = await this.prisma.reminder.findMany({
         where: {
           OR: [
@@ -42,6 +44,7 @@ export class NotificationsService {
             { dueOn: null, dueDate: { gte: startOfDay, lt: endOfDay } },
           ],
           isPaid: false,
+          isCancelled: false,
         },
         include: {
           user: true,

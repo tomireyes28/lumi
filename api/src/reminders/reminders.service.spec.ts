@@ -6,6 +6,9 @@ import { NotFoundException } from '@nestjs/common';
 describe('RemindersService', () => {
   let service: RemindersService;
   let prisma: {
+    reminderRule: { findMany: jest.Mock; create: jest.Mock };
+    $transaction: jest.Mock;
+    $queryRaw: jest.Mock;
     reminder: {
       findUnique: jest.Mock;
       create: jest.Mock;
@@ -17,6 +20,12 @@ describe('RemindersService', () => {
 
   beforeEach(async () => {
     prisma = {
+      reminderRule: {
+        findMany: jest.fn().mockResolvedValue([]),
+        create: jest.fn().mockResolvedValue({ id: 'rule-test' }),
+      },
+      $transaction: jest.fn((fn: (tx: unknown) => unknown) => fn(prisma)),
+      $queryRaw: jest.fn().mockResolvedValue([]),
       reminder: {
         findUnique: jest.fn(),
         create: jest.fn(),

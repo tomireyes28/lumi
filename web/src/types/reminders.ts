@@ -1,4 +1,5 @@
 export interface Reminder {
+  rule?:{active:boolean}|null;
   id: string;
   title: string;
   amount: string | number | null;

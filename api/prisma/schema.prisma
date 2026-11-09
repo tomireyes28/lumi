@@ -7,21 +7,22 @@ datasource db {
 }
 
 model User {
-  authVersion Int @default(0)
-  id            String   @id @default(uuid())
+  authVersion   Int     @default(0)
+  id            String  @id @default(uuid())
   name          String
-  email         String   @unique
-  password      String?  // Opcional si inicia sesión exclusivamente con proveedor OAuth
+  email         String  @unique
+  password      String? // Opcional si inicia sesión exclusivamente con proveedor OAuth
   picture       String?
-  googleId      String?  @unique
-  emailVerified Boolean  @default(false)
+  googleId      String? @unique
+  emailVerified Boolean @default(false)
 
-  sessions AuthSession[]
-  transactions Transaction[]
-  categories   Category[]
-  creditCards  CreditCard[]
-  reminders    Reminder[]
-  budgets      Budget[]
+  sessions      AuthSession[]
+  transactions  Transaction[]
+  categories    Category[]
+  creditCards   CreditCard[]
+  reminderRules ReminderRule[]
+  reminders     Reminder[]
+  budgets       Budget[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @default(now()) @updatedAt
@@ -31,8 +32,8 @@ model Category {
   id           String        @id @default(uuid())
   userId       String
   name         String
-  type         String        // 'income' | 'expense'
-  colorHex     String?       // Para los colores pasteles
+  type         String // 'income' | 'expense'
+  colorHex     String? // Para los colores pasteles
   icon         String?
   user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
   transactions Transaction[]
@@ -43,28 +44,28 @@ model Category {
 }
 
 model Transaction {
-  referenceDate DateTime?
-  purchaseDate DateTime?
-  statementYear Int?
-  statementMonth Int?
+  referenceDate        DateTime?
+  purchaseDate         DateTime?
+  statementYear        Int?
+  statementMonth       Int?
   statementClosingDate DateTime?
-  paymentDueDate DateTime?
-  installmentNumber Int?
-  installmentCount Int?
+  paymentDueDate       DateTime?
+  installmentNumber    Int?
+  installmentCount     Int?
 
-  id                 String    @id @default(uuid())
+  id                 String   @id @default(uuid())
   userId             String
   categoryId         String
-  amount             Decimal   @db.Decimal(10, 2)
-  date               DateTime  @default(now())
+  amount             Decimal  @db.Decimal(10, 2)
+  date               DateTime @default(now())
   note               String?
-  paymentMethod      String    @default("cash") // 'cash' | 'credit_card'
+  paymentMethod      String   @default("cash") // 'cash' | 'credit_card'
   installmentGroupId String?
 
   user         User        @relation(fields: [userId], references: [id], onDelete: Cascade)
   category     Category    @relation(fields: [categoryId], references: [id], onDelete: Restrict)
   createdAt    DateTime    @default(now())
-  creditCardId String?     // Relación opcional con CreditCard
+  creditCardId String? // Relación opcional con CreditCard
   creditCard   CreditCard? @relation(fields: [creditCardId], references: [id], onDelete: SetNull)
 
   @@index([userId, date])
@@ -75,8 +76,8 @@ model Transaction {
 
 model CreditCard {
   id         String  @id @default(uuid())
-  alias      String  // Ej: "Visa Galicia"
-  lastFour   String  // Ej: "4567"
+  alias      String // Ej: "Visa Galicia"
+  lastFour   String // Ej: "4567"
   limit      Decimal @db.Decimal(10, 2)
   closingDay Int
   dueDay     Int
@@ -99,9 +100,9 @@ model CardCycle {
   creditCardId String
   creditCard   CreditCard @relation(fields: [creditCardId], references: [id], onDelete: Cascade)
 
-  month       Int       // 1 a 12 (mes del resumen/cierre)
-  year        Int       // Año del ciclo (ej: 2026)
-  closingDate DateTime  // Fecha exacta de cierre para este mes
+  month       Int // 1 a 12 (mes del resumen/cierre)
+  year        Int // Año del ciclo (ej: 2026)
+  closingDate DateTime // Fecha exacta de cierre para este mes
   dueDate     DateTime? // Fecha exacta de vencimiento para este ciclo (opcional)
 
   createdAt DateTime @default(now())
@@ -112,13 +113,18 @@ model CardCycle {
 }
 
 model Reminder {
-  dueOn DateTime? @db.Date
-  id          String   @id @default(uuid())
-  title       String   // Ej: "Alquiler", "Netflix"
-  amount      Decimal? @db.Decimal(10, 2)
+  ruleId           String?
+  rule             ReminderRule? @relation(fields: [ruleId], references: [id], onDelete: SetNull)
+  occurrencePeriod String?
+  isCancelled      Boolean       @default(false)
+
+  dueOn       DateTime? @db.Date
+  id          String    @id @default(uuid())
+  title       String // Ej: "Alquiler", "Netflix"
+  amount      Decimal?  @db.Decimal(10, 2)
   dueDate     DateTime // La fecha en la que vence
-  isPaid      Boolean  @default(false)
-  isRecurring Boolean  @default(false)
+  isPaid      Boolean   @default(false)
+  isRecurring Boolean   @default(false)
 
   userId String
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -126,6 +132,7 @@ model Reminder {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  @@unique([ruleId, occurrencePeriod])
   @@index([userId])
   @@index([dueDate])
 }
@@ -145,29 +152,45 @@ model Budget {
 }
 
 model AuthSession {
-  authVersion Int @default(0)
-  id String @id
-  userId String
-  user User @relation(fields:[userId],references:[id],onDelete:Cascade)
-  expiresAt DateTime
-  revokedAt DateTime?
-  createdAt DateTime @default(now())
+  authVersion Int       @default(0)
+  id          String    @id
+  userId      String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt   DateTime
+  revokedAt   DateTime?
+  createdAt   DateTime  @default(now())
+
   @@index([userId])
   @@index([expiresAt])
 }
 
 model OAuthGrant {
- id String @id
- kind String
- payload Json
- expiresAt DateTime
- @@index([expiresAt])
+  id        String   @id
+  kind      String
+  payload   Json
+  expiresAt DateTime
+
+  @@index([expiresAt])
 }
 
 model RateLimitBucket {
- id String @id
- hits Int
- resetsAt DateTime
- blockedUntil DateTime?
- @@index([resetsAt])
+  id           String    @id
+  hits         Int
+  resetsAt     DateTime
+  blockedUntil DateTime?
+
+  @@index([resetsAt])
+}
+
+model ReminderRule {
+  id        String     @id @default(uuid())
+  userId    String
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title     String
+  amount    Decimal?   @db.Decimal(10, 2)
+  anchorOn  DateTime   @db.Date
+  active    Boolean    @default(true)
+  reminders Reminder[]
+
+  @@index([userId, active])
 }

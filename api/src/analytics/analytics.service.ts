@@ -1,3 +1,4 @@
+import { ensureOccurrences } from '../reminders/occurrences';
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import {
@@ -156,14 +157,19 @@ export class AnalyticsService {
     referenceDate: Date = new Date(),
   ) {
     const now = referenceDate;
+    await ensureOccurrences(
+      this.prisma,
+      userId,
+      businessDate(
+        getCalendarDayParts(now).year,
+        getCalendarDayParts(now).monthIndex + monthsCount,
+        1,
+      ),
+    );
     const currentMonthStart = getMonthDateRange(
       getCalendarDayParts(now).year,
       getCalendarDayParts(now).monthIndex + 1,
     ).startDate;
-    const currentMonthEnd = getMonthDateRange(
-      getCalendarDayParts(now).year,
-      getCalendarDayParts(now).monthIndex + 1,
-    ).endDate;
     const forecastEnd = businessDate(
       getCalendarDayParts(now).year,
       getCalendarDayParts(now).monthIndex + monthsCount,
@@ -207,7 +213,7 @@ export class AnalyticsService {
         orderBy: { date: 'asc' },
       }),
       this.prisma.reminder.findMany({
-        where: { userId },
+        where: { userId, isCancelled: false },
         orderBy: { dueDate: 'asc' },
       }),
       this.prisma.transaction.findMany({
@@ -299,21 +305,6 @@ export class AnalyticsService {
           ? calendarColumnAtNoon(r.dueOn)
           : new Date(r.dueDate);
         const isInTargetMonth = rDate >= startDate && rDate < endDate;
-        const isRecurring = Boolean(
-          (r as { isRecurring?: boolean }).isRecurring,
-        );
-
-        if (isRecurring) {
-          if (i === 0) {
-            return (
-              !r.isPaid &&
-              (isInTargetMonth ||
-                (rDate >= currentMonthStart && rDate < currentMonthEnd))
-            );
-          }
-          return rDate < endDate && (!r.isPaid || rDate >= currentMonthStart);
-        }
-
         return !r.isPaid && isInTargetMonth;
       });
 

@@ -91,7 +91,11 @@ async function deploy(url, baseline = false) {
       path.join(migrationPath, 'migration_lock.toml'),
     );
     for (const name of (await fs.readdir(migrations))
-      .filter((n) => /^2026(04|05|10)/.test(n))
+      .filter((n) =>
+        baseline === 'pre-recurrence'
+          ? /^\d/.test(n) && n < '20261109070000'
+          : /^2026(04|05|10)/.test(n),
+      )
       .sort()) {
       await fs.cp(path.join(migrations, name), path.join(migrationPath, name), {
         recursive: true,
@@ -471,7 +475,7 @@ test('Supabase API roles lose direct access while Prisma retains CRUD and future
   await deploy(url); // Migration bookkeeping still works with RLS on its own table.
   await withSql(url, async (client) => {
     const report = await inspectDatabase(client);
-    assert.equal(report.permissions.length, 22);
+    assert.equal(report.permissions.length, 24);
     assert.deepEqual(releaseIssues(report), []);
     assert.ok(
       report.permissions.every(
@@ -1433,6 +1437,92 @@ test('notification day query preserves legacy calendar labels across UTC midnigh
   } finally {
     if (previous === undefined) delete process.env.RESEND_API_KEY;
     else process.env.RESEND_API_KEY = previous;
+    await prisma.$disconnect();
+  }
+});
+
+test('monthly occurrences preserve payments, clamp day 31 and stop without deleting history', async () => {
+  const url = await database();
+  await deploy(url);
+  const a = new PrismaClient({
+      adapter: new PrismaPg({ connectionString: url }),
+    }),
+    b = new PrismaClient({ adapter: new PrismaPg({ connectionString: url }) });
+  const {
+    RemindersService,
+  } = require('../dist/src/reminders/reminders.service.js');
+  const { ensureOccurrences } = require('../dist/src/reminders/occurrences.js');
+  try {
+    const user = await a.user.create({
+      data: { name: 'Recurrence fixture', email: 'recurrence@example.invalid' },
+    });
+    const service = new RemindersService(a);
+    const first = await service.create(user.id, {
+      title: 'Original',
+      amount: 10,
+      dueDate: '2026-01-31',
+      isRecurring: true,
+    });
+    await service.markAsPaid(first.id, user.id);
+    await Promise.all([
+      ensureOccurrences(a, user.id, new Date('2027-02-15T15:00Z')),
+      ensureOccurrences(b, user.id, new Date('2027-02-15T15:00Z')),
+    ]);
+    const rows = await a.reminder.findMany({
+      where: { ruleId: first.ruleId },
+      orderBy: { dueOn: 'asc' },
+    });
+    assert.equal(rows.length, 14);
+    assert.equal(rows[0].isPaid, true);
+    assert.equal(rows[1].dueOn.toISOString().slice(0, 10), '2026-02-28');
+    assert.equal(rows[2].dueOn.toISOString().slice(0, 10), '2026-03-31');
+    assert.equal(rows[12].dueOn.toISOString().slice(0, 10), '2027-01-31');
+    assert.ok(rows.slice(1).every((r) => !r.isPaid));
+    await service.update(first.id, { title: 'Future', amount: 20 }, user.id);
+    const retained = await a.reminder.findUnique({ where: { id: first.id } });
+    assert.equal(retained.title, 'Original');
+    assert.equal(Number(retained.amount), 10);
+    await service.update(first.id, { isRecurring: false }, user.id);
+    assert.equal(
+      (await a.reminderRule.findUnique({ where: { id: first.ruleId } })).active,
+      false,
+    );
+    await ensureOccurrences(b, user.id, new Date('2028-01-15T15:00Z'));
+    assert.equal(
+      await a.reminder.count({ where: { ruleId: first.ruleId } }),
+      14,
+    );
+    assert.equal(
+      (await a.reminder.findUnique({ where: { id: first.id } })).isPaid,
+      true,
+    );
+  } finally {
+    await a.$disconnect();
+    await b.$disconnect();
+  }
+});
+test('recurrence migration preserves the paid reminder and attaches its rule', async () => {
+  const url = await database();
+  await deploy(url, 'pre-recurrence');
+  await withSql(url, async (c) => {
+    await c.query(
+      `INSERT INTO "User" (id,name,email) VALUES ('legacy-recurring-user','Legacy','legacy-recurring@example.invalid');INSERT INTO "Reminder" (id,title,amount,"dueDate","dueOn","isPaid","isRecurring","userId","updatedAt") VALUES ('legacy-paid','Paid',12.34,'2026-10-31','2026-10-31',true,true,'legacy-recurring-user',now());`,
+    );
+  });
+  await deploy(url);
+  const prisma = new PrismaClient({
+    adapter: new PrismaPg({ connectionString: url }),
+  });
+  try {
+    const row = await prisma.reminder.findUnique({
+      where: { id: 'legacy-paid' },
+    });
+    assert.equal(row.isPaid, true);
+    assert.equal(row.amount.toFixed(2), '12.34');
+    assert.equal(row.ruleId, 'rule-legacy-paid');
+    assert.equal(row.occurrencePeriod, '2026-10');
+    assert.equal(row.dueDate.toISOString(), '2026-10-31T00:00:00.000Z');
+  } finally {
     await prisma.$disconnect();
   }
 });
