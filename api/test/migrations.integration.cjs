@@ -963,3 +963,30 @@ test('explicit statement and payment dates agree across cards, installments and 
  assert.equal(next.statementClosingDate.toISOString().slice(0,10),'2026-02-08');assert.equal(next.paymentDueDate.toISOString().slice(0,10),'2026-02-22');
  }finally{await prisma.$disconnect();}
 });
+
+test('transaction PATCH validates the final state and moves only the selected installment',async()=>{
+ const url=await database();await deploy(url);const prisma=new PrismaClient({adapter:new PrismaPg({connectionString:url})});const {TransactionsService}=require('../dist/src/transactions/transactions.service.js');
+ try{
+ const user=await prisma.user.create({data:{name:'Edit fixture',email:'edit@example.invalid'}});
+ const expense=await prisma.category.create({data:{userId:user.id,name:'Expense',type:'expense'}});const income=await prisma.category.create({data:{userId:user.id,name:'Income',type:'income'}});
+ const card=await prisma.creditCard.create({data:{userId:user.id,alias:'Card',lastFour:'1234',limit:10000,closingDay:25,dueDay:5}});
+ const secondCard=await prisma.creditCard.create({data:{userId:user.id,alias:'Other card',lastFour:'5678',limit:10000,closingDay:10,dueDay:20}});
+ const service=new TransactionsService(prisma);
+ const cash=await service.create({amount:50,categoryId:income.id,date:'2026-01-20'},user.id);
+ await assert.rejects(service.update(cash.id,{creditCardId:card.id},user.id),{status:400});
+ const first=await service.create({amount:100,categoryId:expense.id,creditCardId:card.id,installments:3,date:'2026-01-20'},user.id);
+ await assert.rejects(service.update(first.id,{categoryId:income.id},user.id),{status:400});
+ const plan=await prisma.transaction.findMany({where:{installmentGroupId:first.installmentGroupId},orderBy:{installmentNumber:'asc'}});
+ const moved=await service.update(plan[1].id,{date:'2026-04-03'},user.id);
+ assert.equal(moved.statementMonth,4);assert.equal(moved.paymentDueDate.toISOString().slice(0,10),'2026-05-05');assert.equal(moved.purchaseDate.toISOString(),plan[1].purchaseDate.toISOString());assert.equal(moved.installmentNumber,2);
+ const otherRows=await prisma.transaction.findMany({where:{id:{in:[plan[0].id,plan[2].id]}},orderBy:{installmentNumber:'asc'}});
+ assert.deepEqual(otherRows.map(t=>t.date),[plan[0].date,plan[2].date]);
+ const reassigned=await service.update(moved.id,{creditCardId:secondCard.id},user.id);assert.equal(reassigned.statementMonth,4);assert.equal(reassigned.statementClosingDate.toISOString().slice(0,10),'2026-04-10');
+ await prisma.creditCard.update({where:{id:secondCard.id},data:{closingDay:5}});
+ const noteOnly=await service.update(moved.id,{note:'Only note'},user.id);assert.equal(noteOnly.statementClosingDate.toISOString(),reassigned.statementClosingDate.toISOString());
+ const detached=await service.update(moved.id,{creditCardId:null,categoryId:income.id},user.id);assert.equal(detached.paymentMethod,'cash');assert.equal(detached.statementMonth,null);assert.equal(detached.paymentDueDate,null);
+ await assert.rejects(service.update(first.id,{date:'2026-02-31'},user.id),{status:400});
+ const otherUser=await prisma.user.create({data:{name:'Other',email:'other-edit@example.invalid'}});
+ await assert.rejects(service.update(first.id,{note:'Forbidden'},otherUser.id),{status:404});
+ }finally{await prisma.$disconnect();}
+});

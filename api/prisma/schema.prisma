@@ -43,6 +43,7 @@ model Category {
 }
 
 model Transaction {
+  referenceDate DateTime?
   purchaseDate DateTime?
   statementYear Int?
   statementMonth Int?

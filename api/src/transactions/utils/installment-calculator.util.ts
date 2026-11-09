@@ -97,11 +97,13 @@ export class InstallmentCalculator {
           : null;
       const installmentDate =
         cycle?.closingDate ??
-        clampedBusinessDate(
-          purchase.year,
-          purchase.monthIndex + i - 1,
-          startDay,
-        );
+        (i === 1
+          ? startDate
+          : clampedBusinessDate(
+              purchase.year,
+              purchase.monthIndex + i - 1,
+              startDay,
+            ));
       const installmentNote =
         installments > 1
           ? `${baseNote} (Cuota ${i}/${installments})`
@@ -125,6 +127,7 @@ export class InstallmentCalculator {
         amount: currentAmount,
         date: installmentDate,
         purchaseDate: startDate,
+        referenceDate: i === 1 ? startDate : installmentDate,
         statementYear: cycle?.year ?? null,
         statementMonth: cycle?.month ?? null,
         statementClosingDate: cycle?.closingDate ?? null,

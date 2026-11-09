@@ -6,6 +6,8 @@ import { BadRequestException } from '@nestjs/common';
 describe('TransactionsService', () => {
   let service: TransactionsService;
   let prisma: {
+    $transaction: jest.Mock;
+    $queryRaw: jest.Mock;
     category: { findUnique: jest.Mock };
     creditCard: { findUnique: jest.Mock };
     transaction: {
@@ -25,6 +27,8 @@ describe('TransactionsService', () => {
 
   beforeEach(async () => {
     prisma = {
+      $transaction: jest.fn((fn: (tx: unknown) => unknown) => fn(prisma)),
+      $queryRaw: jest.fn().mockResolvedValue([]),
       category: {
         findUnique: jest.fn(),
       },
@@ -202,10 +206,12 @@ describe('TransactionsService', () => {
       });
 
       let capturedData: Array<{ date: Date; amount: number }> = [];
-      prisma.transaction.createMany.mockImplementation(({ data }: { data: Array<{ date: Date; amount: number }> }) => {
-        capturedData = data;
-        return Promise.resolve({ count: data.length });
-      });
+      prisma.transaction.createMany.mockImplementation(
+        ({ data }: { data: Array<{ date: Date; amount: number }> }) => {
+          capturedData = data;
+          return Promise.resolve({ count: data.length });
+        },
+      );
       prisma.transaction.findFirst.mockImplementation(() =>
         Promise.resolve(capturedData[0]),
       );
@@ -308,7 +314,7 @@ describe('TransactionsService', () => {
       expect(updateArg[0].data.amount).toBe(250);
       expect(updateArg[0].data.note).toBeNull();
       expect(updateArg[0].data.paymentMethod).toBe('cash');
-      expect(updateArg[0].data.creditCard).toEqual({ disconnect: true });
+      expect(updateArg[0].data.creditCardId).toBeNull();
     });
 
     it('should reject updating or deleting a transaction owned by another user (Anti-IDOR)', async () => {

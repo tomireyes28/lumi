@@ -1,3 +1,4 @@
+import { serializable } from '../utils/serializable.util';
 import {
   Injectable,
   NotFoundException,
@@ -101,6 +102,7 @@ export class TransactionsService {
           note,
           date: temporal.date,
           purchaseDate: startDate,
+          referenceDate: startDate,
           statementYear: temporal.statementYear,
           statementMonth: temporal.statementMonth,
           statementClosingDate: temporal.statementClosingDate,
@@ -201,79 +203,86 @@ export class TransactionsService {
     });
   }
 
-  async update(
-    id: string,
-    updateTransactionDto: UpdateTransactionDto,
-    userId: string,
-  ) {
-    const transaction = await this.prisma.transaction.findUnique({
-      where: { id },
-    });
-
-    if (!transaction || transaction.userId !== userId) {
-      throw new NotFoundException('Transacción no encontrada o no autorizada');
-    }
-
-    const dataToUpdate: Prisma.TransactionUpdateInput = {};
-
-    if (updateTransactionDto.amount !== undefined) {
-      dataToUpdate.amount = updateTransactionDto.amount;
-    }
-    if (updateTransactionDto.note !== undefined) {
-      dataToUpdate.note = updateTransactionDto.note;
-    }
-    if (updateTransactionDto.date !== undefined) {
-      if (updateTransactionDto.date === null) {
-        throw new BadRequestException(
-          'La fecha de la transacción no puede ser nula.',
+  async update(id: string, dto: UpdateTransactionDto, userId: string) {
+    return serializable(this.prisma, async (tx) => {
+      await tx.$queryRaw`SELECT id FROM "Transaction" WHERE id=${id} AND "userId"=${userId} FOR UPDATE`;
+      const existing = await tx.transaction.findUnique({ where: { id } });
+      if (!existing || existing.userId !== userId)
+        throw new NotFoundException(
+          'Transacción no encontrada o no autorizada',
         );
-      }
-      dataToUpdate.date = parseLocalDate(updateTransactionDto.date);
-    }
-
-    let targetCategoryType: string | undefined;
-    if (updateTransactionDto.categoryId) {
-      const category = await this.prisma.category.findUnique({
-        where: { id: updateTransactionDto.categoryId },
+      const categoryId = dto.categoryId ?? existing.categoryId;
+      const category = await tx.category.findUnique({
+        where: { id: categoryId },
       });
-      if (!category || category.userId !== userId) {
+      if (!category || category.userId !== userId)
         throw new BadRequestException(
-          'La categoría especificada no existe o no pertenece a tu usuario.',
+          'La categoría no pertenece a tu usuario.',
         );
-      }
-      targetCategoryType = category.type;
-      dataToUpdate.category = {
-        connect: { id: updateTransactionDto.categoryId },
-      };
-    }
-
-    if (updateTransactionDto.creditCardId === null) {
-      dataToUpdate.creditCard = { disconnect: true };
-      dataToUpdate.paymentMethod = 'cash';
-    } else if (updateTransactionDto.creditCardId !== undefined) {
-      if (targetCategoryType === 'income') {
+      const cardId =
+        dto.creditCardId === undefined
+          ? existing.creditCardId
+          : dto.creditCardId;
+      const method =
+        dto.creditCardId === null
+          ? 'cash'
+          : cardId
+            ? 'credit_card'
+            : existing.paymentMethod;
+      if (category.type === 'income' && (cardId || method === 'credit_card'))
         throw new BadRequestException(
           'Los ingresos no pueden asociarse a una tarjeta de crédito.',
         );
+      const card = cardId
+        ? await tx.creditCard.findUnique({
+            where: { id: cardId },
+            include: { cycles: true },
+          })
+        : null;
+      if (cardId && (!card || card.userId !== userId))
+        throw new BadRequestException('La tarjeta no pertenece a tu usuario.');
+      const data: Prisma.TransactionUncheckedUpdateInput = {};
+      if (dto.amount !== undefined) data.amount = dto.amount;
+      if (dto.note !== undefined) data.note = dto.note;
+      if (dto.categoryId !== undefined) data.categoryId = categoryId;
+      if (dto.creditCardId !== undefined) {
+        data.creditCardId = cardId;
+        data.paymentMethod = method;
       }
-      const creditCard = await this.prisma.creditCard.findUnique({
-        where: { id: updateTransactionDto.creditCardId },
+      if (
+        dto.date !== undefined ||
+        (dto.creditCardId !== undefined &&
+          (cardId !== existing.creditCardId ||
+            method !== existing.paymentMethod))
+      ) {
+        if (dto.date === null)
+          throw new BadRequestException('La fecha no puede ser nula.');
+        const reference = dto.date
+          ? parseLocalDate(dto.date)
+          : (existing.referenceDate ?? existing.date);
+        const temporal = InstallmentCalculator.calculate({
+          amount: dto.amount ?? Number(existing.amount),
+          installments: 1,
+          startDate: reference,
+          userId,
+          categoryId,
+          creditCardId: cardId,
+          closingDay: card?.closingDay,
+          dueDay: card?.dueDay,
+          customCycles: card?.cycles,
+        }).transactionsData[0];
+        data.referenceDate = reference;
+        data.date = temporal.date;
+        data.statementYear = temporal.statementYear;
+        data.statementMonth = temporal.statementMonth;
+        data.statementClosingDate = temporal.statementClosingDate;
+        data.paymentDueDate = temporal.paymentDueDate;
+      }
+      return tx.transaction.update({
+        where: { id },
+        data,
+        include: { category: true, creditCard: true },
       });
-      if (!creditCard || creditCard.userId !== userId) {
-        throw new BadRequestException(
-          'La tarjeta especificada no existe o no pertenece a tu usuario.',
-        );
-      }
-      dataToUpdate.creditCard = {
-        connect: { id: updateTransactionDto.creditCardId },
-      };
-      dataToUpdate.paymentMethod = 'credit_card';
-    }
-
-    return this.prisma.transaction.update({
-      where: { id },
-      data: dataToUpdate,
-      include: { category: true, creditCard: true },
     });
   }
 

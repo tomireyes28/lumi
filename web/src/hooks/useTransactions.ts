@@ -1,13 +1,14 @@
-import { useEffect, useState, useMemo } from 'react';
-import { apiFetch } from '@/lib/api';
+import { businessDateKey } from "@/lib/business-date";
+import { useEffect, useState, useMemo } from "react";
+import { apiFetch } from "@/lib/api";
 import {
   PaginatedTransactionsResponse,
   Transaction,
   UpdateTransactionInput,
-} from '@/types/transactions';
-import { Category } from '@/types/categories';
-import { CreditCard } from '@/types/cards';
-import { toast } from 'sonner';
+} from "@/types/transactions";
+import { Category } from "@/types/categories";
+import { CreditCard } from "@/types/cards";
+import { toast } from "sonner";
 
 function extractTransactions(
   res: Transaction[] | PaginatedTransactionsResponse,
@@ -24,33 +25,36 @@ export const useTransactions = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const [amount, setAmount] = useState('');
-  const [categoryId, setCategoryId] = useState('');
-  const [creditCardId, setCreditCardId] = useState('');
-  const [installments, setInstallments] = useState('1');
-  const [note, setNote] = useState('');
+  const [amount, setAmount] = useState("");
+  const [categoryId, setCategoryId] = useState("");
+  const [creditCardId, setCreditCardId] = useState("");
+  const [installments, setInstallments] = useState("1");
+  const [note, setNote] = useState("");
+  const [date, setDate] = useState(() => businessDateKey(new Date()));
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [tab, setTab] = useState<'expense' | 'income'>('expense');
+  const [tab, setTab] = useState<"expense" | "income">("expense");
 
   const [editingTx, setEditingTx] = useState<Transaction | null>(null);
   const [deletingTx, setDeletingTx] = useState<Transaction | null>(null);
 
-  const [filterType, setFilterType] = useState<'all' | 'income' | 'expense'>('all');
+  const [filterType, setFilterType] = useState<"all" | "income" | "expense">(
+    "all",
+  );
 
   useEffect(() => {
     let isMounted = true;
     const fetchInitialData = async () => {
       try {
         const [catData, cardsData] = await Promise.all([
-          apiFetch<Category[]>('/categories'),
-          apiFetch<CreditCard[]>('/credit-cards'),
+          apiFetch<Category[]>("/categories"),
+          apiFetch<CreditCard[]>("/credit-cards"),
         ]);
         if (isMounted) {
           setCategories(catData);
           setCards(cardsData);
         }
       } catch (err) {
-        console.error('Error cargando datos iniciales:', err);
+        console.error("Error cargando datos iniciales:", err);
       }
     };
     void fetchInitialData();
@@ -67,21 +71,21 @@ export const useTransactions = () => {
         setError(null);
       }
       try {
-        const queryParams = new URLSearchParams({ page: '1', limit: '100' });
-        if (filterType !== 'all') {
-          queryParams.set('type', filterType);
+        const queryParams = new URLSearchParams({ page: "1", limit: "100" });
+        if (filterType !== "all") {
+          queryParams.set("type", filterType);
         }
-        const data = await apiFetch<Transaction[] | PaginatedTransactionsResponse>(
-          `/transactions?${queryParams.toString()}`,
-        );
+        const data = await apiFetch<
+          Transaction[] | PaginatedTransactionsResponse
+        >(`/transactions?${queryParams.toString()}`);
         if (isMounted) setTransactions(extractTransactions(data));
       } catch (err) {
-        console.error('Error cargando transacciones:', err);
+        console.error("Error cargando transacciones:", err);
         if (isMounted) {
           setError(
             err instanceof Error
               ? err.message
-              : 'No se pudieron cargar los movimientos.',
+              : "No se pudieron cargar los movimientos.",
           );
         }
       } finally {
@@ -95,9 +99,9 @@ export const useTransactions = () => {
   }, [filterType]);
 
   const reloadTransactions = async () => {
-    const queryParams = new URLSearchParams({ page: '1', limit: '100' });
-    if (filterType !== 'all') {
-      queryParams.set('type', filterType);
+    const queryParams = new URLSearchParams({ page: "1", limit: "100" });
+    if (filterType !== "all") {
+      queryParams.set("type", filterType);
     }
     const data = await apiFetch<Transaction[] | PaginatedTransactionsResponse>(
       `/transactions?${queryParams.toString()}`,
@@ -110,64 +114,75 @@ export const useTransactions = () => {
     e.preventDefault();
     setIsSubmitting(true);
     try {
-      await apiFetch('/transactions', {
-        method: 'POST',
+      await apiFetch("/transactions", {
+        method: "POST",
         body: JSON.stringify({
           amount: Number(amount),
+          date,
           categoryId,
           note: note.trim() ? note.trim() : undefined,
-          creditCardId: tab === 'expense' && creditCardId ? creditCardId : undefined,
+          creditCardId:
+            tab === "expense" && creditCardId ? creditCardId : undefined,
           installments:
-            tab === 'expense' && creditCardId ? Number(installments) : undefined,
+            tab === "expense" && creditCardId
+              ? Number(installments)
+              : undefined,
         }),
       });
 
-      setAmount('');
-      setNote('');
-      setCategoryId('');
-      setCreditCardId('');
-      setInstallments('1');
+      setAmount("");
+      setNote("");
+      setCategoryId("");
+      setCreditCardId("");
+      setInstallments("1");
       await reloadTransactions();
-      toast.success('Movimiento registrado');
+      toast.success("Movimiento registrado");
     } catch (err) {
-      console.error('Error creando transacción:', err);
+      console.error("Error creando transacción:", err);
       toast.error(
-        err instanceof Error ? err.message : 'Hubo un error al guardar el movimiento',
+        err instanceof Error
+          ? err.message
+          : "Hubo un error al guardar el movimiento",
       );
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  const handleUpdate = async (id: string, updatedData: UpdateTransactionInput) => {
+  const handleUpdate = async (
+    id: string,
+    updatedData: UpdateTransactionInput,
+  ) => {
     try {
       await apiFetch(`/transactions/${id}`, {
-        method: 'PATCH',
+        method: "PATCH",
         body: JSON.stringify(updatedData),
       });
-      toast.success('Movimiento actualizado con éxito');
+      toast.success("Movimiento actualizado con éxito");
       setEditingTx(null);
       await reloadTransactions();
     } catch (err) {
       console.error(err);
       toast.error(
-        err instanceof Error ? err.message : 'No se pudo actualizar el movimiento',
+        err instanceof Error
+          ? err.message
+          : "No se pudo actualizar el movimiento",
       );
     }
   };
 
   const handleDelete = async (id: string) => {
     try {
-      await apiFetch(`/transactions/${id}`, { method: 'DELETE' });
-      toast.success('Movimiento eliminado');
+      await apiFetch(`/transactions/${id}`, { method: "DELETE" });
+      toast.success("Movimiento eliminado");
       setDeletingTx(null);
       await reloadTransactions();
     } catch (err) {
-      console.error('Error borrando transacción:', err);
+      console.error("Error borrando transacción:", err);
       toast.error(
         err instanceof Error
           ? err.message
-          : 'Hubo un error al borrar. Intentá de nuevo.',
+          : "Hubo un error al borrar. Intentá de nuevo.",
       );
     }
   };
@@ -186,6 +201,8 @@ export const useTransactions = () => {
     form: {
       amount,
       setAmount,
+      date,
+      setDate,
       categoryId,
       setCategoryId,
       creditCardId,

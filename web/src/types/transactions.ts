@@ -5,6 +5,7 @@ export interface Transaction {
   id: string;
   amount: number | string;
   date: string;
+  referenceDate?: string | null;
   purchaseDate?: string | null;
   statementYear?: number | null;
   statementMonth?: number | null;

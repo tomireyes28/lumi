@@ -23,3 +23,9 @@ Instalación, upgrade con fixtures anteriores y dump/restore pasaron en PostgreS
 Un único calendario calcula cierre, límite de día, período y vencimiento. La primera cuota usa el ciclo de compra y las siguientes usan períodos consecutivos, consultando cada cierre personalizado. Se preserva purchaseDate; date mantiene la imputación compatible al cierre. Billetera agrupa por resumen explícito y forecast por paymentDueDate. Para registros heredados, el forecast conserva el fallback de date y muestra su carácter estimado.
 
 La regresión R03 (20/01, cierre habitual 25, febrero con cierre 10) produce resúmenes enero/febrero/marzo sin colisiones y pagos febrero/marzo/abril. Se verificaron con Prisma real billetera, forecast, conservación de centavos y que cambiar cierres/vencimientos no reescribe cuotas existentes. Los escenarios de calendario y cuotas pasan en UTC y Buenos Aires.
+
+## C11 · Estado final de cada PATCH
+
+La edición se serializa sobre el movimiento y valida siempre categoría, tarjeta y medio de pago finales. Se rechazan tanto categoría de ingreso sobre tarjeta existente como tarjeta sobre un ingreso existente. La referencia y el medio se escriben en un único UPDATE escalar: una regresión con PostgreSQL detectó que dos escrituras de relación separadas podían activar el trigger dejando credit_card al desconectar.
+
+La edición temporal mueve únicamente ese movimiento al ciclo de la fecha indicada. referenceDate conserva la entrada usada para poder reasignar una tarjeta después; purchaseDate no se reescribe ni se infiere para registros heredados. Nota/importe solos no recalculan las fechas ya asignadas. El formulario diferencia fecha de compra al crear y referencia individual al editar. La regresión real cubre ambas variantes ingreso/tarjeta, cambio de fecha/tarjeta, desconexión, fechas inválidas, aislamiento y conservación de otras cuotas.

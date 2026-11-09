@@ -1,10 +1,13 @@
-import { motion, AnimatePresence, Variants } from 'framer-motion';
-import { Category } from '@/types/categories';
-import { CreditCard } from '@/types/cards';
-import { useId, useState } from 'react';
-import { Transaction, UpdateTransactionInput } from '@/types/transactions';
+import { businessDateKey } from "@/lib/business-date";
+import { motion, AnimatePresence, Variants } from "framer-motion";
+import { Category } from "@/types/categories";
+import { CreditCard } from "@/types/cards";
+import { useId, useState } from "react";
+import { Transaction, UpdateTransactionInput } from "@/types/transactions";
 
 export interface TransactionFormState {
+  date: string;
+  setDate: (date: string) => void;
   amount: string;
   setAmount: (value: string) => void;
   categoryId: string;
@@ -19,8 +22,8 @@ export interface TransactionFormState {
 }
 
 interface TransactionFormProps {
-  tab: 'expense' | 'income';
-  setTab: (tab: 'expense' | 'income') => void;
+  tab: "expense" | "income";
+  setTab: (tab: "expense" | "income") => void;
   form: TransactionFormState;
   cards: CreditCard[];
   filteredCategories: Category[];
@@ -38,6 +41,7 @@ export function TransactionForm({
   itemVariants,
 }: TransactionFormProps) {
   const amountId = useId();
+  const purchaseDateId = useId();
   const categorySelectId = useId();
   const paymentMethodId = useId();
   const installmentsId = useId();
@@ -49,33 +53,41 @@ export function TransactionForm({
       onSubmit={handleSubmit}
       className="bg-white p-5 rounded-2xl shadow-sm border border-sky-100"
     >
-      <div className="flex bg-gray-100 p-1 rounded-xl mb-5" role="group" aria-label="Tipo de movimiento">
+      <div
+        className="flex bg-gray-100 p-1 rounded-xl mb-5"
+        role="group"
+        aria-label="Tipo de movimiento"
+      >
         <button
           type="button"
-          aria-pressed={tab === 'expense'}
+          aria-pressed={tab === "expense"}
           onClick={() => {
-            setTab('expense');
-            form.setCategoryId('');
-            form.setCreditCardId('');
-            form.setInstallments('1');
+            setTab("expense");
+            form.setCategoryId("");
+            form.setCreditCardId("");
+            form.setInstallments("1");
           }}
           className={`flex-1 py-2 text-sm font-semibold rounded-lg transition-all ${
-            tab === 'expense' ? 'bg-white shadow-sm text-orange-600' : 'text-gray-500'
+            tab === "expense"
+              ? "bg-white shadow-sm text-orange-600"
+              : "text-gray-500"
           }`}
         >
           Gasto
         </button>
         <button
           type="button"
-          aria-pressed={tab === 'income'}
+          aria-pressed={tab === "income"}
           onClick={() => {
-            setTab('income');
-            form.setCategoryId('');
-            form.setCreditCardId('');
-            form.setInstallments('1');
+            setTab("income");
+            form.setCategoryId("");
+            form.setCreditCardId("");
+            form.setInstallments("1");
           }}
           className={`flex-1 py-2 text-sm font-semibold rounded-lg transition-all ${
-            tab === 'income' ? 'bg-white shadow-sm text-sky-600' : 'text-gray-500'
+            tab === "income"
+              ? "bg-white shadow-sm text-sky-600"
+              : "text-gray-500"
           }`}
         >
           Ingreso
@@ -84,7 +96,26 @@ export function TransactionForm({
 
       <div className="space-y-4">
         <div>
-          <label htmlFor={amountId} className="block text-xs font-medium text-gray-700 mb-1">
+          <label
+            htmlFor={purchaseDateId}
+            className="block text-xs font-medium text-gray-700 mb-1"
+          >
+            Fecha de compra o ingreso
+          </label>
+          <input
+            id={purchaseDateId}
+            type="date"
+            required
+            value={form.date}
+            onChange={(e) => form.setDate(e.target.value)}
+            className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl"
+          />
+        </div>
+        <div>
+          <label
+            htmlFor={amountId}
+            className="block text-xs font-medium text-gray-700 mb-1"
+          >
             Monto ($)
           </label>
           <input
@@ -102,7 +133,10 @@ export function TransactionForm({
         </div>
 
         <div>
-          <label htmlFor={categorySelectId} className="block text-xs font-medium text-gray-700 mb-1">
+          <label
+            htmlFor={categorySelectId}
+            className="block text-xs font-medium text-gray-700 mb-1"
+          >
             Categoría
           </label>
           <select
@@ -124,15 +158,18 @@ export function TransactionForm({
         </div>
 
         <AnimatePresence>
-          {tab === 'expense' && (
+          {tab === "expense" && (
             <motion.div
               initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: 'auto' }}
+              animate={{ opacity: 1, height: "auto" }}
               exit={{ opacity: 0, height: 0 }}
               className="overflow-hidden space-y-4 mt-2"
             >
               <div>
-                <label htmlFor={paymentMethodId} className="block text-xs font-medium text-gray-700 mb-1">
+                <label
+                  htmlFor={paymentMethodId}
+                  className="block text-xs font-medium text-gray-700 mb-1"
+                >
                   Medio de Pago
                 </label>
                 <select
@@ -140,7 +177,7 @@ export function TransactionForm({
                   value={form.creditCardId}
                   onChange={(e) => {
                     form.setCreditCardId(e.target.value);
-                    if (!e.target.value) form.setInstallments('1');
+                    if (!e.target.value) form.setInstallments("1");
                   }}
                   className="w-full px-3 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-sky-500 font-medium"
                 >
@@ -156,10 +193,13 @@ export function TransactionForm({
               {form.creditCardId && (
                 <motion.div
                   initial={{ opacity: 0, height: 0 }}
-                  animate={{ opacity: 1, height: 'auto' }}
+                  animate={{ opacity: 1, height: "auto" }}
                   exit={{ opacity: 0, height: 0 }}
                 >
-                  <label htmlFor={installmentsId} className="block text-xs font-medium text-gray-700 mb-1">
+                  <label
+                    htmlFor={installmentsId}
+                    className="block text-xs font-medium text-gray-700 mb-1"
+                  >
                     ¿En cuántas cuotas?
                   </label>
                   <select
@@ -184,7 +224,10 @@ export function TransactionForm({
         </AnimatePresence>
 
         <div>
-          <label htmlFor={noteId} className="block text-xs font-medium text-gray-700 mb-1 mt-4">
+          <label
+            htmlFor={noteId}
+            className="block text-xs font-medium text-gray-700 mb-1 mt-4"
+          >
             Nota (Opcional)
           </label>
           <input
@@ -203,10 +246,10 @@ export function TransactionForm({
           type="submit"
           disabled={form.isSubmitting || !form.categoryId}
           className={`w-full mt-2 font-medium py-3 rounded-xl transition-colors text-white ${
-            tab === 'expense' ? 'bg-gray-900' : 'bg-sky-600'
+            tab === "expense" ? "bg-gray-900" : "bg-sky-600"
           }`}
         >
-          {form.isSubmitting ? 'Registrando...' : 'Registrar'}
+          {form.isSubmitting ? "Registrando..." : "Registrar"}
         </motion.button>
       </div>
     </motion.form>
@@ -229,19 +272,26 @@ export function EditTransactionForm({
   onCancel,
 }: EditTransactionFormProps) {
   const editAmountId = useId();
+  const referenceId = useId();
+  const initialReference = businessDateKey(
+    transaction.referenceDate ?? transaction.date,
+  );
+  const [reference, setReference] = useState(initialReference);
   const editCategoryId = useId();
   const editPaymentId = useId();
   const editNoteId = useId();
 
   const [amount, setAmount] = useState(transaction.amount.toString());
-  const [categoryId, setCategoryId] = useState(transaction.category?.id || '');
-  const [creditCardId, setCreditCardId] = useState(transaction.creditCard?.id || '');
-  const [note, setNote] = useState(transaction.note || '');
+  const [categoryId, setCategoryId] = useState(transaction.category?.id || "");
+  const [creditCardId, setCreditCardId] = useState(
+    transaction.creditCard?.id || "",
+  );
+  const [note, setNote] = useState(transaction.note || "");
   const [isSaving, setIsSaving] = useState(false);
 
-  const isExpense = transaction.category?.type === 'expense';
+  const isExpense = transaction.category?.type === "expense";
   const availableCategories = categories.filter(
-    (c) => c.type === (isExpense ? 'expense' : 'income'),
+    (c) => c.type === (isExpense ? "expense" : "income"),
   );
 
   const submitEdit = async (e: React.FormEvent) => {
@@ -250,6 +300,7 @@ export function EditTransactionForm({
     try {
       await onSave(transaction.id, {
         amount: Number(amount),
+        ...(reference !== initialReference ? { date: reference } : {}),
         categoryId,
         note: note.trim() ? note.trim() : null,
         creditCardId: isExpense && creditCardId ? creditCardId : null,
@@ -262,7 +313,30 @@ export function EditTransactionForm({
   return (
     <form onSubmit={submitEdit} className="space-y-4">
       <div>
-        <label htmlFor={editAmountId} className="block text-xs font-medium text-gray-700 mb-1">
+        <label
+          htmlFor={referenceId}
+          className="block text-xs font-medium text-gray-700 mb-1"
+        >
+          Fecha de referencia de este movimiento
+        </label>
+        <input
+          id={referenceId}
+          type="date"
+          required
+          value={reference}
+          onChange={(e) => setReference(e.target.value)}
+          className="w-full px-3 py-3 bg-gray-50 border border-gray-200 rounded-xl"
+        />
+        <p className="text-xs text-gray-500 mt-1">
+          Se actualiza solo este movimiento. Se conservan la compra original y
+          las otras cuotas.
+        </p>
+      </div>
+      <div>
+        <label
+          htmlFor={editAmountId}
+          className="block text-xs font-medium text-gray-700 mb-1"
+        >
           Monto ($)
         </label>
         <input
@@ -278,7 +352,10 @@ export function EditTransactionForm({
       </div>
 
       <div>
-        <label htmlFor={editCategoryId} className="block text-xs font-medium text-gray-700 mb-1">
+        <label
+          htmlFor={editCategoryId}
+          className="block text-xs font-medium text-gray-700 mb-1"
+        >
           Categoría
         </label>
         <select
@@ -298,7 +375,10 @@ export function EditTransactionForm({
 
       {isExpense && (
         <div>
-          <label htmlFor={editPaymentId} className="block text-xs font-medium text-gray-700 mb-1">
+          <label
+            htmlFor={editPaymentId}
+            className="block text-xs font-medium text-gray-700 mb-1"
+          >
             Medio de Pago
           </label>
           <select
@@ -318,7 +398,10 @@ export function EditTransactionForm({
       )}
 
       <div>
-        <label htmlFor={editNoteId} className="block text-xs font-medium text-gray-700 mb-1">
+        <label
+          htmlFor={editNoteId}
+          className="block text-xs font-medium text-gray-700 mb-1"
+        >
           Nota
         </label>
         <input
@@ -343,7 +426,7 @@ export function EditTransactionForm({
           disabled={isSaving}
           className="flex-1 py-3 font-bold text-white bg-sky-500 rounded-xl hover:bg-sky-600 disabled:opacity-50"
         >
-          {isSaving ? 'Guardando...' : 'Guardar Cambios'}
+          {isSaving ? "Guardando..." : "Guardar Cambios"}
         </button>
       </div>
     </form>
