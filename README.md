@@ -13,7 +13,8 @@ flowchart LR
   subgraph Client["Frontend (web/) — Next.js 16 + React 19"]
     UI["Componentes UI & Framer Motion"]
     Hooks["Custom Hooks (Estado & Mutaciones)"]
-    Store["Zustand Auth Store + Edge Middleware (UX Guard)"]
+    Store["Zustand: perfil público + Middleware (UX)"]
+    BFF["Next Route Handlers: sesión HttpOnly"]
   end
 
   subgraph Server["Backend (api/) — NestJS 11"]
@@ -31,10 +32,11 @@ flowchart LR
 
   UI --> Hooks
   Hooks --> Store
-  Hooks -->|"REST JSON + Bearer JWT / Cookie HttpOnly"| Guards
+  Hooks -->|"Cookie HttpOnly, mismo origen"| BFF
+  BFF -->|"Bearer + firma del proxy"| Guards
   Guards --> Pipes --> Services --> ORM --> DB
   Cron --> ORM
-  Guards <-->|"OAuth 2.0 + State HMAC + PKCE + Single-Use Code"| OAuth
+  Guards <-->|"OAuth 2.0 + State opaco + PKCE + Single-Use Code"| OAuth
 ```
 
 ### Modelo de Datos Relacional (ERD)
@@ -107,9 +109,9 @@ erDiagram
 
 ## Decisiones de Ingeniería y Seguridad Destacadas
 
-1. **Flujo OAuth 2.0 Endurecido (`state` HMAC + PKCE `S256` + Códigos Efímeros de Uso Único)**:
-   - El inicio de sesión con Google valida el parámetro `state` mediante firma HMAC-SHA256 vinculada a una cookie `HttpOnly` (`OAuthStateStore`), aplica **PKCE (`S256`)** y verifica `email_verified` antes de vincular cuentas por correo (invalidando contraseñas locales previas no verificadas para evitar *pre-account takeover*).
-   - En lugar de exponer el JWT en la URL de retorno, el backend emite un código efímero con **TTL de 60 segundos** y **un único uso** (`POST /auth/google/exchange`) y soporta revocación inmediata por `jti` en `POST /auth/logout`.
+1. **Flujo OAuth 2.0 Endurecido (`state` opaco + PKCE `S256` + Códigos Efímeros de Uso Único)**:
+   - El inicio de sesión con Google valida un `state` opaco de un solo uso en PostgreSQL, vinculado a una cookie `HttpOnly` (`OAuthStateStore`), aplica **PKCE (`S256`)** y verifica `email_verified` antes de vincular cuentas por correo (invalidando contraseñas locales previas no verificadas para evitar *pre-account takeover*).
+   - En lugar de exponer el JWT en la URL de retorno, el backend emite un código efímero con **TTL de 60 segundos** y **un único uso** (`POST /auth/exchange`) y soporta revocación persistente por `jti` en `POST /auth/logout`. El navegador conserva la sesión en una cookie HttpOnly del mismo origen de Next, y el BFF transmite el Bearer a Railway. El estado de credenciales se valida en PostgreSQL en cada petición.
 2. **Aislamiento por Usuario y Prevención de IDOR**:
    - El `userId` se obtiene exclusivamente del JWT verificado criptográficamente en la API (`JwtStrategy`). El middleware de Next.js actúa como guarda de navegación (UX), mientras que la autorización real se aplica en cada servicio del backend antes de leer o mutar categorías, tarjetas, ciclos, presupuestos, transacciones y recordatorios.
 3. **Cálculo de Cuotas en Centavos Enteros e Imputación según Cierre (`InstallmentCalculator.calculate`)**:
@@ -149,6 +151,7 @@ docker compose up -d
 cd api
 cp .env.example .env
 # Ajustar DATABASE_URL, DIRECT_URL y JWT_SECRET en api/.env
+# Configurar LUMI_PROXY_SECRET con la misma cadena aleatoria privada (32+ caracteres) en api/.env y web/.env.local
 npm install
 npx prisma migrate deploy
 npx prisma generate
@@ -199,7 +202,7 @@ lumi-workspace/
 ├── api/                      # Backend NestJS 11 + Prisma 7
 │   ├── prisma/               # Esquema relacional y migraciones SQL
 │   └── src/
-│       ├── auth/             # JWT, Google OAuth 2.0 (state HMAC + PKCE) y canje efímero
+│       ├── auth/             # JWT, Google OAuth 2.0 (state opaco + PKCE) y canje efímero
 │       ├── transactions/     # CRUD, paginación, resumen y motor InstallmentCalculator
 │       ├── credit-cards/     # Gestión de plásticos, recomendación y ciclos mensuales
 │       ├── budgets/          # Plantillas de tope mensual por categoría y alertas en centavos

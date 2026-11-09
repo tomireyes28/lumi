@@ -459,7 +459,7 @@ test('Supabase API roles lose direct access while Prisma retains CRUD and future
   await deploy(url); // Migration bookkeeping still works with RLS on its own table.
   await withSql(url, async (client) => {
     const report = await inspectDatabase(client);
-    assert.equal(report.permissions.length, 20);
+    assert.equal(report.permissions.length, 22);
     assert.deepEqual(releaseIssues(report), []);
     assert.ok(
       report.permissions.every(
@@ -663,35 +663,273 @@ test('sessions survive service reconstruction and logout revokes access across i
   }
 });
 
-test('OAuth grants can be exchanged on another instance only once under concurrency',async()=>{
- const url=await database();await deploy(url);
- const prisma=new PrismaClient({adapter:new PrismaPg({connectionString:url})});
- const {OAuthGrantStore}=require('../dist/src/auth/oauth-grant.store.js');
- const {OAuthStateStore}=require('../dist/src/auth/strategies/oauth-state.store.js');
- process.env.JWT_SECRET='synthetic-integration-secret-at-least-32-characters';
- try{
- const a=new AuthService(prisma,new JwtService());const b=new AuthService(prisma,new JwtService());
- const token=await a.googleLogin({googleId:'oauth-test-subject',email:'oauth@example.invalid',emailVerified:true,name:'Synthetic'});
- const code=await a.createOAuthExchangeCode(token,'browser-binding');
- assert.equal(await prisma.oAuthGrant.findUnique({where:{id:code}}),null);
- const attempts=await Promise.allSettled([a.exchangeOAuthCode(code,'browser-binding'),b.exchangeOAuthCode(code,'browser-binding')]);
- assert.equal(attempts.filter(r=>r.status==='fulfilled').length,1);
- const wrong=await a.createOAuthExchangeCode(token,'browser-binding');
- await assert.rejects(b.exchangeOAuthCode(wrong,'wrong-browser'),{status:401});
- await assert.rejects(a.exchangeOAuthCode(wrong,'browser-binding'),{status:401});
- const expired=await a.createOAuthExchangeCode(token,'browser-binding');
- await prisma.oAuthGrant.updateMany({data:{expiresAt:new Date(0)}});
- await assert.rejects(b.exchangeOAuthCode(expired,'browser-binding'),{status:401});
- const first=new OAuthStateStore(new OAuthGrantStore(prisma));const second=new OAuthStateStore(new OAuthGrantStore(prisma));
- let cookie='';let state='';
- await first.store({query:{client_state:'browser'},res:{appendHeader:(_n,v)=>{cookie=v.split(';')[0];}}},'private-pkce-verifier',undefined,undefined,(err,s)=>{assert.equal(err,null);state=s;});
- assert.ok(state.length>30);assert.ok(!state.includes('private-pkce-verifier'));
- const verify=(store,headers)=>new Promise((resolve)=>store.verify({headers,res:{appendHeader:()=>{}}},state,undefined,(err,ok)=>resolve({err,ok})));
- assert.equal((await verify(second,{})).ok,false);
- assert.equal((await verify(second,{cookie:'lumi_oauth_state=wrong'})).ok,false);
- const consumed=await Promise.all([verify(first,{cookie}),verify(second,{cookie})]);
- assert.equal(consumed.filter(r=>r.ok==='private-pkce-verifier').length,1);
- assert.equal((await verify(second,{cookie})).ok,false);
- await a.cleanupExpiredSecurityState();
- }finally{await prisma.$disconnect();}
+test('OAuth grants can be exchanged on another instance only once under concurrency', async () => {
+  const url = await database();
+  await deploy(url);
+  const prisma = new PrismaClient({
+    adapter: new PrismaPg({ connectionString: url }),
+  });
+  const { OAuthGrantStore } = require('../dist/src/auth/oauth-grant.store.js');
+  const {
+    OAuthStateStore,
+  } = require('../dist/src/auth/strategies/oauth-state.store.js');
+  process.env.JWT_SECRET =
+    'synthetic-integration-secret-at-least-32-characters';
+  try {
+    const a = new AuthService(prisma, new JwtService());
+    const b = new AuthService(prisma, new JwtService());
+    const token = await a.googleLogin({
+      googleId: 'oauth-test-subject',
+      email: 'oauth@example.invalid',
+      emailVerified: true,
+      name: 'Synthetic',
+    });
+    const code = await a.createOAuthExchangeCode(token, 'browser-binding');
+    assert.equal(
+      await prisma.oAuthGrant.findUnique({ where: { id: code } }),
+      null,
+    );
+    const attempts = await Promise.allSettled([
+      a.exchangeOAuthCode(code, 'browser-binding'),
+      b.exchangeOAuthCode(code, 'browser-binding'),
+    ]);
+    assert.equal(attempts.filter((r) => r.status === 'fulfilled').length, 1);
+    const wrong = await a.createOAuthExchangeCode(token, 'browser-binding');
+    await assert.rejects(b.exchangeOAuthCode(wrong, 'wrong-browser'), {
+      status: 401,
+    });
+    await assert.rejects(a.exchangeOAuthCode(wrong, 'browser-binding'), {
+      status: 401,
+    });
+    const expired = await a.createOAuthExchangeCode(token, 'browser-binding');
+    await prisma.oAuthGrant.updateMany({ data: { expiresAt: new Date(0) } });
+    await assert.rejects(b.exchangeOAuthCode(expired, 'browser-binding'), {
+      status: 401,
+    });
+    const first = new OAuthStateStore(new OAuthGrantStore(prisma));
+    const second = new OAuthStateStore(new OAuthGrantStore(prisma));
+    let cookie = '';
+    let state = '';
+    await first.store(
+      {
+        query: { client_state: 'browser' },
+        res: {
+          appendHeader: (_n, v) => {
+            cookie = v.split(';')[0];
+          },
+        },
+      },
+      'private-pkce-verifier',
+      undefined,
+      undefined,
+      (err, s) => {
+        assert.equal(err, null);
+        state = s;
+      },
+    );
+    assert.ok(state.length > 30);
+    assert.ok(!state.includes('private-pkce-verifier'));
+    const verify = (store, headers) =>
+      new Promise((resolve) =>
+        store.verify(
+          { headers, res: { appendHeader: () => {} } },
+          state,
+          undefined,
+          (err, ok) => resolve({ err, ok }),
+        ),
+      );
+    assert.equal((await verify(second, {})).ok, false);
+    assert.equal(
+      (await verify(second, { cookie: 'lumi_oauth_state=wrong' })).ok,
+      false,
+    );
+    const consumed = await Promise.all([
+      verify(first, { cookie }),
+      verify(second, { cookie }),
+    ]);
+    assert.equal(
+      consumed.filter((r) => r.ok === 'private-pkce-verifier').length,
+      1,
+    );
+    assert.equal((await verify(second, { cookie })).ok, false);
+    await a.cleanupExpiredSecurityState();
+  } finally {
+    await prisma.$disconnect();
+  }
+});
+
+test('shared rate limits are atomic across instances, expire and fail closed', async () => {
+  const url = await database();
+  await deploy(url);
+  const prisma = new PrismaClient({
+    adapter: new PrismaPg({ connectionString: url }),
+  });
+  const {
+    PostgresThrottlerStorage,
+  } = require('../dist/src/security/postgres-throttler.storage.js');
+  try {
+    const a = new PostgresThrottlerStorage(prisma),
+      b = new PostgresThrottlerStorage(prisma);
+    const attempts = await Promise.all(
+      Array.from({ length: 20 }, (_, i) =>
+        (i % 2 ? a : b).increment(
+          'synthetic-shared-key',
+          60000,
+          10,
+          60000,
+          'default',
+        ),
+      ),
+    );
+    assert.equal(attempts.filter((r) => !r.isBlocked).length, 10);
+    assert.equal(
+      (
+        await new PostgresThrottlerStorage(prisma).increment(
+          'synthetic-shared-key',
+          60000,
+          10,
+          60000,
+          'default',
+        )
+      ).isBlocked,
+      true,
+    );
+    await prisma.rateLimitBucket.update({
+      where: { id: 'synthetic-shared-key' },
+      data: { blockedUntil: new Date(0), resetsAt: new Date(0) },
+    });
+    const fresh = await b.increment(
+      'synthetic-shared-key',
+      60000,
+      10,
+      60000,
+      'default',
+    );
+    assert.equal(fresh.isBlocked, false);
+    assert.equal(fresh.totalHits, 1);
+    await prisma.rateLimitBucket.create({
+      data: { id: 'expired-only', hits: 1, resetsAt: new Date(0) },
+    });
+    await a.cleanup();
+    assert.equal(
+      await prisma.rateLimitBucket.findUnique({
+        where: { id: 'expired-only' },
+      }),
+      null,
+    );
+    assert.ok(
+      await prisma.rateLimitBucket.findUnique({
+        where: { id: 'synthetic-shared-key' },
+      }),
+    );
+    await prisma.$executeRawUnsafe('DROP TABLE "RateLimitBucket"');
+    await assert.rejects(
+      b.increment('fail-closed', 60000, 10, 60000, 'default'),
+      { status: 503 },
+    );
+  } finally {
+    await prisma.$disconnect();
+  }
+});
+
+test('real HTTP API verifies proxy signatures and shares the credentials limit', async () => {
+  const url = await database();
+  await deploy(url);
+  const env = {
+    DATABASE_URL: url,
+    DIRECT_URL: url,
+    NODE_ENV: 'test',
+    JWT_SECRET: 'synthetic-http-secret-at-least-32-characters',
+    LUMI_PROXY_SECRET: 'synthetic-http-proxy-secret-at-least-32-characters',
+    GOOGLE_CLIENT_ID: 'synthetic',
+    GOOGLE_CLIENT_SECRET: 'synthetic',
+    GOOGLE_CALLBACK_URL: 'http://localhost/auth/google/callback',
+    RESEND_API_KEY: '',
+  };
+  const saved = Object.fromEntries(
+    Object.keys(env).map((k) => [k, process.env[k]]),
+  );
+  Object.assign(process.env, env);
+  const { NestFactory } = require('@nestjs/core');
+  const { ValidationPipe } = require('@nestjs/common');
+  const { AppModule } = require('../dist/src/app.module.js');
+  let app;
+  try {
+    app = await NestFactory.create(AppModule, { logger: false, rawBody: true });
+    app.useGlobalPipes(
+      new ValidationPipe({
+        whitelist: true,
+        forbidNonWhitelisted: true,
+        transform: true,
+      }),
+    );
+    await app.listen(0, '127.0.0.1');
+    const origin = await app.getUrl();
+    async function call(endpoint, body, token, extra = {}) {
+      const method = body === undefined ? 'GET' : 'POST';
+      const raw = body === undefined ? '' : JSON.stringify(body);
+      const time = String(Date.now()),
+        ip = '203.0.113.40';
+      const digest = crypto.createHash('sha256').update(raw).digest('hex');
+      const signature = crypto
+        .createHmac('sha256', env.LUMI_PROXY_SECRET)
+        .update([time, ip, method, endpoint, digest].join('\n'))
+        .digest('hex');
+      return fetch(origin + endpoint, {
+        method,
+        body: body === undefined ? undefined : raw,
+        headers: {
+          'Content-Type': 'application/json',
+          'x-lumi-client-ip': ip,
+          'x-lumi-proxy-time': time,
+          'x-lumi-proxy-signature': signature,
+          ...(token ? { Authorization: 'Bearer ' + token } : {}),
+          ...extra,
+        },
+        signal: AbortSignal.timeout(10000),
+      });
+    }
+    const registration = await call('/auth/register', {
+      name: 'HTTP synthetic',
+      email: 'http@example.invalid',
+      password: 'Synthetic-password-123',
+    });
+    assert.equal(registration.status, 201);
+    const { token } = await registration.json();
+    assert.ok(token);
+    assert.equal((await call('/auth/me', undefined, token)).status, 200);
+    assert.equal(
+      (
+        await call('/auth/me', undefined, undefined, {
+          Cookie: 'lumi_session=' + token,
+        })
+      ).status,
+      401,
+    );
+    assert.equal(
+      (
+        await call('/auth/me', undefined, token, {
+          'x-lumi-client-ip': '203.0.113.99',
+        })
+      ).status,
+      401,
+    );
+    for (let i = 0; i < 10; i++) {
+      const response = await call(
+        '/auth/login',
+        { email: 'absent@example.invalid', password: 'Wrong-password-123' },
+        undefined,
+        { 'x-forwarded-for': '203.0.113.' + (100 + i) },
+      );
+      assert.equal(response.status, i === 9 ? 429 : 401);
+    }
+    assert.equal((await call('/auth/logout', {}, token)).status, 200);
+    assert.equal((await call('/auth/me', undefined, token)).status, 401);
+  } finally {
+    if (app) await app.close();
+    for (const [key, value] of Object.entries(saved)) {
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
+    }
+  }
 });

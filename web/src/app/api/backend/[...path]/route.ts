@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
+import { createHash, createHmac } from "node:crypto";
+import { isIP } from "node:net";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -82,6 +84,36 @@ async function handle(
     if (body && Buffer.byteLength(body) > 100000)
       return json({ message: "Solicitud demasiado grande" }, 413);
     if (body) headers.set("Content-Type", "application/json");
+    const secret = process.env.LUMI_PROXY_SECRET;
+    if (!secret || secret.length < 32)
+      return json({ message: "Servicio no configurado" }, 503);
+    const ip =
+      process.env.VERCEL === "1"
+        ? req.headers.get("x-forwarded-for")?.split(",")[0].trim()
+        : "127.0.0.1";
+    if (!ip || !isIP(ip))
+      return json(
+        { message: "No se pudo validar el origen de la petición" },
+        503,
+      );
+    const time = String(Date.now());
+    const digest = createHash("sha256")
+      .update(body ?? "")
+      .digest("hex");
+    const signature = createHmac("sha256", secret)
+      .update(
+        [
+          time,
+          ip,
+          req.method,
+          `/${endpoint}${req.nextUrl.search}`,
+          digest,
+        ].join("\n"),
+      )
+      .digest("hex");
+    headers.set("x-lumi-client-ip", ip);
+    headers.set("x-lumi-proxy-time", time);
+    headers.set("x-lumi-proxy-signature", signature);
     const upstream = await fetch(
       `${base.replace(/\/$/, "")}/${endpoint}${req.nextUrl.search}`,
       {

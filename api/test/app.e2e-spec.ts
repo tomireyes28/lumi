@@ -5,6 +5,7 @@ import { App } from 'supertest/types';
 import { AppModule } from './../src/app.module';
 import { PrismaService } from './../src/prisma/prisma.service';
 import { Prisma } from '@prisma/client';
+import { ThrottlerStorage, ThrottlerStorageService } from '@nestjs/throttler';
 
 interface MockUserRecord {
   id: string;
@@ -423,6 +424,8 @@ describe('Lumi API (e2e)', () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
     })
+      .overrideProvider(ThrottlerStorage)
+      .useValue(new ThrottlerStorageService())
       .overrideProvider(PrismaService)
       .useValue(mockPrisma)
       .compile();

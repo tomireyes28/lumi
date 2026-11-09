@@ -6,7 +6,17 @@ import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import helmet from 'helmet';
 
 async function bootstrap() {
-  const app = await NestFactory.create<NestExpressApplication>(AppModule);
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, {
+    rawBody: true,
+  });
+
+  if (
+    process.env.NODE_ENV === 'production' &&
+    (process.env.LUMI_PROXY_SECRET?.length ?? 0) < 32
+  )
+    throw new Error(
+      'LUMI_PROXY_SECRET debe configurarse con al menos 32 caracteres.',
+    );
 
   // Solo confiar en cabeceras X-Forwarded-For cuando se declare explícitamente el salto de proxy
   if (process.env.TRUST_PROXY) {
@@ -51,7 +61,9 @@ async function bootstrap() {
   // Configuración de Swagger / OpenAPI
   const config = new DocumentBuilder()
     .setTitle('Lumi API')
-    .setDescription('Documentación interactiva de la API de Lumi - Finanzas Personales')
+    .setDescription(
+      'Documentación interactiva de la API de Lumi - Finanzas Personales',
+    )
     .setVersion('1.0')
     .addBearerAuth()
     .build();

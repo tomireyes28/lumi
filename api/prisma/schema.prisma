@@ -153,3 +153,11 @@ model OAuthGrant {
  expiresAt DateTime
  @@index([expiresAt])
 }
+
+model RateLimitBucket {
+ id String @id
+ hits Int
+ resetsAt DateTime
+ blockedUntil DateTime?
+ @@index([resetsAt])
+}

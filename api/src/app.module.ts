@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import type { Request } from 'express';
 import { ConfigModule } from '@nestjs/config'; // <-- Importación nueva
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
@@ -14,25 +15,46 @@ import { AnalyticsModule } from './analytics/analytics.module';
 import { BudgetsModule } from './budgets/budgets.module';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { APP_GUARD } from '@nestjs/core';
+import { SecurityModule } from './security/security.module';
+import { PostgresThrottlerStorage } from './security/postgres-throttler.storage';
+import { proxyTracker, rateLimitKey } from './security/proxy-tracker';
 
 @Module({
   imports: [
-    ThrottlerModule.forRoot([{
-      ttl: 60000, // Tiempo de vida en milisegundos (1 minuto)
-      limit: 100, // Límite de peticiones por IP en ese tiempo
-    }]),
+    ThrottlerModule.forRootAsync({
+      imports: [SecurityModule],
+      inject: [PostgresThrottlerStorage],
+      useFactory: (storage: PostgresThrottlerStorage) => ({
+        storage,
+        throttlers: [{ ttl: 60000, limit: 100 }],
+        getTracker: (req: Record<string, unknown>) =>
+          proxyTracker(req as unknown as Request),
+        generateKey: rateLimitKey,
+      }),
+    }),
     ConfigModule.forRoot({
       isGlobal: true,
-      envFilePath: '.env', 
+      envFilePath: '.env',
+      ignoreEnvFile: process.env.NODE_ENV === 'test',
     }),
     ScheduleModule.forRoot(),
-    PrismaModule, 
-    AuthModule, CategoriesModule, TransactionsModule, CreditCardsModule, RemindersModule, NotificationsModule, AnalyticsModule, BudgetsModule
+    PrismaModule,
+    AuthModule,
+    CategoriesModule,
+    TransactionsModule,
+    CreditCardsModule,
+    RemindersModule,
+    NotificationsModule,
+    AnalyticsModule,
+    BudgetsModule,
   ],
   controllers: [AppController],
-  providers: [{
+  providers: [
+    {
       provide: APP_GUARD,
       useClass: ThrottlerGuard,
-    }, AppService],
+    },
+    AppService,
+  ],
 })
 export class AppModule {}

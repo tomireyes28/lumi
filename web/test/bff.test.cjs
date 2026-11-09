@@ -2,6 +2,7 @@
 const { test, before, after } = require("node:test");
 const assert = require("node:assert/strict");
 const http = require("node:http");
+const crypto = require("node:crypto");
 const fs = require("node:fs");
 const path = require("node:path");
 const Module = require("node:module");
@@ -34,9 +35,20 @@ const user = {
   picture: null,
 };
 before(async () => {
+  process.env.LUMI_PROXY_SECRET =
+    "synthetic-proxy-test-key-at-least-32-characters";
+  delete process.env.VERCEL;
   server = http.createServer(async (req, res) => {
     let body = "";
     for await (const chunk of req) body += chunk;
+    const time = req.headers["x-lumi-proxy-time"];
+    const ip = req.headers["x-lumi-client-ip"];
+    const digest = crypto.createHash("sha256").update(body).digest("hex");
+    const signature = crypto
+      .createHmac("sha256", process.env.LUMI_PROXY_SECRET)
+      .update([time, ip, req.method, req.url, digest].join("\n"))
+      .digest("hex");
+    assert.equal(req.headers["x-lumi-proxy-signature"], signature);
     requests.push({
       url: req.url,
       authorization: req.headers.authorization,
@@ -100,7 +112,7 @@ function request(
 }
 function call(endpoint, method = "GET", cookie = "", origin) {
   return route[method](request(endpoint, method, cookie, origin), {
-    params: Promise.resolve({ path: endpoint.split("/") }),
+    params: Promise.resolve({ path: endpoint.split("?")[0].split("/") }),
   });
 }
 test("auth responses expose only a profile and set a secure HttpOnly same-origin cookie", async () => {
@@ -121,7 +133,7 @@ test("cookie survives a new request, authenticates business reads and is cleared
   const cookie = "lumi_session=synthetic-jwt-private-to-server";
   const profile = await call("auth/me", "GET", cookie);
   assert.deepEqual(await profile.json(), user);
-  const data = await call("transactions", "GET", cookie);
+  const data = await call("transactions?month=1&year=2026", "GET", cookie);
   assert.equal(data.status, 200);
   assert.equal((await data.json())[0].amount, "12.34");
   assert.equal(

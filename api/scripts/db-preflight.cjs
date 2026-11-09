@@ -11,6 +11,7 @@ const tables = [
   'User',
   'AuthSession',
   'OAuthGrant',
+  'RateLimitBucket',
   'Category',
   'CreditCard',
   'Transaction',
