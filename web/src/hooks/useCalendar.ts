@@ -1,9 +1,9 @@
-import { useEffect, useState, useMemo } from "react";
+import { useCallback, useState, useMemo } from "react";
 import { apiFetch } from "@/lib/api";
 import { format } from "date-fns";
 import { CalendarTransaction, CalendarReminder } from "@/types/calendar";
 import { PaginatedTransactionsResponse } from "@/types/transactions";
-import { toast } from "sonner";
+import { useResource } from "./useResource";
 import {
   businessDateKey,
   storedCalendarKey,
@@ -11,58 +11,39 @@ import {
 } from "@/lib/business-date";
 
 import { createMonthLoader } from "@/lib/transaction-pages";
-const loadMonth = createMonthLoader((path) =>
-  apiFetch<PaginatedTransactionsResponse>(path),
-);
 
 export const useCalendar = () => {
   const [date, setDate] = useState<Date>(calendarWidgetToday);
   const [activeMonthDate, setActiveMonthDate] =
     useState<Date>(calendarWidgetToday);
-  const [transactions, setTransactions] = useState<CalendarTransaction[]>([]);
-  const [reminders, setReminders] = useState<CalendarReminder[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
   const viewedMonth = activeMonthDate.getMonth() + 1;
   const viewedYear = activeMonthDate.getFullYear();
 
-  useEffect(() => {
-    let isMounted = true;
-
-    const loadData = async () => {
-      try {
-        const [transData, remData] = await Promise.all([
-          loadMonth(viewedMonth, viewedYear),
-          apiFetch<CalendarReminder[]>(
-            `/reminders?month=${viewedMonth}&year=${viewedYear}`,
-          ),
-        ]);
-
-        if (isMounted) {
-          setTransactions(transData);
-          setReminders(Array.isArray(remData) ? remData : []);
-          setError(null);
-        }
-      } catch (err) {
-        console.error("Error cargando datos del calendario:", err);
-        if (isMounted) {
-          setError("Hubo un error al cargar los datos del calendario.");
-          toast.error("Hubo un error al cargar los datos del calendario.");
-        }
-      } finally {
-        if (isMounted) {
-          setLoading(false);
-        }
-      }
-    };
-
-    void loadData();
-
-    return () => {
-      isMounted = false;
-    };
-  }, [viewedMonth, viewedYear]);
+  const load = useCallback(
+    async (signal: AbortSignal) => {
+      const loadMonth = createMonthLoader((path) =>
+        apiFetch<PaginatedTransactionsResponse>(path, { signal }),
+      );
+      const [transactions, reminders] = await Promise.all([
+        loadMonth(viewedMonth, viewedYear),
+        apiFetch<CalendarReminder[]>(
+          `/reminders?month=${viewedMonth}&year=${viewedYear}`,
+          { signal },
+        ),
+      ]);
+      return { transactions, reminders };
+    },
+    [viewedMonth, viewedYear],
+  );
+  const { data, loading, error, reload } = useResource(
+    `${viewedYear}-${viewedMonth}`,
+    load,
+  );
+  const transactions: CalendarTransaction[] = useMemo(
+    () => data?.transactions ?? [],
+    [data],
+  );
+  const reminders = useMemo(() => data?.reminders ?? [], [data]);
 
   const handleDateChange = (nextDate: Date) => {
     setDate(nextDate);
@@ -97,6 +78,7 @@ export const useCalendar = () => {
     reminders,
     loading,
     error,
+    reload,
     selectedTransactions,
     selectedReminders,
   };

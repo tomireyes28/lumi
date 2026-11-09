@@ -1,9 +1,10 @@
-'use client';
+"use client";
 
-import { motion, Variants } from 'framer-motion';
-import { useCalendar } from '@/hooks/useCalendar';
-import { CalendarWidget } from '@/components/calendar/CalendarWidget';
-import { DayDetails } from '@/components/calendar/DayDetails';
+import { motion, Variants } from "framer-motion";
+import { QueryError } from "@/components/ui/QueryError";
+import { useCalendar } from "@/hooks/useCalendar";
+import { CalendarWidget } from "@/components/calendar/CalendarWidget";
+import { DayDetails } from "@/components/calendar/DayDetails";
 
 export default function CalendarPage() {
   const {
@@ -13,6 +14,8 @@ export default function CalendarPage() {
     transactions,
     reminders,
     loading,
+    error,
+    reload,
     selectedTransactions,
     selectedReminders,
   } = useCalendar();
@@ -24,16 +27,12 @@ export default function CalendarPage() {
 
   const itemVariants: Variants = {
     hidden: { opacity: 0, y: 15 },
-    visible: { opacity: 1, y: 0, transition: { duration: 0.4, ease: 'easeOut' } },
+    visible: {
+      opacity: 1,
+      y: 0,
+      transition: { duration: 0.4, ease: "easeOut" },
+    },
   };
-
-  if (loading && transactions.length === 0 && reminders.length === 0) {
-    return (
-      <div className="p-8 text-center text-gray-500 animate-pulse">
-        Cargando calendario...
-      </div>
-    );
-  }
 
   return (
     <motion.div
@@ -56,12 +55,18 @@ export default function CalendarPage() {
         itemVariants={itemVariants}
       />
 
-      <DayDetails
-        date={date}
-        selectedTransactions={selectedTransactions}
-        selectedReminders={selectedReminders}
-        itemVariants={itemVariants}
-      />
+      {loading ? (
+        <p role="status">Cargando el mes seleccionado…</p>
+      ) : error ? (
+        <QueryError message={error} retry={reload} />
+      ) : (
+        <DayDetails
+          date={date}
+          selectedTransactions={selectedTransactions}
+          selectedReminders={selectedReminders}
+          itemVariants={itemVariants}
+        />
+      )}
     </motion.div>
   );
 }

@@ -1,6 +1,7 @@
 "use client";
 
 import { motion, Variants } from "framer-motion";
+import { QueryError } from "@/components/ui/QueryError";
 import { useTransactions } from "@/hooks/useTransactions";
 import {
   TransactionForm,
@@ -16,6 +17,8 @@ export default function TransactionsPage() {
     cards,
     categories,
     loading,
+    error,
+    reloadTransactions,
     page,
     setPage,
     meta,
@@ -99,15 +102,19 @@ export default function TransactionsPage() {
               Siguiente
             </button>
           </div>
-          <TransactionList
-            transactions={transactions}
-            loading={loading}
-            filterType={filterType}
-            setFilterType={setFilterType}
-            onEditClick={(tx) => setEditingTx(tx)}
-            onDeleteClick={(tx) => setDeletingTx(tx)}
-            itemVariants={itemVariants}
-          />
+          {error ? (
+            <QueryError message={error} retry={reloadTransactions} />
+          ) : (
+            <TransactionList
+              transactions={transactions}
+              loading={loading}
+              filterType={filterType}
+              setFilterType={setFilterType}
+              onEditClick={(tx) => setEditingTx(tx)}
+              onDeleteClick={(tx) => setDeletingTx(tx)}
+              itemVariants={itemVariants}
+            />
+          )}
         </div>
       </motion.div>
 

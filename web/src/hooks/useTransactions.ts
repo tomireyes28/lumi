@@ -1,5 +1,5 @@
 import { businessDateKey } from "@/lib/business-date";
-import { useEffect, useState, useMemo } from "react";
+import { useCallback, useState, useMemo } from "react";
 import { apiFetch } from "@/lib/api";
 import {
   PaginatedTransactionsResponse,
@@ -10,19 +10,13 @@ import { Category } from "@/types/categories";
 import { CreditCard } from "@/types/cards";
 import { toast } from "sonner";
 
+import { useResource } from "./useResource";
+import { refreshAfterMutation } from "@/lib/mutation-refresh";
+
 import { transactionPageQuery } from "@/lib/transaction-pages";
 
 export const useTransactions = () => {
   const [page, setPage] = useState(1);
-  const [meta, setMeta] = useState<
-    PaginatedTransactionsResponse["meta"] | null
-  >(null);
-  const [transactions, setTransactions] = useState<Transaction[]>([]);
-  const [categories, setCategories] = useState<Category[]>([]);
-  const [cards, setCards] = useState<CreditCard[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
   const [amount, setAmount] = useState("");
   const [categoryId, setCategoryId] = useState("");
   const [creditCardId, setCreditCardId] = useState("");
@@ -39,74 +33,32 @@ export const useTransactions = () => {
     "all",
   );
 
-  useEffect(() => {
-    let isMounted = true;
-    const fetchInitialData = async () => {
-      try {
-        const [catData, cardsData] = await Promise.all([
-          apiFetch<Category[]>("/categories"),
-          apiFetch<CreditCard[]>("/credit-cards"),
-        ]);
-        if (isMounted) {
-          setCategories(catData);
-          setCards(cardsData);
-        }
-      } catch (err) {
-        console.error("Error cargando datos iniciales:", err);
-      }
-    };
-    void fetchInitialData();
-    return () => {
-      isMounted = false;
-    };
-  }, []);
-
-  useEffect(() => {
-    let isMounted = true;
-    const fetchTransactions = async () => {
-      if (isMounted) {
-        setLoading(true);
-        setError(null);
-      }
-      try {
-        const data = await apiFetch<PaginatedTransactionsResponse>(
+  const load = useCallback(
+    async (signal: AbortSignal) => {
+      const [result, categories, cards] = await Promise.all([
+        apiFetch<PaginatedTransactionsResponse>(
           transactionPageQuery(page, filterType),
-        );
-        if (isMounted) {
-          setTransactions(data.data);
-          setMeta(data.meta);
-        }
-      } catch (err) {
-        console.error("Error cargando transacciones:", err);
-        if (isMounted) {
-          setError(
-            err instanceof Error
-              ? err.message
-              : "No se pudieron cargar los movimientos.",
-          );
-        }
-      } finally {
-        if (isMounted) setLoading(false);
-      }
-    };
-    void fetchTransactions();
-    return () => {
-      isMounted = false;
-    };
-  }, [filterType, page]);
-
-  const reloadTransactions = async () => {
-    const data = await apiFetch<PaginatedTransactionsResponse>(
-      transactionPageQuery(page, filterType),
-    );
-    if (data.meta.totalPages > 0 && page > data.meta.totalPages) {
-      setPage(data.meta.totalPages);
-      return;
-    }
-    setTransactions(data.data);
-    setMeta(data.meta);
-    setError(null);
-  };
+          { signal },
+        ),
+        apiFetch<Category[]>("/categories", { signal }),
+        apiFetch<CreditCard[]>("/credit-cards", { signal }),
+      ]);
+      if (page > Math.max(1, result.meta.totalPages))
+        setPage(Math.max(1, result.meta.totalPages));
+      return { result, categories, cards };
+    },
+    [page, filterType],
+  );
+  const {
+    data,
+    loading,
+    error,
+    reload: reloadTransactions,
+  } = useResource(`${filterType}-${page}`, load);
+  const transactions = data?.result.data ?? [];
+  const meta = data?.result.meta ?? null;
+  const categories = useMemo(() => data?.categories ?? [], [data]);
+  const cards = data?.cards ?? [];
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -133,7 +85,7 @@ export const useTransactions = () => {
       setCategoryId("");
       setCreditCardId("");
       setInstallments("1");
-      await reloadTransactions();
+      await refreshAfterMutation(reloadTransactions);
       toast.success("Movimiento registrado");
     } catch (err) {
       console.error("Error creando transacción:", err);
@@ -158,7 +110,7 @@ export const useTransactions = () => {
       });
       toast.success("Movimiento actualizado con éxito");
       setEditingTx(null);
-      await reloadTransactions();
+      await refreshAfterMutation(reloadTransactions);
     } catch (err) {
       console.error(err);
       toast.error(
@@ -174,7 +126,7 @@ export const useTransactions = () => {
       await apiFetch(`/transactions/${id}`, { method: "DELETE" });
       toast.success("Movimiento eliminado");
       setDeletingTx(null);
-      await reloadTransactions();
+      await refreshAfterMutation(reloadTransactions);
     } catch (err) {
       console.error("Error borrando transacción:", err);
       toast.error(

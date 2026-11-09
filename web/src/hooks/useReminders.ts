@@ -1,55 +1,38 @@
-import { useEffect, useState, useMemo } from 'react';
-import { apiFetch } from '@/lib/api';
-import { Reminder, UpdateReminderInput } from '@/types/reminders';
-import { toast } from 'sonner';
+import { useState, useMemo } from "react";
+import { apiFetch } from "@/lib/api";
+import { Reminder, UpdateReminderInput } from "@/types/reminders";
+import { toast } from "sonner";
+
+import { useResource } from "./useResource";
+import { refreshAfterMutation } from "@/lib/mutation-refresh";
+const loadReminders = (signal: AbortSignal) =>
+  apiFetch<Reminder[]>("/reminders", { signal });
 
 export const useReminders = () => {
-  const [reminders, setReminders] = useState<Reminder[]>([]);
-  const [loading, setLoading] = useState(true);
+  const {
+    data: reminders = [],
+    loading,
+    error,
+    reload: reloadReminders,
+  } = useResource("reminders", loadReminders);
 
-  const [title, setTitle] = useState('');
-  const [amount, setAmount] = useState('');
-  const [dueDate, setDueDate] = useState('');
+  const [title, setTitle] = useState("");
+  const [amount, setAmount] = useState("");
+  const [dueDate, setDueDate] = useState("");
   const [isRecurring, setIsRecurring] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [editingReminder, setEditingReminder] = useState<Reminder | null>(null);
-  const [deletingReminder, setDeletingReminder] = useState<Reminder | null>(null);
-
-  useEffect(() => {
-    let isMounted = true;
-    const initialLoad = async () => {
-      try {
-        const data = await apiFetch<Reminder[]>('/reminders');
-        if (isMounted) setReminders(data);
-      } catch (error) {
-        console.error('Error cargando recordatorios:', error);
-        toast.error('Hubo un error al cargar los recordatorios.');
-      } finally {
-        if (isMounted) setLoading(false);
-      }
-    };
-    void initialLoad();
-    return () => {
-      isMounted = false;
-    };
-  }, []);
-
-  const reloadReminders = async () => {
-    try {
-      const data = await apiFetch<Reminder[]>('/reminders');
-      setReminders(data);
-    } catch (error) {
-      console.error('Error recargando recordatorios:', error);
-    }
-  };
+  const [deletingReminder, setDeletingReminder] = useState<Reminder | null>(
+    null,
+  );
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
     try {
-      await apiFetch('/reminders', {
-        method: 'POST',
+      await apiFetch("/reminders", {
+        method: "POST",
         body: JSON.stringify({
           title: title.trim(),
           amount: amount ? Number(amount) : undefined,
@@ -58,16 +41,18 @@ export const useReminders = () => {
         }),
       });
 
-      setTitle('');
-      setAmount('');
-      setDueDate('');
+      setTitle("");
+      setAmount("");
+      setDueDate("");
       setIsRecurring(false);
-      await reloadReminders();
-      toast.success('Vencimiento agendado');
+      await refreshAfterMutation(reloadReminders);
+      toast.success("Vencimiento agendado");
     } catch (error) {
-      console.error('Error creando recordatorio:', error);
+      console.error("Error creando recordatorio:", error);
       toast.error(
-        error instanceof Error ? error.message : 'Error al guardar el recordatorio.',
+        error instanceof Error
+          ? error.message
+          : "Error al guardar el recordatorio.",
       );
     } finally {
       setIsSubmitting(false);
@@ -77,40 +62,42 @@ export const useReminders = () => {
   const handleUpdate = async (id: string, updatedData: UpdateReminderInput) => {
     try {
       await apiFetch(`/reminders/${id}`, {
-        method: 'PATCH',
+        method: "PATCH",
         body: JSON.stringify(updatedData),
       });
-      toast.success('Vencimiento actualizado');
+      toast.success("Vencimiento actualizado");
       setEditingReminder(null);
-      await reloadReminders();
+      await refreshAfterMutation(reloadReminders);
     } catch (error) {
       console.error(error);
       toast.error(
-        error instanceof Error ? error.message : 'No se pudo actualizar el recordatorio',
+        error instanceof Error
+          ? error.message
+          : "No se pudo actualizar el recordatorio",
       );
     }
   };
 
   const handleMarkAsPaid = async (id: string) => {
     try {
-      await apiFetch(`/reminders/${id}/pay`, { method: 'PATCH' });
-      toast.success('¡Pago registrado!');
-      await reloadReminders();
+      await apiFetch(`/reminders/${id}/pay`, { method: "PATCH" });
+      toast.success("¡Pago registrado!");
+      await refreshAfterMutation(reloadReminders);
     } catch (error) {
-      console.error('Error al actualizar:', error);
-      toast.error('Hubo un error al registrar el pago.');
+      console.error("Error al actualizar:", error);
+      toast.error("Hubo un error al registrar el pago.");
     }
   };
 
   const handleDelete = async (id: string) => {
     try {
-      await apiFetch(`/reminders/${id}`, { method: 'DELETE' });
-      toast.success('Vencimiento eliminado');
+      await apiFetch(`/reminders/${id}`, { method: "DELETE" });
+      toast.success("Vencimiento eliminado");
       setDeletingReminder(null);
-      await reloadReminders();
+      await refreshAfterMutation(reloadReminders);
     } catch (error) {
-      console.error('Error al borrar:', error);
-      toast.error('Hubo un error al borrar el recordatorio.');
+      console.error("Error al borrar:", error);
+      toast.error("Hubo un error al borrar el recordatorio.");
       setDeletingReminder(null);
     }
   };
@@ -126,6 +113,8 @@ export const useReminders = () => {
 
   return {
     loading,
+    error,
+    reload: reloadReminders,
     pendingReminders,
     paidReminders,
     form: {

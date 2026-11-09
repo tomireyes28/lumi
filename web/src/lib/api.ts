@@ -8,14 +8,18 @@ export async function apiFetch<T = unknown>(
   if (!headers.has("Content-Type") && options.body !== undefined) {
     headers.set("Content-Type", "application/json");
   }
+  const timeout =
+    typeof AbortSignal !== "undefined" && "timeout" in AbortSignal
+      ? AbortSignal.timeout(10000)
+      : undefined;
+  const signal =
+    options.signal && timeout
+      ? AbortSignal.any([options.signal, timeout])
+      : (options.signal ?? timeout);
   const response = await fetch(`/api/backend${path}`, {
     credentials: options.credentials ?? "include",
-    signal:
-      options.signal ||
-      (typeof AbortSignal !== "undefined" && "timeout" in AbortSignal
-        ? AbortSignal.timeout(10000)
-        : undefined),
     ...options,
+    signal,
     headers,
   });
 
