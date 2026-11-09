@@ -1,0 +1,155 @@
+{
+  "commit": "a882c803b75ebbac4e00de1e7b4185412802eca8",
+  "fixedValidations": {
+    "smallAmountRejected": {
+      "accepted": false,
+      "status": 400
+    },
+    "calculatorAmounts": [
+      0.01,
+      0.01,
+      0.01,
+      0.01,
+      0.01,
+      0.01,
+      0.01,
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "invalidDateRejected": {
+      "accepted": false,
+      "status": 400
+    },
+    "nullDateRejected": {
+      "accepted": false,
+      "status": 400
+    },
+    "fractionalDaysRejected": {
+      "accepted": false,
+      "status": 400
+    },
+    "inconsistentCycleRejected": {
+      "accepted": false,
+      "status": 400
+    },
+    "bcryptByteOverflowRejected": {
+      "accepted": false,
+      "status": 400
+    }
+  },
+  "oauthState": {
+    "missingCookie": {
+      "error": false,
+      "ok": false
+    },
+    "correctCookie": {
+      "error": false,
+      "ok": "synthetic-verifier"
+    },
+    "replay": {
+      "error": false,
+      "ok": false
+    }
+  },
+  "accountLink": {
+    "oldLocalPasswordCleared": true,
+    "oldLocalJwtStillAcceptedAfterGoogleLink": true,
+    "revokedBeforeRestart": true,
+    "revokedAfterNewServiceInstance": false
+  },
+  "customCycle": [
+    {
+      "installment": 1,
+      "assignedDate": "2026-01-20",
+      "actualBillingMonthAccordingToCardService": 1
+    },
+    {
+      "installment": 2,
+      "assignedDate": "2026-02-20",
+      "actualBillingMonthAccordingToCardService": 3
+    },
+    {
+      "installment": 3,
+      "assignedDate": "2026-03-20",
+      "actualBillingMonthAccordingToCardService": 3
+    }
+  ],
+  "timezoneFinancial": [
+    {
+      "timezone": "UTC",
+      "inputInstant": "2026-01-26T01:00:00.000Z",
+      "assignedLocalMonth": 2
+    },
+    {
+      "timezone": "America/Argentina/Buenos_Aires",
+      "inputInstant": "2026-01-26T01:00:00.000Z",
+      "assignedLocalMonth": 1
+    }
+  ],
+  "updateIncome": {
+    "acceptedCardOnExistingIncomeWithoutCategoryInPatch": true,
+    "generatedUpdate": {
+      "creditCard": {
+        "connect": {
+          "id": "own-card"
+        }
+      },
+      "paymentMethod": "credit_card"
+    }
+  },
+  "forecast": {
+    "paidRecurringFromPreviousMonth": [
+      {
+        "period": "11/2026",
+        "fixed": 0
+      },
+      {
+        "period": "12/2026",
+        "fixed": 0
+      },
+      {
+        "period": "01/2027",
+        "fixed": 0
+      }
+    ],
+    "estimatedCurrentIncomeFromOnlyFutureDecemberIncome": 900
+  },
+  "budget": {
+    "itemStatus": "exceeded",
+    "totalBudgeted": 100,
+    "totalSpent": 100.01,
+    "overallPercentage": 100,
+    "frontendGeneralCardShowsExceeded": false
+  },
+  "notifications": {
+    "processTimezone": "UTC",
+    "actualStart": "2026-11-09T00:00:00.000Z",
+    "actualEnd": "2026-11-09T23:59:59.999Z",
+    "expectedBuenosAiresStart": "2026-11-09T03:00:00.000Z"
+  },
+  "calendar": {
+    "serverTotal": 101,
+    "loadedTransactions": 100,
+    "requestedUrls": [
+      "/transactions?month=11&year=2026&page=1&limit=100",
+      "/reminders?month=11&year=2026"
+    ]
+  },
+  "database": {
+    "migrationsApplied": 7,
+    "deletionPreservesPaymentMethod": {
+      "creditCardId": null,
+      "paymentMethod": "credit_card",
+      "amount": "100.00"
+    },
+    "categoryDeletionRestricted": true
+  },
+  "migrationHistory": {
+    "oldMigrationWasEdited": true,
+    "originalSha256": "9c1e7fa14e4908c0790b9999b9548f38235af4161321f9e9600b44260585e60d",
+    "currentSha256": "8192e76d0dccf2ba5ac02f776c32b29dd99a02c1c9520b0433c1d62250d9143c"
+  }
+}

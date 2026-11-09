@@ -1,0 +1,437 @@
+{
+  "date": "2026-11-09",
+  "scope": "npm reports for the local dependency trees; not an attestation of deployed versions",
+  "projects": {
+    "api": {
+      "all": {
+        "info": 0,
+        "low": 5,
+        "moderate": 23,
+        "high": 1,
+        "critical": 0,
+        "total": 29
+      },
+      "omitDev": {
+        "info": 0,
+        "low": 0,
+        "moderate": 0,
+        "high": 0,
+        "critical": 0,
+        "total": 0
+      },
+      "packages": [
+        {
+          "name": "@jest/core",
+          "severity": "moderate",
+          "direct": false,
+          "inProductionAudit": false,
+          "npmFixProposal": {
+            "name": "jest",
+            "version": "25.1.0",
+            "isSemVerMajor": true
+          },
+          "advisoryUrls": []
+        },
+        {
+          "name": "@jest/expect",
+          "severity": "moderate",
+          "direct": false,
+          "inProductionAudit": false,
+          "npmFixProposal": true,
+          "advisoryUrls": []
+        },
+        {
+          "name": "@jest/globals",
+          "severity": "moderate",
+          "direct": false,
+          "inProductionAudit": false,
+          "npmFixProposal": true,
+          "advisoryUrls": []
+        },
+        {
+          "name": "@jest/reporters",
+          "severity": "moderate",
+          "direct": false,
+          "inProductionAudit": false,
+          "npmFixProposal": true,
+          "advisoryUrls": []
+        },
+        {
+          "name": "@jest/transform",
+          "severity": "moderate",
+          "direct": false,
+          "inProductionAudit": false,
+          "npmFixProposal": {
+            "name": "jest",
+            "version": "25.1.0",
+            "isSemVerMajor": true
+          },
+          "advisoryUrls": []
+        },
+        {
+          "name": "@nestjs/cli",
+          "severity": "moderate",
+          "direct": true,
+          "inProductionAudit": false,
+          "npmFixProposal": {
+            "name": "@nestjs/cli",
+            "version": "12.0.12",
+            "isSemVerMajor": true
+          },
+          "advisoryUrls": []
+        },
+        {
+          "name": "@typescript-eslint/eslint-plugin",
+          "severity": "moderate",
+          "direct": false,
+          "inProductionAudit": false,
+          "npmFixProposal": true,
+          "advisoryUrls": []
+        },
+        {
+          "name": "@typescript-eslint/parser",
+          "severity": "moderate",
+          "direct": false,
+          "inProductionAudit": false,
+          "npmFixProposal": true,
+          "advisoryUrls": []
+        },
+        {
+          "name": "@typescript-eslint/type-utils",
+          "severity": "moderate",
+          "direct": false,
+          "inProductionAudit": false,
+          "npmFixProposal": true,
+          "advisoryUrls": []
+        },
+        {
+          "name": "@typescript-eslint/typescript-estree",
+          "severity": "moderate",
+          "direct": false,
+          "inProductionAudit": false,
+          "npmFixProposal": true,
+          "advisoryUrls": []
+        },
+        {
+          "name": "@typescript-eslint/utils",
+          "severity": "moderate",
+          "direct": false,
+          "inProductionAudit": false,
+          "npmFixProposal": true,
+          "advisoryUrls": []
+        },
+        {
+          "name": "babel-jest",
+          "severity": "moderate",
+          "direct": false,
+          "inProductionAudit": false,
+          "npmFixProposal": {
+            "name": "jest",
+            "version": "25.1.0",
+            "isSemVerMajor": true
+          },
+          "advisoryUrls": []
+        },
+        {
+          "name": "babel-plugin-istanbul",
+          "severity": "moderate",
+          "direct": false,
+          "inProductionAudit": false,
+          "npmFixProposal": {
+            "name": "jest",
+            "version": "25.1.0",
+            "isSemVerMajor": true
+          },
+          "advisoryUrls": []
+        },
+        {
+          "name": "brace-expansion",
+          "severity": "high",
+          "direct": false,
+          "inProductionAudit": false,
+          "npmFixProposal": true,
+          "advisoryUrls": [
+            "https://github.com/advisories/GHSA-3jxr-9vmj-r5cp",
+            "https://github.com/advisories/GHSA-mh99-v99m-4gvg",
+            "https://github.com/advisories/GHSA-rgw5-rvv9-x895",
+            "https://github.com/advisories/GHSA-q2hr-2g5m-vwhr",
+            "https://github.com/advisories/GHSA-qhr7-859c-m2p7",
+            "https://github.com/advisories/GHSA-6j4f-fj2g-mc7p"
+          ]
+        },
+        {
+          "name": "deepmerge",
+          "severity": "low",
+          "direct": false,
+          "inProductionAudit": false,
+          "npmFixProposal": {
+            "name": "@nestjs/cli",
+            "version": "12.0.12",
+            "isSemVerMajor": true
+          },
+          "advisoryUrls": [
+            "https://github.com/advisories/GHSA-gcqx-w48m-w2h4"
+          ]
+        },
+        {
+          "name": "fork-ts-checker-webpack-plugin",
+          "severity": "low",
+          "direct": false,
+          "inProductionAudit": false,
+          "npmFixProposal": {
+            "name": "@nestjs/cli",
+            "version": "12.0.12",
+            "isSemVerMajor": true
+          },
+          "advisoryUrls": []
+        },
+        {
+          "name": "glob",
+          "severity": "moderate",
+          "direct": false,
+          "inProductionAudit": false,
+          "npmFixProposal": {
+            "name": "@nestjs/cli",
+            "version": "12.0.12",
+            "isSemVerMajor": true
+          },
+          "advisoryUrls": [
+            "https://github.com/advisories/GHSA-3g3m-2fjr-6pw4"
+          ]
+        },
+        {
+          "name": "jest",
+          "severity": "low",
+          "direct": true,
+          "inProductionAudit": false,
+          "npmFixProposal": {
+            "name": "jest",
+            "version": "25.1.0",
+            "isSemVerMajor": true
+          },
+          "advisoryUrls": []
+        },
+        {
+          "name": "jest-circus",
+          "severity": "moderate",
+          "direct": false,
+          "inProductionAudit": false,
+          "npmFixProposal": true,
+          "advisoryUrls": []
+        },
+        {
+          "name": "jest-cli",
+          "severity": "low",
+          "direct": false,
+          "inProductionAudit": false,
+          "npmFixProposal": true,
+          "advisoryUrls": []
+        },
+        {
+          "name": "jest-config",
+          "severity": "moderate",
+          "direct": false,
+          "inProductionAudit": false,
+          "npmFixProposal": {
+            "name": "jest",
+            "version": "25.1.0",
+            "isSemVerMajor": true
+          },
+          "advisoryUrls": []
+        },
+        {
+          "name": "jest-resolve-dependencies",
+          "severity": "moderate",
+          "direct": false,
+          "inProductionAudit": false,
+          "npmFixProposal": true,
+          "advisoryUrls": []
+        },
+        {
+          "name": "jest-runner",
+          "severity": "moderate",
+          "direct": false,
+          "inProductionAudit": false,
+          "npmFixProposal": true,
+          "advisoryUrls": []
+        },
+        {
+          "name": "jest-runtime",
+          "severity": "moderate",
+          "direct": false,
+          "inProductionAudit": false,
+          "npmFixProposal": {
+            "name": "jest",
+            "version": "25.1.0",
+            "isSemVerMajor": true
+          },
+          "advisoryUrls": []
+        },
+        {
+          "name": "jest-snapshot",
+          "severity": "moderate",
+          "direct": false,
+          "inProductionAudit": false,
+          "npmFixProposal": true,
+          "advisoryUrls": []
+        },
+        {
+          "name": "minimatch",
+          "severity": "moderate",
+          "direct": false,
+          "inProductionAudit": false,
+          "npmFixProposal": {
+            "name": "@nestjs/cli",
+            "version": "12.0.12",
+            "isSemVerMajor": true
+          },
+          "advisoryUrls": [
+            "https://github.com/advisories/GHSA-g3hv-75wg-m249"
+          ]
+        },
+        {
+          "name": "test-exclude",
+          "severity": "moderate",
+          "direct": false,
+          "inProductionAudit": false,
+          "npmFixProposal": {
+            "name": "jest",
+            "version": "25.1.0",
+            "isSemVerMajor": true
+          },
+          "advisoryUrls": []
+        },
+        {
+          "name": "ts-jest",
+          "severity": "low",
+          "direct": true,
+          "inProductionAudit": false,
+          "npmFixProposal": {
+            "name": "ts-jest",
+            "version": "25.5.1",
+            "isSemVerMajor": true
+          },
+          "advisoryUrls": []
+        },
+        {
+          "name": "typescript-eslint",
+          "severity": "moderate",
+          "direct": true,
+          "inProductionAudit": false,
+          "npmFixProposal": true,
+          "advisoryUrls": []
+        }
+      ]
+    },
+    "web": {
+      "all": {
+        "info": 0,
+        "low": 0,
+        "moderate": 8,
+        "high": 0,
+        "critical": 0,
+        "total": 8
+      },
+      "omitDev": {
+        "info": 0,
+        "low": 0,
+        "moderate": 0,
+        "high": 0,
+        "critical": 0,
+        "total": 0
+      },
+      "packages": [
+        {
+          "name": "@typescript-eslint/eslint-plugin",
+          "severity": "moderate",
+          "direct": false,
+          "inProductionAudit": false,
+          "npmFixProposal": true,
+          "advisoryUrls": []
+        },
+        {
+          "name": "@typescript-eslint/parser",
+          "severity": "moderate",
+          "direct": false,
+          "inProductionAudit": false,
+          "npmFixProposal": {
+            "name": "eslint-config-next",
+            "version": "15.5.29",
+            "isSemVerMajor": true
+          },
+          "advisoryUrls": []
+        },
+        {
+          "name": "@typescript-eslint/type-utils",
+          "severity": "moderate",
+          "direct": false,
+          "inProductionAudit": false,
+          "npmFixProposal": true,
+          "advisoryUrls": []
+        },
+        {
+          "name": "@typescript-eslint/typescript-estree",
+          "severity": "moderate",
+          "direct": false,
+          "inProductionAudit": false,
+          "npmFixProposal": {
+            "name": "eslint-config-next",
+            "version": "15.5.29",
+            "isSemVerMajor": true
+          },
+          "advisoryUrls": []
+        },
+        {
+          "name": "@typescript-eslint/utils",
+          "severity": "moderate",
+          "direct": false,
+          "inProductionAudit": false,
+          "npmFixProposal": {
+            "name": "eslint-config-next",
+            "version": "15.5.29",
+            "isSemVerMajor": true
+          },
+          "advisoryUrls": []
+        },
+        {
+          "name": "eslint-config-next",
+          "severity": "moderate",
+          "direct": true,
+          "inProductionAudit": false,
+          "npmFixProposal": {
+            "name": "eslint-config-next",
+            "version": "15.5.29",
+            "isSemVerMajor": true
+          },
+          "advisoryUrls": []
+        },
+        {
+          "name": "minimatch",
+          "severity": "moderate",
+          "direct": false,
+          "inProductionAudit": false,
+          "npmFixProposal": {
+            "name": "eslint-config-next",
+            "version": "15.5.29",
+            "isSemVerMajor": true
+          },
+          "advisoryUrls": [
+            "https://github.com/advisories/GHSA-g3hv-75wg-m249"
+          ]
+        },
+        {
+          "name": "typescript-eslint",
+          "severity": "moderate",
+          "direct": false,
+          "inProductionAudit": false,
+          "npmFixProposal": {
+            "name": "eslint-config-next",
+            "version": "15.5.29",
+            "isSemVerMajor": true
+          },
+          "advisoryUrls": []
+        }
+      ]
+    }
+  }
+}

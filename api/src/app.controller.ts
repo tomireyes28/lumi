@@ -12,7 +12,17 @@ export class AppController {
     return this.appService.getHello();
   }
 
-  @ApiOperation({ summary: 'Verificar estado de salud de la API y conexión a PostgreSQL' })
+  @ApiOperation({
+    summary: 'Identificar la revisión publicada sin exponer configuración',
+  })
+  @Get('version')
+  getVersion() {
+    return this.appService.getVersion();
+  }
+
+  @ApiOperation({
+    summary: 'Verificar estado de salud de la API y conexión a PostgreSQL',
+  })
   @Get('health')
   checkHealth() {
     return this.appService.checkHealth();
