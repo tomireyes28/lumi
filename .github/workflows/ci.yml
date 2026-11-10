@@ -148,3 +148,49 @@ jobs:
 
       - name: Test desktop and mobile UI with synthetic API responses
         run: npm run test:ui
+
+  full-stack-ci:
+    name: Browser + BFF + API + PostgreSQL
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: lumi_test
+          POSTGRES_PASSWORD: lumi_test_ci_only
+          POSTGRES_DB: lumi_test_admin
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U lumi_test -d lumi_test_admin"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      TEST_DATABASE_URL: postgresql://lumi_test:lumi_test_ci_only@127.0.0.1:5432/lumi_test_admin
+      DATABASE_URL: postgresql://lumi_test:lumi_test_ci_only@127.0.0.1:5432/lumi_test_admin
+      DIRECT_URL: postgresql://lumi_test:lumi_test_ci_only@127.0.0.1:5432/lumi_test_admin
+      NEXT_PUBLIC_API_URL: http://127.0.0.1:3103
+      NEXT_PUBLIC_SITE_URL: http://localhost:3102
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            api/package-lock.json
+            web/package-lock.json
+      - run: npm ci --prefix api
+      - run: npm ci --prefix web
+      - run: node scripts/sync-contracts.cjs --check
+      - run: npx prisma generate
+        working-directory: api
+      - run: npm --prefix api run build
+      - run: npm --prefix web run build
+      - run: npx playwright install --with-deps chromium
+        working-directory: web
+      - run: npm --prefix web run test:full-stack
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: isolated-full-stack-traces
+          path: web/test-results/full-stack/
+          retention-days: 7

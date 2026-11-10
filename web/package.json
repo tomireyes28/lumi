@@ -14,7 +14,8 @@
     "test:bff": "node --test test/bff.test.cjs",
     "test:dates": "node --test test/business-date.test.cjs",
     "test:unit": "node --test test/*.test.cjs",
-    "test:ui": "playwright test"
+    "test:ui": "playwright test",
+    "test:full-stack": "playwright test --config playwright.full-stack.config.ts"
   },
   "dependencies": {
     "date-fns": "^4.1.0",
