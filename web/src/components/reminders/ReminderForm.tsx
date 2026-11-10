@@ -1,3 +1,4 @@
+import { MotionButton } from "@/components/ui/MotionButton";
 import { storedCalendarKey } from "@/lib/business-date";
 import { motion, Variants } from "framer-motion";
 import { CalendarClock } from "lucide-react";
@@ -108,7 +109,7 @@ export function ReminderForm({
           </label>
         )}
 
-        <motion.button
+        <MotionButton
           whileHover={{ scale: 1.02 }}
           whileTap={{ scale: 0.98 }}
           type="submit"
@@ -116,7 +117,7 @@ export function ReminderForm({
           className="w-full mt-2 bg-gray-900 text-white font-bold py-3 rounded-xl hover:bg-gray-800 transition-colors disabled:opacity-50"
         >
           {form.isSubmitting ? "Guardando..." : "Guardar Recordatorio"}
-        </motion.button>
+        </MotionButton>
       </div>
     </motion.form>
   );
@@ -145,7 +146,9 @@ export function EditReminderForm({
     reminder.amount ? reminder.amount.toString() : "",
   );
   const [dueDate, setDueDate] = useState(initialDate);
-  const [isRecurring, setIsRecurring] = useState(Boolean(reminder.rule?.active??reminder.isRecurring));
+  const [isRecurring, setIsRecurring] = useState(
+    Boolean(reminder.rule?.active ?? reminder.isRecurring),
+  );
   const [isSaving, setIsSaving] = useState(false);
 
   const submitEdit = async (e: React.FormEvent) => {

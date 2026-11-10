@@ -15,17 +15,21 @@ export default function BottomNav() {
   ];
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 pb-safe z-50">
+    <nav
+      aria-label="Navegación principal"
+      className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 pb-safe z-50"
+    >
       {/* max-w-md lo centra si lo abrís en una compu, para que no se estire de punta a punta */}
       <div className="max-w-md mx-auto flex justify-between items-center px-6 py-3">
         {navItems.map((item) => {
           const isActive = pathname === item.href;
           const Icon = item.icon;
-          
+
           return (
-            <Link 
-              key={item.href} 
+            <Link
+              key={item.href}
               href={item.href}
+              aria-current={isActive ? "page" : undefined}
               className={`flex flex-col items-center gap-1 transition-colors ${
                 isActive ? "text-sky-600" : "text-gray-400 hover:text-gray-600"
               }`}

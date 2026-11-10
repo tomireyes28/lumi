@@ -31,3 +31,17 @@ El cliente trata JSON como unknown y valida las lecturas financieras antes de ex
 noImplicitAny queda activado; se corrigió el mock transaccional recursivo que impedía inferir su retorno. Se retiraron las interfaces duplicadas de lectura y la recomendación del dashboard ya no disfraza errores como ausencia de tarjeta.
 
 Validación: tipos y lint, contratos Decimal/null/paginación incompleta, usuario inválido sin cookie, rechazo visible de JSON financiero/auth incorrecto en escritorio/móvil, HTTP API con interceptor, pruebas PostgreSQL y restauración aislada. Compatibilidad adicional contra la API de etapa 4 aún desplegada: once consultas validadas y 201 movimientos en tres páginas, con cuenta sintética eliminada al terminar y sin emails. No se cambia el esquema de base en esta etapa.
+
+## C20 — Etiquetas y diálogo modal
+
+Auth asocia Nombre/Email/Contraseña con sus controles y autocomplete. Presupuestos asocia el importe y el grupo de categorías, con estado seleccionado accesible. La navegación principal tiene nombre y página actual; el botón de edición de categoría identifica su categoría.
+
+El diálogo usa showModal y la capa superior nativa del navegador: el fondo queda inerte y la navegación fija no lo tapa. La apertura enfoca el primer campo, Tab/Shift+Tab ciclan dentro, Escape/cierre devuelven foco al disparador y un nuevo callback de onClose no reinicia el foco al escribir. Se conservan scroll y cierre por fondo. MotionConfig respeta la preferencia del sistema y los botones compartidos desactivan hover/tap con escala cuando se pide reducir movimiento.
+
+Validación Chromium escritorio/móvil: etiquetas y autocomplete, teclado, intento de foco en navegación bloqueado, top layer, árbol real de accesibilidad sin navegación de fondo, importe que conserva foco al escribir, Escape y retorno al disparador, y movimiento reducido sin transformaciones de botones. Se inspeccionaron capturas del diálogo en ambas resoluciones. Esto acredita las comprobaciones dirigidas; no se declara una certificación WCAG de toda la aplicación.
+
+## Verificación final previa al push
+
+Pasaron builds, lint y tipos de ambos proyectos; 85 unitarios de API en UTC y Buenos Aires, tres escenarios HTTP, doce pruebas unitarias/BFF de frontend y 36 recorridos de Chromium (18 escritorio + 18 móvil). Las 16 integraciones se validaron con PostgreSQL 16 y 17.6, incluyendo restauración, RLS, finanzas y outbox; no se enviaron correos reales. La sincronización de contratos pasa --check. npm audit --omit=dev informa cero vulnerabilidades de producción en ambos proyectos; las herramientas de desarrollo pendientes corresponden a la etapa 6.
+
+Se comprobó la compatibilidad con Railway de etapa 4 antes del push, con once consultas y 201 movimientos sintéticos. La cuenta fue eliminada. Esta etapa no agrega migraciones ni requiere reset o modificación de datos existentes. Tras publicar se verifican CI, SHA servido por ambos proveedores y el recorrido de paginación/modal en producción con otra cuenta sintética aislada.

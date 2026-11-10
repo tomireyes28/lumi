@@ -1,3 +1,4 @@
+import { MotionButton } from "@/components/ui/MotionButton";
 import { businessDateKey } from "@/lib/business-date";
 import { motion, AnimatePresence, Variants } from "framer-motion";
 import { Category } from "@/types/categories";
@@ -240,7 +241,7 @@ export function TransactionForm({
           />
         </div>
 
-        <motion.button
+        <MotionButton
           whileHover={{ scale: 1.02 }}
           whileTap={{ scale: 0.98 }}
           type="submit"
@@ -250,7 +251,7 @@ export function TransactionForm({
           }`}
         >
           {form.isSubmitting ? "Registrando..." : "Registrar"}
-        </motion.button>
+        </MotionButton>
       </div>
     </motion.form>
   );
