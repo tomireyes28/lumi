@@ -1,6 +1,6 @@
-import { motion, Variants } from 'framer-motion';
-import { CreditCard } from '@/types/cards';
-import { Pencil, Trash2, CalendarDays } from 'lucide-react';
+import { motion, Variants } from "framer-motion";
+import { CreditCard } from "@/types/cards";
+import { Pencil, Trash2, CalendarDays } from "lucide-react";
 
 interface CardCarouselProps {
   cards: CreditCard[];
@@ -37,36 +37,42 @@ export function CardCarousel({
             const percent =
               limitNum > 0 ? Math.min((consumedNum / limitNum) * 100, 100) : 0;
 
-            let barColor = 'bg-white';
-            if (percent > 85) barColor = 'bg-red-400';
-            else if (percent > 65) barColor = 'bg-yellow-400';
+            let barColor = "bg-white";
+            if (percent > 85) barColor = "bg-red-400";
+            else if (percent > 65) barColor = "bg-yellow-400";
 
             const closingLabel = card.currentCycle?.closingDate
-              ? new Date(card.currentCycle.closingDate).toLocaleDateString('es-AR', {
-                  day: 'numeric',
-                  month: 'short',
-                  timeZone: 'America/Argentina/Buenos_Aires',
-                })
+              ? new Date(card.currentCycle.closingDate).toLocaleDateString(
+                  "es-AR",
+                  {
+                    day: "numeric",
+                    month: "short",
+                    timeZone: "America/Argentina/Buenos_Aires",
+                  },
+                )
               : `Día ${card.closingDay}`;
 
             const dueLabel = card.currentCycle?.dueDate
-              ? new Date(card.currentCycle.dueDate).toLocaleDateString('es-AR', {
-                  day: 'numeric',
-                  month: 'short',
-                  timeZone: 'America/Argentina/Buenos_Aires',
-                })
+              ? new Date(card.currentCycle.dueDate).toLocaleDateString(
+                  "es-AR",
+                  {
+                    day: "numeric",
+                    month: "short",
+                    timeZone: "America/Argentina/Buenos_Aires",
+                  },
+                )
               : `Día ${card.dueDay}`;
 
             return (
               <motion.div
                 variants={cardVariants}
                 key={card.id}
-                className="shrink-0 min-w-[85vw] sm:min-w-[320px] h-48 rounded-2xl p-5 text-white shadow-lg flex flex-col justify-between relative overflow-hidden snap-center group"
-                style={{ backgroundColor: card.colorHex || '#0f172a' }}
+                className="shrink-0 min-w-[85vw] sm:min-w-[320px] h-56 rounded-2xl p-5 text-white shadow-lg flex flex-col justify-between relative overflow-hidden snap-center group"
+                style={{ backgroundColor: card.colorHex || "#0f172a" }}
               >
                 <div className="absolute top-0 right-0 w-32 h-32 bg-white opacity-10 rounded-full -mr-10 -mt-10 pointer-events-none"></div>
 
-                <div className="absolute top-3 left-3 flex gap-2 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 focus-within:opacity-100 transition-opacity z-20 bg-black/25 p-1.5 rounded-lg backdrop-blur-sm">
+                <div className="self-end flex gap-2 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 focus-within:opacity-100 transition-opacity z-20 bg-black/25 p-1.5 rounded-lg backdrop-blur-sm">
                   {onAdjustCycleClick && (
                     <button
                       type="button"
@@ -98,7 +104,7 @@ export function CardCarousel({
                   </button>
                 </div>
 
-                <div className="flex justify-between items-start z-10 pl-20">
+                <div className="flex justify-between items-start gap-2 z-10">
                   <h3 className="font-bold text-lg tracking-wide truncate">
                     {card.alias}
                   </h3>
@@ -114,8 +120,10 @@ export function CardCarousel({
 
                   <div className="mb-3">
                     <div className="flex justify-between text-xs font-medium mb-1 opacity-90">
-                      <span>Consumido: ${consumedNum.toLocaleString('es-AR')}</span>
-                      <span>Límite: ${limitNum.toLocaleString('es-AR')}</span>
+                      <span>
+                        Consumido: ${consumedNum.toLocaleString("es-AR")}
+                      </span>
+                      <span>Límite: ${limitNum.toLocaleString("es-AR")}</span>
                     </div>
                     <div className="w-full bg-black/20 rounded-full h-1.5">
                       <div

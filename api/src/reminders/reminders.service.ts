@@ -87,9 +87,6 @@ export class RemindersService {
     });
   }
 
-  // ==========================================
-  // NUEVO MÉTODO: UPDATE
-  // ==========================================
   async update(
     id: string,
     updateReminderDto: UpdateReminderDto,
@@ -97,7 +94,6 @@ export class RemindersService {
   ) {
     const existing = await this.getReminderOrThrow(id, userId);
 
-    // Tipamos el objeto correctamente usando Prisma
     const dataToUpdate: Prisma.ReminderUpdateInput = {};
 
     if (updateReminderDto.title !== undefined)

@@ -2,7 +2,7 @@ import { MotionButton } from "@/components/ui/MotionButton";
 import { useId, useState } from "react";
 import { motion, AnimatePresence, Variants } from "framer-motion";
 import { Mail, Lock, User, ArrowRight, Loader2 } from "lucide-react";
-import { useAuth } from "@/hooks/useAuth"; // <-- Importamos nuestro hook
+import { useAuth } from "@/hooks/useAuth";
 
 interface AuthFormProps {
   itemVariant: Variants;

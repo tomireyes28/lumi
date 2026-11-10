@@ -19,7 +19,7 @@ El [informe original](../revision-2026-11-09/INFORME.md) se conserva como regist
 | F13 bcrypt | Corregido y conservado | Validación de 72 bytes UTF-8 y multibyte |
 | F14 Sesión | Corregido | HttpOnly BFF, revocación persistente, logout confirmado y sincronización del perfil |
 | F15 Tipos/contratos | Corregido | Fuente Zod, --check, JSON unknown, DTOs inferidos y noImplicitAny true |
-| F16 Pruebas | Ampliado y probado | Unitarios, HTTP, PostgreSQL real, 38 regresiones de UI y recorrido integral en escritorio/móvil |
+| F16 Pruebas | Ampliado y probado | Unitarios, HTTP, PostgreSQL real, 42 regresiones de UI y recorrido integral en escritorio/móvil |
 | F17 Errores | Corregido | useResource, reintento, descarte de respuestas tardías y escritura confirmada seguida de GET fallido |
 | F18 Volumen | Corregido en consumidores web | Historial con meta; calendario completo; forecast limita planes activos. Ruta ilimitada legada aún compatible |
 | F19 Presupuestos | Corregido | General/categoría comparan centavos; explica plantilla mensual y alcance del total |

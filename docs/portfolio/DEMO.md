@@ -64,5 +64,6 @@ Capturadas el 10/11/2026 de la aplicación con esta base local, sin información
 | Billetera | [cards-mobile.png](screenshots/cards-mobile.png) |
 | Proyección | [forecast-mobile.png](screenshots/forecast-mobile.png) |
 | Presupuestos | [budgets-mobile.png](screenshots/budgets-mobile.png) |
+| Tarjeta social 1200×630 | [social-card.png](screenshots/social-card.png) |
 
 Para cerrar, Ctrl+C en la terminal de demo y `docker compose -f docker-compose.demo.yml down` desde la raíz. La base de demo del contenedor es desechable; la configuración no monta el volumen de desarrollo ni el de producción.

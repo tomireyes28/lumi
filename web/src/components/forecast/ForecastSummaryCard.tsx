@@ -1,31 +1,37 @@
-import { motion, Variants } from 'framer-motion';
-import { CreditCard, CalendarCheck, ShieldAlert, Sparkles } from 'lucide-react';
-import { CashflowForecastResponse } from '@/types/forecast';
+import { motion, Variants } from "framer-motion";
+import { CreditCard, CalendarCheck, ShieldAlert, Sparkles } from "lucide-react";
+import { CashflowForecastResponse } from "@/types/forecast";
 
 interface ForecastSummaryCardProps {
   data: CashflowForecastResponse;
   itemVariants?: Variants;
 }
 
-export function ForecastSummaryCard({ data, itemVariants }: ForecastSummaryCardProps) {
-  const ratio = data.estimatedMonthlyIncome > 0 ? data.averageCommitmentRatio : null;
+export function ForecastSummaryCard({
+  data,
+  itemVariants,
+}: ForecastSummaryCardProps) {
+  const ratio =
+    data.estimatedMonthlyIncome > 0 ? data.averageCommitmentRatio : null;
   const hasNoIncomeWithDebt =
     data.estimatedMonthlyIncome <= 0 &&
-    (data.totalFutureDebt > 0 || data.forecastTimeline.some((month) => month.totalCommitted > 0));
+    (data.totalFutureDebt > 0 ||
+      data.forecastTimeline.some((month) => month.totalCommitted > 0));
   const isHighCommitment = hasNoIncomeWithDebt || (ratio ?? 0) > 45;
   const isModerate = (ratio ?? 0) >= 25 && !isHighCommitment;
 
-  let ratioBadge = 'bg-emerald-50 text-emerald-700 border-emerald-200';
-  let ratioText = ratio === null ? 'Sin ingresos registrados' : 'Compromiso Saludable';
+  let ratioBadge = "bg-emerald-50 text-emerald-700 border-emerald-200";
+  let ratioText =
+    ratio === null ? "Sin ingresos registrados" : "Compromiso Saludable";
   if (hasNoIncomeWithDebt) {
-    ratioBadge = 'bg-rose-50 text-rose-700 border-rose-200';
-    ratioText = 'Sin ingresos registrados';
+    ratioBadge = "bg-rose-50 text-rose-700 border-rose-200";
+    ratioText = "Sin ingresos registrados";
   } else if (isHighCommitment) {
-    ratioBadge = 'bg-rose-50 text-rose-700 border-rose-200';
-    ratioText = 'Alto Compromiso';
+    ratioBadge = "bg-rose-50 text-rose-700 border-rose-200";
+    ratioText = "Alto Compromiso";
   } else if (isModerate) {
-    ratioBadge = 'bg-amber-50 text-amber-700 border-amber-200';
-    ratioText = 'Compromiso Moderado';
+    ratioBadge = "bg-amber-50 text-amber-700 border-amber-200";
+    ratioText = "Compromiso Moderado";
   }
 
   return (
@@ -42,12 +48,14 @@ export function ForecastSummaryCard({ data, itemVariants }: ForecastSummaryCardP
             <CreditCard className="w-3.5 h-3.5" /> Deuda Futura en Cuotas
           </span>
           <h2 className="text-3xl font-extrabold mt-1 tracking-tight">
-            ${data.totalFutureDebt.toLocaleString('es-AR')}
+            ${data.totalFutureDebt.toLocaleString("es-AR")}
           </h2>
         </div>
 
-        <div className={`px-3 py-1 rounded-full text-xs font-bold border ${ratioBadge}`}>
-          {ratio === null ? 'Sin base de ingresos' : `${ratio}% del ingreso`}
+        <div
+          className={`px-3 py-1 rounded-full text-xs font-bold border ${ratioBadge}`}
+        >
+          {ratio === null ? "Sin base de ingresos" : `${ratio}% del ingreso`}
         </div>
       </div>
 
@@ -58,7 +66,7 @@ export function ForecastSummaryCard({ data, itemVariants }: ForecastSummaryCardP
             Libre de cuotas en
           </span>
           <span className="text-sm font-bold text-white truncate block">
-            {data.debtFreePeriod || 'Sin cuotas pendientes'}
+            {data.debtFreePeriod || "Sin cuotas pendientes"}
           </span>
         </div>
 
@@ -71,7 +79,7 @@ export function ForecastSummaryCard({ data, itemVariants }: ForecastSummaryCardP
             )}
             Estado
           </span>
-          <span className="text-sm font-bold text-white truncate block">
+          <span className="text-sm font-bold text-white leading-snug break-words block">
             {ratioText}
           </span>
         </div>

@@ -17,6 +17,7 @@ const geistMono = Geist_Mono({
 
 export const viewport: Viewport = {
   themeColor: "#0284c7",
+  viewportFit: "cover",
 };
 
 const siteUrl =
@@ -36,18 +37,17 @@ export const metadata: Metadata = {
     "reintegros",
     "Lumi",
   ],
+  twitter: {
+    card: "summary_large_image",
+    title: "Lumi | Finanzas Claras",
+    description:
+      "Ingresos, tarjetas, cuotas y próximos vencimientos en un solo lugar.",
+  },
   openGraph: {
     title: "Lumi | Finanzas Claras",
     description: "Controlá tu plata de forma inteligente.",
     url: siteUrl,
     siteName: "Lumi",
-    images: [
-      {
-        url: "/logo-completo.png",
-        width: 1200,
-        height: 630,
-      },
-    ],
     locale: "es_AR",
     type: "website",
   },

@@ -23,3 +23,15 @@ Se reescribieron los README principal/API/web con rutas reales, Swagger efectiva
 La demo solo acepta LUMI_DEMO=true y LUMI_DEMO_DATABASE_URL explícita a loopback y nombre lumi_demo; rechaza hosts remotos, opciones que alteren el host, despliegues alojados y otras cuentas. No usa api/.env como fallback. Un Compose independiente ofrece PostgreSQL en 127.0.0.1:55434; el servidor local usa secretos nuevos, API/BFF reales y correo/Google desactivados. El seed no forma parte del arranque normal y no modifica Supabase.
 
 El seed de noviembre de 2026 crea 206 movimientos, cuotas mediante el motor real, un cierre especial, dos presupuestos y tres reglas/39 ocurrencias. El test de demo compara IDs, fechas, importes y conteos tras dos ejecuciones, rechaza conexiones no permitidas y elimina la base de prueba. Ese test se agrega al job integral de CI. Se tomaron cinco capturas reales de la demo sintética y se verificaron los vínculos locales de las guías. Los retoques visuales encontrados al inspeccionarlas se cierran en C24.
+
+## C24 — Convenciones y entrega visual
+
+Se migró src/middleware.ts a src/proxy.ts y su export proxy, conservando la frontera de autorización en la API. El build ya no muestra la deprecación. Se retiró el alias CardCarrousel sin consumidores y comentarios de pasos intermedios; los tipos de analítica se derivan ahora íntegramente del contrato canónico.
+
+La imagen social se genera con ImageResponse y el logo existente: PNG real de 1200×630 con metadatos Open Graph/Twitter, en lugar de declarar esas medidas sobre un logo de otra proporción. El navegador valida ruta, MIME y dimensiones. Se inspeccionó el resultado y se conserva una captura social en el portfolio.
+
+La revisión móvil encontró controles de tarjeta cubriendo su alias y un estado de proyección truncado. Se reservaron filas independientes y se permitió envolver el texto. La navegación reserva safe-area y el viewport usa cover. Los gráficos de Recharts desactivan su animación propia cuando se pide movimiento reducido, además del MotionConfig y botones ya protegidos. Se regeneraron e inspeccionaron capturas reales de la demo con los ajustes finales.
+
+Pasaron 15 pruebas unitarias/BFF de frontend, 42 recorridos de UI y dos recorridos integrales reales. API conserva 85 unitarios en ambas TZ, tres escenarios HTTP y los 16 escenarios PostgreSQL tanto en 16/UTC como en 17.6/Buenos Aires. El seed de demo pasa su ensayo de idempotencia y rechazo de conexiones remotas. Tipos, lint, builds y --check de contratos pasan. La revisión visual es dirigida en Chromium escritorio/móvil; no se afirma una certificación global o prueba con todos los navegadores/lectores.
+
+Esta etapa no agrega migraciones ni seeds al arranque de Railway. La demo usa su propia base local y no se ejecutó sobre Supabase. Tras el push se comprueban los cinco jobs, las revisiones de ambos proveedores y el recorrido publicado; los avisos bajos y pendientes externos siguen documentados.

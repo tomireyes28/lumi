@@ -2,8 +2,8 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
 /**
- * Gate de navegación en el cliente/edge de Next.js.
- * Nota de arquitectura: Este middleware actúa como barrera de redirección UX comprobando
+ * Control de navegación de Next.js; la autorización reside en la API.
+ * Nota de arquitectura: Este proxy actúa como barrera de redirección UX comprobando
  * formato estructural, vigencia temporal (exp) y presencia de sujeto (sub).
  * La autorización real y verificación criptográfica de firma + revocación (jti) la aplica
  * obligatoriamente la API de NestJS (JwtStrategy) en cada operación de datos.
@@ -37,7 +37,7 @@ function hasUnexpiredTokenStructure(token: string | undefined): boolean {
   }
 }
 
-export function middleware(request: NextRequest) {
+export function proxy(request: NextRequest) {
   const token = request.cookies.get("lumi_session")?.value;
   const hasValidToken = hasUnexpiredTokenStructure(token);
   const { pathname } = request.nextUrl;

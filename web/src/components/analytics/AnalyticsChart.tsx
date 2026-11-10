@@ -1,5 +1,5 @@
 import { memo } from "react";
-import { motion, Variants } from "framer-motion";
+import { motion, useReducedMotion, Variants } from "framer-motion";
 import { PieChart as PieChartIcon } from "lucide-react";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
 import { AnalyticsData } from "@/types/analytics";
@@ -9,7 +9,11 @@ interface AnalyticsChartProps {
   itemVariants: Variants;
 }
 
-export const AnalyticsChart = memo(function AnalyticsChart({ data, itemVariants }: AnalyticsChartProps) {
+export const AnalyticsChart = memo(function AnalyticsChart({
+  data,
+  itemVariants,
+}: AnalyticsChartProps) {
+  const reducedMotion = useReducedMotion();
   return (
     <motion.div
       variants={itemVariants}
@@ -31,6 +35,7 @@ export const AnalyticsChart = memo(function AnalyticsChart({ data, itemVariants 
           <ResponsiveContainer width="100%" height="100%">
             <PieChart>
               <Pie
+                isAnimationActive={!reducedMotion}
                 data={data.categoryBreakdown}
                 dataKey="total"
                 nameKey="name"
@@ -45,12 +50,16 @@ export const AnalyticsChart = memo(function AnalyticsChart({ data, itemVariants 
                   <Cell key={`cell-${index}`} fill={entry.color} />
                 ))}
               </Pie>
-              <Tooltip 
-  formatter={(value) => [
-    `$${Number(value || 0).toLocaleString('es-AR')}`, 
-    'Total'
-  ]}
-                contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)' }}
+              <Tooltip
+                formatter={(value) => [
+                  `$${Number(value || 0).toLocaleString("es-AR")}`,
+                  "Total",
+                ]}
+                contentStyle={{
+                  borderRadius: "12px",
+                  border: "none",
+                  boxShadow: "0 4px 6px -1px rgba(0,0,0,0.1)",
+                }}
               />
             </PieChart>
           </ResponsiveContainer>
