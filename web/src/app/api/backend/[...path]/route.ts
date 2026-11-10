@@ -1,3 +1,4 @@
+import { publicUserSchema } from "@/lib/contracts";
 import { NextRequest, NextResponse } from "next/server";
 import { createHash, createHmac } from "node:crypto";
 import { isIP } from "node:net";
@@ -22,26 +23,10 @@ function json(body: unknown, status = 200) {
   });
 }
 function publicUser(value: unknown) {
-  if (
-    !value ||
-    typeof value !== "object" ||
-    !("id" in value) ||
-    !("email" in value) ||
-    !("name" in value) ||
-    typeof value.id !== "string" ||
-    typeof value.email !== "string" ||
-    typeof value.name !== "string"
-  )
-    return null;
-  return {
-    id: value.id,
-    email: value.email,
-    name: value.name,
-    picture:
-      "picture" in value && typeof value.picture === "string"
-        ? value.picture
-        : null,
-  };
+  const result = publicUserSchema.safeParse(value);
+  return result.success
+    ? { ...result.data, picture: result.data.picture ?? null }
+    : null;
 }
 async function handle(
   req: NextRequest,

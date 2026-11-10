@@ -8,6 +8,7 @@ import {
   UseGuards,
   HttpCode,
 } from '@nestjs/common';
+import { publicUserSchema, type PublicUserDto } from '../contracts/http';
 import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { AuthGuard } from '@nestjs/passport';
 import { Throttle } from '@nestjs/throttler';
@@ -96,7 +97,7 @@ export class AuthController {
   @ApiBearerAuth()
   @Get('me')
   @UseGuards(AuthGuard('jwt'))
-  getProfile(@Req() req: AuthenticatedRequest) {
-    return req.user;
+  getProfile(@Req() req: AuthenticatedRequest): PublicUserDto {
+    return publicUserSchema.parse(req.user);
   }
 }

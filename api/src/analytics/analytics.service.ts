@@ -8,46 +8,9 @@ import {
   getCalendarDayParts,
 } from '../utils/date.util';
 
-export interface ForecastTimelineItem {
-  period: string;
-  label: string;
-  month: number;
-  year: number;
-  installmentExpenses: number;
-  fixedExpenses: number;
-  totalCommitted: number;
-  estimatedIncome: number;
-  projectedNetCashflow: number;
-  commitmentRatio: number | null;
-  ratioStatus: 'available' | 'no_income';
-  installments: {
-    id: string;
-    note: string;
-    amount: number;
-    creditCardAlias: string;
-  }[];
-}
-
-export interface ActivePlanItem {
-  groupId: string;
-  concept: string;
-  totalInstallments: number;
-  elapsedInstallments: number;
-  /** @deprecated Compatibility alias: elapsed, not confirmed paid. */
-  paidInstallments: number;
-  remainingInstallments: number;
-  installmentAmount: number;
-  remainingAmount: number;
-  totalAmount: number;
-  completionPercentage: number;
-  finishDate: string;
-  finishPeriod: string;
-  creditCard: {
-    alias: string;
-    lastFour: string;
-    colorHex: string | null;
-  } | null;
-}
+import type { ForecastMonthDto, ActivePlanDto } from '../contracts/http';
+export type ForecastTimelineItem = ForecastMonthDto;
+export type ActivePlanItem = ActivePlanDto;
 
 @Injectable()
 export class AnalyticsService {

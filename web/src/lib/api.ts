@@ -1,3 +1,4 @@
+import { parseHttpResponse, errorMessage } from "./contracts";
 import { useAuthStore } from "@/store/useAuthStore";
 
 export async function apiFetch<T = unknown>(
@@ -32,17 +33,21 @@ export async function apiFetch<T = unknown>(
   }
 
   if (!response.ok) {
-    const errorData = (await response.json().catch(() => ({}))) as {
-      message?: string | string[];
-    };
-    const rawMessage = errorData.message;
-    const formattedMessage = Array.isArray(rawMessage)
-      ? rawMessage[0]
-      : rawMessage || "Error en la petición a la API";
-    throw new Error(formattedMessage);
+    const errorData: unknown = await response.json().catch(() => null);
+    throw new Error(errorMessage(errorData));
   }
 
-  if (response.status === 204) return null as T;
+  // Acknowledged writes do not depend on a body the caller never consumes.
+  // Treating an empty/changed body as a failed write could cause duplicate POSTs.
+  if (
+    response.status === 204 ||
+    (options.method &&
+      !["GET", "HEAD"].includes(options.method) &&
+      !path.startsWith("/auth/"))
+  )
+    return null as T;
 
-  return (await response.json()) as T;
+  const payload: unknown = await response.json();
+  // T is a caller convenience; runtime validation above the UI is mandatory.
+  return parseHttpResponse(path, options.method ?? "GET", payload) as T;
 }

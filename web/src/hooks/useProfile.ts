@@ -6,9 +6,7 @@ import { toast } from "sonner";
 
 export function useProfile() {
   const { logout, user: storeUser } = useAuthStore();
-  const [user, setUser] = useState<UserProfile | null>(
-    storeUser as UserProfile | null,
-  );
+  const [user, setUser] = useState<UserProfile | null>(storeUser);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {

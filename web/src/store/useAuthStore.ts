@@ -1,10 +1,6 @@
+import { publicUserSchema } from "@/lib/contracts";
 import { create } from "zustand";
-export interface User {
-  id: string;
-  email: string;
-  name: string;
-  picture?: string | null;
-}
+export type User = import("@/lib/contracts").PublicUserDto;
 interface AuthState {
   user: User | null;
   isAuthenticated: boolean;
@@ -54,7 +50,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         return;
       }
       if (response.ok) {
-        const user = await response.json();
+        const payload: unknown = await response.json();
+        const user = publicUserSchema.parse(payload);
         set({ user, isAuthenticated: true });
       }
     } catch {

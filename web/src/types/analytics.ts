@@ -15,9 +15,4 @@ export interface CategoryBreakdown {
 }
 
 // AnalyticsData queda igual, seguro ya lo tenés así:
-export interface AnalyticsData {
-  currentMonthTotal: number;
-  lastMonthTotal: number;
-  percentageChange: number;
-  categoryBreakdown: CategoryBreakdown[];
-}
+export type AnalyticsData = import("@/lib/contracts").AnalyticsDto;

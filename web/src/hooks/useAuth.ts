@@ -1,3 +1,4 @@
+import { browserAuthSchema, errorMessage } from "@/lib/contracts";
 import { useState } from "react";
 import { useAuthStore } from "@/store/useAuthStore";
 import { toast } from "sonner";
@@ -33,20 +34,14 @@ export function useAuth() {
         body: JSON.stringify(data),
       });
 
-      const result = await response.json();
+      const payload: unknown = await response.json();
 
-      if (!response.ok) {
-        const message = Array.isArray(result.message)
-          ? result.message[0]
-          : result.message || "Error de autenticación";
-        throw new Error(message);
-      }
-
-      if (!result.user) {
+      if (!response.ok)
+        throw new Error(errorMessage(payload, "Error de autenticación"));
+      const result = browserAuthSchema.safeParse(payload);
+      if (!result.success)
         throw new Error("Respuesta de autenticación inválida");
-      }
-
-      login(result.user);
+      login(result.data.user);
       toast.success(isLogin ? "¡Hola de nuevo!" : "¡Cuenta creada con éxito!");
       window.location.replace("/dashboard");
     } catch (error: unknown) {

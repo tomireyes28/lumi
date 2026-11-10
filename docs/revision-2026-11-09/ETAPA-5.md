@@ -21,3 +21,13 @@ Validación en Chromium escritorio/móvil: API 503 en las cuatro pantallas, recu
 El resumen general compara gasto y límite en centavos para exceso y 75%; el porcentaje redondeado queda solo para presentación. La API suma centavos por categoría y devuelve overallStatus aditivo. El frontend calcula el estado con importes para ser compatible con Railway anterior durante el rollout.
 
 Se aclara que el total incluye solo categorías presupuestadas y que los límites son plantillas mensuales: editarlos afecta consultas de otros meses. Las regresiones cubren 100,01/100 (exceso aunque muestre 100%), 74,99/100, 75/100 y el límite exacto. API y seis pruebas de navegador escritorio/móvil confirman coincidencia entre categoría y resumen general.
+
+## C19 — Contratos verificables y tipado estricto
+
+contracts/http.ts es la fuente canónica de DTOs de respuesta y validadores Zod. scripts/sync-contracts.cjs copia esa fuente en las raíces de deploy de API y web; CI rechaza diferencias con --check. Los tipos de entidades de lectura del frontend y las métricas de API se infieren de esos esquemas, separados de los inputs de edición y estados de formulario.
+
+El cliente trata JSON como unknown y valida las lecturas financieras antes de exponerlas a componentes. Cubre listas y meta de paginación, entidades Decimal como string/number, totales calculados finitos, fechas ISO y nulabilidad explícita; los extras aditivos son compatibles. Un payload incompleto genera error visible. Las escrituras ya confirmadas cuyo cuerpo no se utiliza no se consideran fallidas por un cambio de cuerpo. Auth local, Google, bootstrap de sesión y perfil validan el usuario; BFF no crea cookie con un perfil inválido. La API valida la representación HTTP de Date/Decimal con el mismo contrato mediante un interceptor; los fallos se registran sin payload ni datos personales.
+
+noImplicitAny queda activado; se corrigió el mock transaccional recursivo que impedía inferir su retorno. Se retiraron las interfaces duplicadas de lectura y la recomendación del dashboard ya no disfraza errores como ausencia de tarjeta.
+
+Validación: tipos y lint, contratos Decimal/null/paginación incompleta, usuario inválido sin cookie, rechazo visible de JSON financiero/auth incorrecto en escritorio/móvil, HTTP API con interceptor, pruebas PostgreSQL y restauración aislada. Compatibilidad adicional contra la API de etapa 4 aún desplegada: once consultas validadas y 201 movimientos en tres páginas, con cuenta sintética eliminada al terminar y sin emails. No se cambia el esquema de base en esta etapa.

@@ -15,6 +15,11 @@ const file = path.resolve(
 const loaded = new Module(file, module);
 loaded.filename = file;
 loaded.paths = module.paths;
+const nativeRequire = loaded.require.bind(loaded);
+loaded.require = (name) =>
+  name === "@/lib/contracts"
+    ? require("./load-helper.cjs").load("contracts")
+    : nativeRequire(name);
 loaded._compile(
   ts.transpileModule(fs.readFileSync(file, "utf8"), {
     compilerOptions: {
@@ -27,6 +32,7 @@ loaded._compile(
 const route = loaded.exports;
 let server;
 let requests = [];
+let invalidAuth = false;
 const original = { api: process.env.API_URL, node: process.env.NODE_ENV };
 const user = {
   id: "synthetic-user",
@@ -62,7 +68,10 @@ before(async () => {
       req.url === "/auth/exchange"
     ) {
       res.end(
-        JSON.stringify({ token: "synthetic-jwt-private-to-server", user }),
+        JSON.stringify({
+          token: "synthetic-jwt-private-to-server",
+          user: invalidAuth ? { ...user, email: 42 } : user,
+        }),
       );
     } else if (
       req.headers.authorization !== "Bearer synthetic-jwt-private-to-server"
@@ -170,4 +179,15 @@ test("CSRF, missing Origin and unexpected proxy routes are rejected without reac
   assert.equal((await call("auth/google")).status, 404);
   assert.equal((await call("transactions/%2fexample")).status, 404);
   assert.equal(requests.length, before);
+});
+
+test("invalid authentication profile never sets a session cookie", async () => {
+  invalidAuth = true;
+  try {
+    const response = await call("auth/login", "POST");
+    assert.equal(response.status, 502);
+    assert.equal(response.headers.get("set-cookie"), null);
+  } finally {
+    invalidAuth = false;
+  }
 });

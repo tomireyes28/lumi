@@ -1,14 +1,8 @@
-export interface Category {
-  id: string;
-  name: string;
-  type: 'income' | 'expense';
-  colorHex: string | null;
-  icon: string | null;
-}
+export type Category = import("@/lib/contracts").CategoryDto;
 
 export interface UpdateCategoryInput {
   name?: string;
-  type?: 'income' | 'expense';
+  type?: "income" | "expense";
   colorHex?: string | null;
   icon?: string | null;
 }
@@ -16,8 +10,8 @@ export interface UpdateCategoryInput {
 export interface CategoryFormState {
   name: string;
   setName: (value: string) => void;
-  type: 'income' | 'expense';
-  setType: (value: 'income' | 'expense') => void;
+  type: "income" | "expense";
+  setType: (value: "income" | "expense") => void;
   colorHex: string;
   setColorHex: (value: string) => void;
   icon: string;

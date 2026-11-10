@@ -14,6 +14,6 @@ exports.load = (name) => {
     },
   }).outputText;
   const result = {};
-  Function("exports", compiled)(result);
+  Function("exports", "require", compiled)(result, require);
   return result;
 };

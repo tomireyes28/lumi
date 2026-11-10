@@ -71,7 +71,9 @@ describe('Lumi API (e2e)', () => {
     >();
     const mockPrisma = {
       reminderRule: { findMany: jest.fn().mockResolvedValue([]) },
-      $transaction: jest.fn((fn: (tx: unknown) => unknown) => fn(mockPrisma)),
+      $transaction: jest.fn((fn: (tx: unknown) => unknown): unknown =>
+        fn(mockPrisma),
+      ),
       authSession: {
         create: jest.fn(
           ({

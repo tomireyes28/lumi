@@ -14,7 +14,8 @@ import { NotificationsModule } from './notifications/notifications.module';
 import { AnalyticsModule } from './analytics/analytics.module';
 import { BudgetsModule } from './budgets/budgets.module';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
-import { APP_GUARD } from '@nestjs/core';
+import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
+import { ResponseContractInterceptor } from './contracts/response-contract.interceptor';
 import { SecurityModule } from './security/security.module';
 import { PostgresThrottlerStorage } from './security/postgres-throttler.storage';
 import { proxyTracker, rateLimitKey } from './security/proxy-tracker';
@@ -50,6 +51,7 @@ import { proxyTracker, rateLimitKey } from './security/proxy-tracker';
   ],
   controllers: [AppController],
   providers: [
+    { provide: APP_INTERCEPTOR, useClass: ResponseContractInterceptor },
     {
       provide: APP_GUARD,
       useClass: ThrottlerGuard,

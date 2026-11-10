@@ -1,5 +1,6 @@
 "use client";
 
+import { browserAuthSchema } from "@/lib/contracts";
 import { useEffect, useRef, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAuthStore } from "@/store/useAuthStore";
@@ -49,7 +50,8 @@ function CallbackLogic() {
           throw new Error("Código de autorización inválido o expirado");
         }
 
-        const exchangeData = await exchangeResponse.json();
+        const exchangePayload: unknown = await exchangeResponse.json();
+        const exchangeData = browserAuthSchema.parse(exchangePayload);
 
         const authUser = exchangeData.user;
 

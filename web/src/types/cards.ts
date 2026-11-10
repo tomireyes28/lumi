@@ -1,35 +1,8 @@
-export interface CardCycle {
-  id: string;
-  creditCardId: string;
-  month: number;
-  year: number;
-  closingDate: string;
-  dueDate: string | null;
-  createdAt?: string;
-  updatedAt?: string;
-}
+export type CardCycle = import("@/lib/contracts").CardCycleDto;
 
-export interface CardCycleInfo {
-  month: number;
-  year: number;
-  closingDate: string;
-  dueDate: string | null;
-  isCustom: boolean;
-  daysToClose: number;
-}
+export type CardCycleInfo = import("@/lib/contracts").CardCycleInfoDto;
 
-export interface CreditCard {
-  id: string;
-  alias: string;
-  lastFour: string;
-  limit: number | string;
-  closingDay: number;
-  dueDay: number;
-  colorHex: string | null;
-  consumed?: number;
-  currentCycle?: CardCycleInfo;
-  cycles?: CardCycle[];
-}
+export type CreditCard = import("@/lib/contracts").CreditCardDto;
 
 export interface UpdateCreditCardInput {
   alias?: string;

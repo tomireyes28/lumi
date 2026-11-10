@@ -1,13 +1,4 @@
-export interface Reminder {
-  rule?:{active:boolean}|null;
-  id: string;
-  title: string;
-  amount: string | number | null;
-  dueDate: string;
-  dueOn?: string | null;
-  isPaid: boolean;
-  isRecurring?: boolean;
-}
+export type Reminder = import("@/lib/contracts").ReminderDto;
 
 export interface UpdateReminderInput {
   title?: string;

@@ -1,7 +1,1 @@
-export interface UserProfile {
-  userId?: string;
-  id?: string;
-  email: string;
-  name: string;
-  picture?: string | null;
-}
+export type UserProfile = import("@/lib/contracts").PublicUserDto;

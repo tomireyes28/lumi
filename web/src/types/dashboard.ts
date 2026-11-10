@@ -2,21 +2,9 @@ import type { Reminder } from "./reminders";
 
 export type { Reminder };
 
-export interface DashboardSummary {
-  period: string;
-  availableCash: number;
-  totalIncome: number;
-  totalCashExpense: number;
-  totalCardExpense: number;
-}
+export type DashboardSummary = import("@/lib/contracts").DashboardSummaryDto;
 
 export type SummaryData = DashboardSummary;
 
-export interface CardRecommendation {
-  card: {
-    alias: string;
-    lastFour: string;
-  };
-  daysToClose: number;
-  message: string;
-}
+export type CardRecommendation =
+  import("@/lib/contracts").CardRecommendationDto;

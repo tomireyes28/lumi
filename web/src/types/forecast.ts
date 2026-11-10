@@ -1,51 +1,5 @@
-export interface ForecastMonthItem {
-  period: string;
-  label: string;
-  month: number;
-  year: number;
-  installmentExpenses: number;
-  fixedExpenses: number;
-  totalCommitted: number;
-  estimatedIncome: number;
-  projectedNetCashflow: number;
-  commitmentRatio: number | null;
-  ratioStatus: 'available' | 'no_income';
-  installments: {
-    id: string;
-    note: string;
-    amount: number;
-    creditCardAlias: string;
-  }[];
-}
+export type ForecastMonthItem = import("@/lib/contracts").ForecastMonthDto;
 
-export interface ActivePlanItem {
-  groupId: string;
-  concept: string;
-  totalInstallments: number;
-  elapsedInstallments?: number;
-  paidInstallments: number;
-  remainingInstallments: number;
-  installmentAmount: number;
-  remainingAmount: number;
-  totalAmount: number;
-  completionPercentage: number;
-  finishDate: string;
-  finishPeriod: string;
-  creditCard: {
-    alias: string;
-    lastFour: string;
-    colorHex: string | null;
-  } | null;
-}
+export type ActivePlanItem = import("@/lib/contracts").ActivePlanDto;
 
-export interface CashflowForecastResponse {
-  hasLegacySchedule?: boolean;
-  monthsCount: number;
-  estimatedMonthlyIncome: number;
-  totalFutureDebt: number;
-  debtFreePeriod: string | null;
-  averageCommitmentRatio: number | null;
-  ratioStatus: 'available' | 'no_income';
-  forecastTimeline: ForecastMonthItem[];
-  activePlans: ActivePlanItem[];
-}
+export type CashflowForecastResponse = import("@/lib/contracts").ForecastDto;

@@ -1,27 +1,5 @@
 export type BudgetStatus = "ok" | "warning" | "exceeded";
 
-export interface BudgetProgressItem {
-  id: string;
-  categoryId: string;
-  category: {
-    id: string;
-    name: string;
-    colorHex: string | null;
-    icon: string | null;
-  };
-  budgetedAmount: number;
-  spentAmount: number;
-  remainingAmount: number;
-  percentageSpent: number;
-  status: BudgetStatus;
-}
+export type BudgetProgressItem = import("@/lib/contracts").BudgetItemDto;
 
-export interface BudgetsSummaryResponse {
-  period: string;
-  totalBudgeted: number;
-  totalSpent: number;
-  totalRemaining: number;
-  overallPercentage: number;
-  overallStatus?: BudgetStatus;
-  items: BudgetProgressItem[];
-}
+export type BudgetsSummaryResponse = import("@/lib/contracts").BudgetSummaryDto;
