@@ -187,6 +187,7 @@ jobs:
       - run: npm --prefix web run build
       - run: npx playwright install --with-deps chromium
         working-directory: web
+      - run: npm --prefix api run test:demo
       - run: npm --prefix web run test:full-stack
       - uses: actions/upload-artifact@v4
         if: failure()

@@ -40,7 +40,10 @@
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
     "test:e2e": "jest --config ./test/jest-e2e.json",
     "test:integration": "node --test --test-concurrency=1 test/migrations.integration.cjs",
-    "test:dates": "node scripts/test-date-zones.cjs"
+    "test:dates": "node scripts/test-date-zones.cjs",
+    "demo:seed": "node scripts/seed-demo.cjs",
+    "demo:start": "node scripts/start-demo.cjs",
+    "test:demo": "node --test test/demo.integration.cjs"
   },
   "dependencies": {
     "@nestjs/common": "^11.0.1",

@@ -1,219 +1,138 @@
-# Lumi — Plataforma de Finanzas Personales y Proyección de Tarjetas
+# Lumi · Finanzas personales y tarjetas
 
-**Lumi** es una aplicación Full-Stack de finanzas personales diseñada para resolver las particularidades reales del manejo financiero cotidiano (cierres dinámicos de tarjetas de crédito según calendario bancario, compras en cuotas con imputación diferida al ciclo correspondiente, presupuestos con alertas exactas en centavos y simulación de reintegros con tope).
+[Aplicación](https://lumi-beta-one.vercel.app) · [CI](https://github.com/tomireyes28/lumi/actions/workflows/ci.yml) · [Demo local](docs/portfolio/DEMO.md) · [Decisiones](docs/portfolio/DECISIONES.md) · [Revisión final](docs/portfolio/CIERRE-DE-HALLAZGOS.md)
 
----
+Lumi permite registrar ingresos y gastos, calcular cuotas según el cierre de cada tarjeta, seguir presupuestos y proyectar compromisos. El proyecto presta especial atención a la diferencia entre comprar, entrar en un resumen y tener un vencimiento de pago.
 
-## Arquitectura del Sistema
+![Resumen móvil con datos sintéticos](docs/portfolio/screenshots/dashboard-mobile.png)
 
-El proyecto está organizado como un monorepo con separación clara de responsabilidades entre el cliente web (**Next.js 16 App Router**) y la API REST (**NestJS 11 + Prisma 7 + PostgreSQL 16**).
+## Qué se puede demostrar
+
+- Compra en cuotas: reparto exacto en centavos y cierres/vencimientos personalizados por período. Cambiar el cierre de una tarjeta afecta compras nuevas; conserva las cuotas ya registradas.
+- Historial paginado y calendario que reúne todas las páginas del mes, incluidos meses con más de 200 movimientos.
+- Presupuestos por categoría con estado calculado en centavos. Los límites son plantillas mensuales, no versiones históricas del presupuesto.
+- Reglas mensuales con ocurrencias independientes: pagar una no paga la siguiente. Detener una serie conserva pagos y vencidos; editar título/importe actualiza futuras impagas.
+- Proyección a 3/6/12 meses. Sin base de ingresos el ratio es `null`, con estado explícito. Las cuotas transcurridas no equivalen a pagos confirmados.
+- Login local y Google, sesión HttpOnly del mismo origen, logout confirmado y estado de seguridad compartido entre instancias.
+- Errores con reintento, distinción entre guardar y recargar, diálogos con fondo inerte y soporte de movimiento reducido.
+
+## Arquitectura
 
 ```mermaid
 flowchart LR
-  subgraph Client["Frontend (web/) — Next.js 16 + React 19"]
-    UI["Componentes UI & Framer Motion"]
-    Hooks["Custom Hooks (Estado & Mutaciones)"]
-    Store["Zustand: perfil público + Middleware (UX)"]
-    BFF["Next Route Handlers: sesión HttpOnly"]
-  end
-
-  subgraph Server["Backend (api/) — NestJS 11"]
-    Guards["ThrottlerGuard + Passport JWT/Google + PKCE"]
-    Pipes["Global ValidationPipe (DTOs)"]
-    Services["Servicios de Dominio (Transacciones, Tarjetas, Proyección)"]
-    Cron["Notifications Cron (@nestjs/schedule + Resend HTTP)"]
-    ORM["Prisma 7 ORM (Driver Adapter pg)"]
-  end
-
-  subgraph Infra["Infraestructura"]
-    DB[("PostgreSQL 16\n(Decimal 10,2 & Índices Compuestos)")]
-    OAuth["Google OAuth 2.0"]
-  end
-
-  UI --> Hooks
-  Hooks --> Store
-  Hooks -->|"Cookie HttpOnly, mismo origen"| BFF
-  BFF -->|"Bearer + firma del proxy"| Guards
-  Guards --> Pipes --> Services --> ORM --> DB
-  Cron --> ORM
-  Guards <-->|"OAuth 2.0 + State opaco + PKCE + Single-Use Code"| OAuth
+  Browser["Navegador · React 19"] -->|"Cookie HttpOnly / mismo origen"| BFF["Next.js 16 · BFF"]
+  BFF -->|"Bearer + firma de proxy"| API["NestJS 11 · validación y autorización"]
+  API --> Prisma["Prisma 7 / adaptador pg"] --> DB[("PostgreSQL")]
+  API --> Security["Sesiones, OAuth y límites persistidos"] --> DB
+  API --> Outbox["Ocurrencias / outbox de correo"] --> DB
+  Outbox --> Resend["Resend · si está configurado"]
 ```
 
-### Modelo de Datos Relacional (ERD)
+Producción: Vercel para web, Railway para API y Supabase para PostgreSQL. Todo acceso a tablas de negocio pasa por la API/Prisma. Las tablas son privadas para los roles públicos de Supabase; como Prisma usa un rol con bypass de RLS, la autorización entre usuarios se aplica en la API.
 
-```mermaid
-erDiagram
-  User ||--o{ Category : "posee"
-  User ||--o{ Transaction : "registra"
-  User ||--o{ CreditCard : "administra"
-  User ||--o{ Reminder : "programa"
-  User ||--o{ Budget : "define"
-  Category ||--o{ Transaction : "clasifica"
-  Category ||--o{ Budget : "limita"
-  CreditCard ||--o{ Transaction : "financia"
-  CreditCard ||--o{ CardCycle : "configura"
+`contracts/http.ts` es la fuente de DTOs de respuesta y validadores Zod. Sus copias dentro de las dos raíces de deploy se verifican en CI. Entradas HTTP usan DTOs de Nest/class-validator. Dinero de entidades admite Decimal serializado como string o número; totales calculados son números finitos. Se preservan `null` y fechas ISO explícitas.
 
-  User {
-    uuid id PK
-    string email UK
-    string googleId UK "Nullable"
-    boolean emailVerified
-    string name
-    string password "Nullable (Hash bcrypt)"
-  }
-  Transaction {
-    uuid id PK
-    uuid userId FK
-    uuid categoryId FK
-    uuid creditCardId FK "Nullable"
-    string paymentMethod "cash | credit_card"
-    decimal amount "Decimal(10,2)"
-    datetime date
-    string installmentGroupId "Agrupador de plan de cuotas"
-  }
-  CreditCard {
-    uuid id PK
-    uuid userId FK
-    string alias
-    string lastFour
-    decimal limit "Decimal(10,2)"
-    int closingDay
-    int dueDay
-  }
-  CardCycle {
-    uuid id PK
-    uuid creditCardId FK
-    int year
-    int month
-    datetime closingDate
-    datetime dueDate
-  }
-  Budget {
-    uuid id PK
-    uuid userId FK
-    uuid categoryId FK
-    decimal amount "Decimal(10,2)"
-  }
-  Reminder {
-    uuid id PK
-    uuid userId FK
-    string title
-    decimal amount "Decimal(10,2) Nullable"
-    datetime dueDate
-    boolean isPaid
-    boolean isRecurring
-  }
-```
+## Fechas y significado financiero
 
----
+El calendario de negocio usa `America/Argentina/Buenos_Aires`, independientemente del TZ del servidor. Las entradas `YYYY-MM-DD` son fechas calendario; los ISO con offset son instantes.
 
-## Decisiones de Ingeniería y Seguridad Destacadas
+| Campo | Significado |
+| --- | --- |
+| `purchaseDate` | Fecha original de compra cuando es conocida |
+| `statementYear/Month`, `statementClosingDate` | Resumen al que pertenece la cuota |
+| `paymentDueDate` | Vencimiento que usa la proyección |
+| `date` | Imputación compatible: cierre para tarjeta, fecha de movimiento para efectivo |
+| `Reminder.dueOn` | Día calendario de vencimiento, PostgreSQL DATE |
+| `elapsedInstallments` | Cuotas cuyo período transcurrió; no acredita pago |
 
-1. **Flujo OAuth 2.0 Endurecido (`state` opaco + PKCE `S256` + Códigos Efímeros de Uso Único)**:
-   - El inicio de sesión con Google valida un `state` opaco de un solo uso en PostgreSQL, vinculado a una cookie `HttpOnly` (`OAuthStateStore`), aplica **PKCE (`S256`)** y verifica `email_verified` antes de vincular cuentas por correo (invalidando contraseñas locales previas no verificadas para evitar *pre-account takeover*).
-   - En lugar de exponer el JWT en la URL de retorno, el backend emite un código efímero con **TTL de 60 segundos** y **un único uso** (`POST /auth/exchange`) y soporta revocación persistente por `jti` en `POST /auth/logout`. El navegador conserva la sesión en una cookie HttpOnly del mismo origen de Next, y el BFF transmite el Bearer a Railway. El estado de credenciales se valida en PostgreSQL en cada petición.
-2. **Aislamiento por Usuario y Prevención de IDOR**:
-   - El `userId` se obtiene exclusivamente del JWT verificado criptográficamente en la API (`JwtStrategy`). El middleware de Next.js actúa como guarda de navegación (UX), mientras que la autorización real se aplica en cada servicio del backend antes de leer o mutar categorías, tarjetas, ciclos, presupuestos, transacciones y recordatorios.
-3. **Cálculo de Cuotas en Centavos Enteros e Imputación según Cierre (`InstallmentCalculator.calculate`)**:
-   - Los importes se persisten como `DECIMAL(10, 2)` en PostgreSQL y las divisiones en cuotas se calculan en **centavos enteros** (`Math.floor(totalCents / installments)` más distribución del resto en la primera cuota) e insertan mediante `prisma.transaction.createMany`, exigiendo un mínimo de `\$0,01` por cuota.
-   - Si una compra con tarjeta ocurre después del día de cierre (`CardCycle` personalizado o `closingDay` habitual), `InstallmentCalculator.calculate` desplaza automáticamente la primera cuota al período de facturación siguiente.
-4. **Defensa en Profundidad y Validaciones de Frontera**:
-   - Cabeceras HTTP con **Helmet**, rate limiting global y por ruta con `@nestjs/throttler`, y `ValidationPipe` global (`whitelist`, `forbidNonWhitelisted`, `transform`).
-   - Validación de longitud máxima en **bytes UTF-8 (`@MaxUtf8Bytes(72)`)** para respetar el límite criptográfico real de `bcrypt` incluso con caracteres multibyte, y validadores de fechas calendario reales (`@IsValidCalendarDate()`).
+Los movimientos heredados mantienen los datos conocidos. No se inventa una fecha de compra ni se reclasifican automáticamente. `paidInstallments` se conserva temporalmente como alias de compatibilidad de cuotas transcurridas.
 
----
+La estimación de ingresos promedia los meses con ingresos entre los tres meses completos anteriores. Si no hay ese historial, usa solo el mes corriente; aumentar el horizonte no suma ingresos futuros a esa base. Es una proyección de obligaciones registradas, no una conciliación bancaria.
 
-## Stack Tecnológico
+## Seguridad y límites operativos
 
-| Capa | Tecnologías |
-| :--- | :--- |
-| **Frontend (`web/`)** | Next.js 16.4 (App Router), React 19, TypeScript 5, Tailwind CSS v4, Zustand 5, Framer Motion 12, Recharts 3, Lucide Icons |
-| **Backend (`api/`)** | NestJS 11, TypeScript 5 (`strict: true`), Prisma 7 (`@prisma/adapter-pg`), Passport (JWT & Google OAuth 2.0), Swagger / OpenAPI, Nest Schedule (Cron) |
-| **Base de Datos** | PostgreSQL 16 (Docker Compose local / Supabase compatible) |
-| **Testing & QA** | Jest 30 (Tests unitarios y E2E con Supertest), ESLint 9 (Flat Config), GitHub Actions CI |
+- JWT de siete días identifica una sesión verificada en PostgreSQL. Revocar o vincular Google invalida accesos anteriores según la política de cuenta.
+- Google exige identidad estable y email verificado. State/PKCE y canjes de un solo uso están respaldados por PostgreSQL. `POST /auth/exchange` consume el código de retorno (60 segundos).
+- El navegador no persiste JWT en localStorage. Next conserva la cookie HttpOnly/Secure en producción; mutaciones del BFF validan Origin. `proxy` solo controla navegación: la API verifica firma, sesión y pertenencia.
+- Rate limiting compartido, validación de entradas, Helmet y tablas sin CRUD público. Las operaciones concurrentes de categorías/movimientos usan transacciones y bloqueos con reintento acotado.
+- Correo: outbox persistente, timeout, reserva y reintentos con clave/cuerpo estables. `accepted` significa aceptación del proveedor, no entrega al buzón. Se exige clave y remitente explícitos. La configuración del dominio en Resend y la entrega externa siguen pendientes de acreditar; la auditoría no envió correos reales.
+- Backups/PITR de Supabase y bloqueo del deploy por CI no están acreditados desde los paneles privados. El ensayo de restauración usa datos sintéticos y no sustituye un backup real.
 
----
+No se presenta el proyecto como una aplicación bancaria ni como una certificación de seguridad o accesibilidad.
 
-## Guía de Inicio Rápido (Desarrollo Local)
+## Ejecutar localmente
 
-### 1. Requisitos previos
-- **Node.js** `^20.19.0 || ^22.12.0 || >=24.0.0`
-- **Docker** y **Docker Compose** (o una instancia PostgreSQL 16 local/remota)
+Node `^20.19.0 || ^22.12.0 || >=24.0.0`; CI usa Node 22. Docker es necesario para los ensayos de base. Se validan PostgreSQL 16 y 17.
 
-### 2. Levantar la Base de Datos PostgreSQL
-Desde la raíz del repositorio:
-```bash
+```sh
 docker compose up -d
-```
-
-### 3. Configurar y ejecutar el Backend (`api/`)
-```bash
 cd api
-cp .env.example .env
-# Ajustar DATABASE_URL, DIRECT_URL y JWT_SECRET en api/.env
-# Configurar LUMI_PROXY_SECRET con la misma cadena aleatoria privada (32+ caracteres) en api/.env y web/.env.local
-npm install
-npx prisma migrate deploy
+npm ci
+# Copiar .env.example a .env y configurar la conexión local y JWT_SECRET.
+# Generar un LUMI_PROXY_SECRET privado de 32+ caracteres, igual en API y web.
 npx prisma generate
+npx prisma migrate deploy
 npm run start:dev
 ```
-- **API Base URL**: `http://localhost:3000`
-- **Documentación Interactiva (Swagger UI)**: `http://localhost:3000/api/docs`
-- **Health Check**: `http://localhost:3000/health`
 
-### 4. Configurar y ejecutar el Frontend (`web/`)
-En una nueva terminal:
-```bash
+En otra terminal:
+
+```sh
 cd web
-cp .env.example .env.local
-npm install
-npm run dev -- -p 3001
+npm ci
+# Copiar .env.example a .env.local. API_URL/NEXT_PUBLIC_API_URL: http://localhost:3000.
+# Configurar el mismo LUMI_PROXY_SECRET, sin prefijo NEXT_PUBLIC_.
+npm run dev
 ```
-- **Aplicación Web**: `http://localhost:3001`
 
----
+Web: `http://localhost:3001`. API: `http://localhost:3000`. Swagger: `http://localhost:3000/api/docs`; el bootstrap actual lo registra también en producción, sin depender de `ENABLE_SWAGGER`. Swagger describe rutas/inputs; el contrato comprobable de respuestas es `contracts/http.ts`. Health: `/health`; versión: `/version`.
 
-## Ejecución de Tests, Typecheck y Linters
+Para una demo con datos y sin credenciales reales, seguir [DEMO.md](docs/portfolio/DEMO.md). Su seed solo acepta una base local llamada `lumi_demo` y requiere activación explícita. Nunca se ejecuta al arrancar producción.
 
-```bash
-# Backend: Linter (sin autofix), Typecheck estricto, Tests unitarios, E2E y Build
+## Pruebas reproducibles
+
+```sh
 cd api
 npm run lint:check
 npm run typecheck
-npm test
-npm run test:e2e
+npm run test:dates       # toda la suite unitaria en UTC y Buenos Aires
+npm run test:e2e         # HTTP con Prisma simulado
 npm run build
 
-# Frontend: Linter, Typecheck y Build de producción
-cd web
+cd ../web
 npm run lint
 npm run typecheck
+npm run test:unit        # BFF, contratos, fechas y paginación
 npm run build
+npx playwright install chromium
+npm run test:ui          # escritorio/móvil con respuestas sintéticas
 ```
 
----
+Integración real exige `TEST_DATABASE_URL` explícito, loopback y base `lumi_test_*`. No se lee `.env` como fallback de tests. Con una instancia local desechable:
 
-## Estructura del Monorepo
+```sh
+# Configurar TEST_DATABASE_URL en ambas terminales con su conexión local aislada.
+# Para el ensayo dump/restore, configurar además TEST_POSTGRES_CONTAINER.
+cd api
+npm run test:integration
+npm run test:demo
+cd ../web
+npm run test:full-stack
+```
+
+El último comando inicia Next/BFF/Nest reales, crea y migra una base temporal, ejecuta el recorrido financiero con Chromium y elimina la base. El job de CI proporciona PostgreSQL y ejecuta la misma prueba. No requiere cuentas de Google ni Resend.
+
+CI contiene cinco jobs: API, web, PostgreSQL 16, PostgreSQL 17 y navegador/BFF/API/PostgreSQL. Las regresiones comprueban también sesiones después de reinicios, OAuth concurrente, límites compartidos, permisos SQL, migraciones, restore y outbox con proveedor simulado. Un porcentaje unitario no representa todas esas capas.
+
+## Estructura
 
 ```text
-lumi-workspace/
-├── .github/workflows/ci.yml  # Pipeline CI (Lint, Typecheck, Unit, E2E & Build)
-├── docker-compose.yml        # Contenedor PostgreSQL 16 vinculado a 127.0.0.1:5432
-├── api/                      # Backend NestJS 11 + Prisma 7
-│   ├── prisma/               # Esquema relacional y migraciones SQL
-│   └── src/
-│       ├── auth/             # JWT, Google OAuth 2.0 (state opaco + PKCE) y canje efímero
-│       ├── transactions/     # CRUD, paginación, resumen y motor InstallmentCalculator
-│       ├── credit-cards/     # Gestión de plásticos, recomendación y ciclos mensuales
-│       ├── budgets/          # Plantillas de tope mensual por categoría y alertas en centavos
-│       ├── analytics/        # Comparativa mensual y proyección de cashflow (Forecast)
-│       ├── reminders/        # Vencimientos puntuales y recurrentes (isRecurring)
-│       └── notifications/    # Cron diario (America/Argentina/Buenos_Aires) vía Resend HTTP
-└── web/                      # Frontend Next.js 16 (App Router) + React 19
-    └── src/
-        ├── app/              # Rutas, layouts y páginas del Dashboard
-        ├── components/       # Componentes modulares por dominio y Modal con trampa de foco
-        ├── hooks/            # Custom hooks tipados con control de desmontaje y estados de error
-        ├── store/            # Estado de sesión con Zustand + sincronización multi-pestaña
-        └── lib/              # Cliente HTTP genérico apiFetch<T> con interceptor 401 y timeout
+api/             Nest, Prisma, migraciones y scripts locales de test/demo
+web/             Next, BFF, componentes, hooks y pruebas de navegador
+contracts/       DTOs y validadores canónicos de respuestas HTTP
+scripts/         Sincronización verificable del contrato entre raíces de deploy
+docs/portfolio/  Demo, capturas, decisiones y matriz de cierre
+docs/revision-2026-11-09/  Auditoría y evidencia histórica por etapa
 ```
+
+Al 10/11/2026: `npm audit --omit=dev` sin avisos en ambos proyectos; frontend sin avisos totales. La API conserva ocho avisos bajos de herramientas derivados de `deepmerge`, sin parche publicado. Alcance y seguimiento: [ETAPA-6.md](docs/revision-2026-11-09/ETAPA-6.md).
