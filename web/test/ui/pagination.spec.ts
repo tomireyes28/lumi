@@ -20,3 +20,16 @@ test("calendar includes movement 201 in the day details", async ({ page }) => {
   await page.goto("/dashboard/calendar");
   await expect(page.getByText(/^Movement 200(?: •|$)/)).toBeVisible();
 });
+
+test("calendar navigation selects a day belonging to the newly loaded month", async ({
+  page,
+}) => {
+  await fixture(page);
+  await page.goto("/dashboard/calendar");
+  await expect(page.getByText("Movement 200", { exact: true })).toBeVisible();
+  await page.locator(".react-calendar__navigation__next-button").click();
+  await expect(page.getByText("Movement 200", { exact: true })).toBeVisible();
+  await expect(page.locator(".react-calendar__tile--active abbr")).toHaveText(
+    "1",
+  );
+});

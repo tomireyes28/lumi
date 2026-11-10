@@ -50,6 +50,14 @@ export async function fixture(
         month: "2-digit",
         day: "2-digit",
       }).format(new Date());
+      const requestedMonth = url.searchParams.get("month");
+      const requestedYear = url.searchParams.get("year");
+      const period =
+        requestedMonth && requestedYear
+          ? requestedYear + "-" + requestedMonth.padStart(2, "0")
+          : today.slice(0, 7);
+      const selectedDay =
+        period === today.slice(0, 7) ? today.slice(8, 10) : "01";
       value = {
         data: Array.from(
           { length: Math.max(0, Math.min(100, count - (current - 1) * 100)) },
@@ -57,7 +65,7 @@ export async function fixture(
             id: `tx-${(current - 1) * 100 + i}`,
             note: `Movement ${(current - 1) * 100 + i}`,
             amount: "1.00",
-            date: today + "T15:00:00Z",
+            date: period + "-" + selectedDay + "T15:00:00Z",
             category: {
               ...category,
               type: type === "income" ? "income" : "expense",

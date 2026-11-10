@@ -154,7 +154,9 @@ export function CalendarWidget({
         className="bg-white p-4 rounded-3xl shadow-sm border border-gray-100"
       >
         <Calendar
-          onChange={(value) => setDate(value as Date)}
+          onChange={(value) => {
+            if (value instanceof Date) setDate(value);
+          }}
           onActiveStartDateChange={({ activeStartDate }) => {
             if (activeStartDate && onActiveMonthChange) {
               onActiveMonthChange(activeStartDate);

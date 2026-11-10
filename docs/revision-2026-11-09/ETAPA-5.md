@@ -45,3 +45,9 @@ Validación Chromium escritorio/móvil: etiquetas y autocomplete, teclado, inten
 Pasaron builds, lint y tipos de ambos proyectos; 85 unitarios de API en UTC y Buenos Aires, tres escenarios HTTP, doce pruebas unitarias/BFF de frontend y 36 recorridos de Chromium (18 escritorio + 18 móvil). Las 16 integraciones se validaron con PostgreSQL 16 y 17.6, incluyendo restauración, RLS, finanzas y outbox; no se enviaron correos reales. La sincronización de contratos pasa --check. npm audit --omit=dev informa cero vulnerabilidades de producción en ambos proyectos; las herramientas de desarrollo pendientes corresponden a la etapa 6.
 
 Se comprobó la compatibilidad con Railway de etapa 4 antes del push, con once consultas y 201 movimientos sintéticos. La cuenta fue eliminada. Esta etapa no agrega migraciones ni requiere reset o modificación de datos existentes. Tras publicar se verifican CI, SHA servido por ambos proveedores y el recorrido de paginación/modal en producción con otra cuenta sintética aislada.
+
+## Corrección adicional del calendario durante el cierre
+
+La revisión final encontró que navegar a otro mes conservaba una selección del mes anterior; filtrar datos del mes nuevo por ese día podía mostrar un vacío engañoso. La regresión nueva lo reprodujo antes del cambio. Al cambiar de mes se selecciona ahora su primer día, conservando la selección si ya pertenece al período. El widget comprueba Date en lugar de forzar el tipo de su evento.
+
+El fixture del navegador ahora devuelve fechas del mes realmente pedido, para detectar esta discrepancia. Pasaron lint, build y veinte recorridos dirigidos de paginación/errores en escritorio y móvil, incluida la respuesta tardía de un período anterior. Se publica como corrección adicional en un commit nuevo, conservando el historial ya enviado.

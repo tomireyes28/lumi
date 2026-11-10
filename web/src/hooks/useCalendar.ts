@@ -55,6 +55,16 @@ export const useCalendar = () => {
     }
   };
 
+  const handleMonthChange = (next: Date) => {
+    setActiveMonthDate(next);
+    setDate((selected) =>
+      selected.getFullYear() === next.getFullYear() &&
+      selected.getMonth() === next.getMonth()
+        ? selected
+        : new Date(next.getFullYear(), next.getMonth(), 1),
+    );
+  };
+
   const selectedDateKey = useMemo(() => format(date, "yyyy-MM-dd"), [date]);
 
   const selectedTransactions = useMemo(() => {
@@ -73,7 +83,7 @@ export const useCalendar = () => {
     date,
     setDate: handleDateChange,
     activeMonthDate,
-    setActiveMonthDate,
+    setActiveMonthDate: handleMonthChange,
     transactions,
     reminders,
     loading,
